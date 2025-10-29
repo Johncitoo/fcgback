@@ -238,13 +238,15 @@ export class AdminFormsController {
           required, options, validation, help_text, "order", active
         )
         VALUES (
-          gen_random_uuid(), $1, $2, $3, $4, $5, 
-          $6, $7, $8, $9, $10, $11
+          gen_random_uuid(), $1, $2, $3, $4, $5::form_field_type, 
+          $6, $7::jsonb, $8::jsonb, $9, $10, $11
         )
         `,
         [
           toCallId, newSectionId, field.name, field.label, field.type,
-          field.required, field.options, field.validation, 
+          field.required, 
+          field.options ? JSON.stringify(field.options) : null, 
+          field.validation ? JSON.stringify(field.validation) : null, 
           field.help_text, field.order, field.active
         ]
       );
