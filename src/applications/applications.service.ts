@@ -93,6 +93,83 @@ export class ApplicationsService {
     return { id: created[0].id, status: created[0].status, mode: 'created' };
   }
 
+  // Obtener o crear application para la convocatoria activa (OPEN)
+  async getOrCreateForActiveCall(userId: string) {
+    // Buscar convocatoria activa (status = OPEN)
+    const activeCall = (await this.ds.query(
+      `SELECT id, name, year FROM calls WHERE status = 'OPEN' ORDER BY created_at DESC LIMIT 1`,
+    ))?.[0];
+
+    if (!activeCall) {
+      throw new NotFoundException('No hay convocatoria activa en este momento');
+    }
+
+    // Obtener applicantId del usuario
+    const u = (await this.ds.query(
+      `SELECT applicant_id FROM users WHERE id = $1 LIMIT 1`,
+      [userId],
+    ))?.[0];
+    
+    if (!u?.applicant_id) {
+      throw new BadRequestException('User has no applicant profile linked');
+    }
+
+    // Buscar application existente
+    const existing = await this.ds.query(
+      `SELECT 
+        a.id,
+        a.status,
+        a.submitted_at,
+        a.decided_at,
+        a.notes,
+        c.id as "callId",
+        c.name as "callName",
+        c.year as "callYear"
+      FROM applications a
+      JOIN calls c ON c.id = a.call_id
+      WHERE a.applicant_id = $1 AND a.call_id = $2 
+      LIMIT 1`,
+      [u.applicant_id, activeCall.id],
+    );
+
+    if (existing?.length) {
+      const app = existing[0];
+      return {
+        id: app.id,
+        status: app.status,
+        submitted_at: app.submitted_at,
+        decided_at: app.decided_at,
+        notes: app.notes,
+        call: {
+          id: app.callId,
+          code: app.callName,
+          title: `${app.callName} ${app.callYear}`,
+        },
+      };
+    }
+
+    // Crear nueva application
+    const created = await this.ds.query(
+      `INSERT INTO applications (id, applicant_id, call_id, status)
+       VALUES (gen_random_uuid(), $1, $2, 'DRAFT')
+       RETURNING id, status`,
+      [u.applicant_id, activeCall.id],
+    );
+
+    return {
+      id: created[0].id,
+      status: created[0].status,
+      submitted_at: null,
+      decided_at: null,
+      notes: null,
+      call: {
+        id: activeCall.id,
+        code: activeCall.name,
+        title: `${activeCall.name} ${activeCall.year}`,
+      },
+    };
+  }
+
   async getById(userId: string, id: string) {
     const app = (await this.ds.query(
       `SELECT a.*

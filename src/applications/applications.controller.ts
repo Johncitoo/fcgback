@@ -56,6 +56,16 @@ export class ApplicationsController {
     return this.apps.getOrCreate(user.sub, body.callId);
   }
 
+  // GET /api/applications/my-active - Obtener o crear la application del postulante para la convocatoria activa
+  @Get('my-active')
+  async getMyActive(@Req() req: any) {
+    const user = this.getUserFromAuth(req);
+    if (user.typ !== 'access' || user.role !== 'APPLICANT') {
+      throw new BadRequestException('Applicant access token required');
+    }
+    return this.apps.getOrCreateForActiveCall(user.sub);
+  }
+
   @Get(':id')
   async getById(@Req() req: any, @Param('id') id: string) {
     const user = this.getUserFromAuth(req);
