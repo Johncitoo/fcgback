@@ -13,6 +13,7 @@ import { ApplicationsModule } from './applications/applications.module';
 import { CallsModule } from './calls/calls.module';
 
 import { DocumentsModule } from './documents/documents.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { DocumentsModule } from './documents/documents.module';
     ApplicationsModule,
     CallsModule,
     DocumentsModule,
+    EmailModule,
   ],
 })
 export class AppModule {}

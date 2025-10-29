@@ -5,6 +5,66 @@ import { DataSource } from 'typeorm';
 export class ApplicationsService {
   constructor(private ds: DataSource) {}
 
+  async listApplications(params: {
+    limit: number;
+    offset: number;
+    status?: string;
+    callId?: string;
+    needCount: boolean;
+  }) {
+    const { limit, offset, status, callId, needCount } = params;
+
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    if (status) {
+      conditions.push(`a.status = $${idx++}`);
+      values.push(status);
+    }
+
+    if (callId) {
+      conditions.push(`a.call_id = $${idx++}`);
+      values.push(callId);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    values.push(limit, offset);
+
+    const query = `
+      SELECT 
+        a.id,
+        a.applicant_id as "applicantId",
+        a.call_id as "callId",
+        a.status,
+        a.created_at as "createdAt",
+        a.submitted_at as "submittedAt",
+        a.updated_at as "updatedAt",
+        c.name as "callName",
+        c.year as "callYear",
+        u.email as "applicantEmail",
+        u.full_name as "applicantName"
+      FROM applications a
+      LEFT JOIN calls c ON c.id = a.call_id
+      LEFT JOIN users u ON u.applicant_id = a.applicant_id
+      ${whereClause}
+      ORDER BY a.created_at DESC
+      LIMIT $${idx++} OFFSET $${idx++}
+    `;
+
+    const data = await this.ds.query(query, values);
+
+    let total: number | undefined;
+    if (needCount) {
+      const countQuery = `SELECT COUNT(*) as count FROM applications a ${whereClause}`;
+      const countResult = await this.ds.query(countQuery, values.slice(0, -2));
+      total = parseInt(countResult[0].count, 10);
+    }
+
+    return { data, total, limit, offset };
+  }
+
   async getOrCreate(userId: string, callId: string) {
     // Trae applicantId del user
     const u = (await this.ds.query(

@@ -1,9 +1,9 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Req, Query } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ApplicationsService } from './applications.service';
 
-@Controller('applications') // <-- sin /api
+@Controller('applications')
 export class ApplicationsController {
   constructor(
     private jwt: JwtService,
@@ -22,6 +22,28 @@ export class ApplicationsController {
       issuer: this.cfg.get<string>('AUTH_JWT_ISS'),
     });
     return payload as { sub: string; role: string; typ: string };
+  }
+
+  // GET /api/applications - Lista administrativa de aplicaciones
+  @Get()
+  async listAdmin(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('status') status?: string,
+    @Query('callId') callId?: string,
+    @Query('count') count?: string,
+  ) {
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    const offsetNum = offset ? parseInt(offset, 10) : 0;
+    const needCount = count === '1' || count === 'true';
+
+    return this.apps.listApplications({
+      limit: limitNum,
+      offset: offsetNum,
+      status,
+      callId,
+      needCount,
+    });
   }
 
   @Post()
