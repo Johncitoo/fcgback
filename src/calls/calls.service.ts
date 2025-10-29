@@ -13,17 +13,19 @@ export class CallsService {
   }) {
     const { limit, offset, onlyActive, needCount } = params;
 
-    const whereClause = onlyActive ? "WHERE c.is_active = TRUE AND c.end_date >= NOW()" : '';
+    const whereClause = onlyActive ? "WHERE c.status = 'OPEN'" : '';
 
     const query = `
       SELECT 
         c.id,
         c.name,
         c.year,
-        c.description,
-        c.start_date as "startDate",
-        c.end_date as "endDate",
-        c.is_active as "isActive",
+        c.status,
+        c.total_seats as "totalSeats",
+        c.min_per_institution as "minPerInstitution",
+        c.dates,
+        c.rules,
+        c.form_published_at as "formPublishedAt",
         c.created_at as "createdAt",
         c.updated_at as "updatedAt"
       FROM calls c
@@ -51,10 +53,12 @@ export class CallsService {
         c.id,
         c.name,
         c.year,
-        c.description,
-        c.start_date as "startDate",
-        c.end_date as "endDate",
-        c.is_active as "isActive",
+        c.status,
+        c.total_seats as "totalSeats",
+        c.min_per_institution as "minPerInstitution",
+        c.dates,
+        c.rules,
+        c.form_published_at as "formPublishedAt",
         c.created_at as "createdAt",
         c.updated_at as "updatedAt"
       FROM calls c
@@ -78,17 +82,20 @@ export class CallsService {
 
     const result = await this.ds.query(
       `
-      INSERT INTO calls (id, name, year, description, start_date, end_date, is_active)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
-      RETURNING id, name, year, description, start_date as "startDate", end_date as "endDate", is_active as "isActive", created_at as "createdAt"
+      INSERT INTO calls (id, name, year, status, total_seats, min_per_institution, dates, rules, form_published_at)
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, name, year, status, total_seats as "totalSeats", min_per_institution as "minPerInstitution", 
+                dates, rules, form_published_at as "formPublishedAt", created_at as "createdAt"
       `,
       [
         body.name,
         body.year,
-        body.description || null,
-        body.startDate || null,
-        body.endDate || null,
-        body.isActive !== undefined ? body.isActive : true,
+        body.status || 'DRAFT',
+        body.totalSeats || 0,
+        body.minPerInstitution || 0,
+        body.dates ? JSON.stringify(body.dates) : null,
+        body.rules ? JSON.stringify(body.rules) : null,
+        body.formPublishedAt || null,
       ]
     );
 
@@ -110,24 +117,34 @@ export class CallsService {
       values.push(body.year);
     }
 
-    if (body.description !== undefined) {
-      fields.push(`description = $${idx++}`);
-      values.push(body.description);
+    if (body.status !== undefined) {
+      fields.push(`status = $${idx++}`);
+      values.push(body.status);
     }
 
-    if (body.startDate !== undefined) {
-      fields.push(`start_date = $${idx++}`);
-      values.push(body.startDate);
+    if (body.totalSeats !== undefined) {
+      fields.push(`total_seats = $${idx++}`);
+      values.push(body.totalSeats);
     }
 
-    if (body.endDate !== undefined) {
-      fields.push(`end_date = $${idx++}`);
-      values.push(body.endDate);
+    if (body.minPerInstitution !== undefined) {
+      fields.push(`min_per_institution = $${idx++}`);
+      values.push(body.minPerInstitution);
     }
 
-    if (body.isActive !== undefined) {
-      fields.push(`is_active = $${idx++}`);
-      values.push(body.isActive);
+    if (body.dates !== undefined) {
+      fields.push(`dates = $${idx++}`);
+      values.push(JSON.stringify(body.dates));
+    }
+
+    if (body.rules !== undefined) {
+      fields.push(`rules = $${idx++}`);
+      values.push(JSON.stringify(body.rules));
+    }
+
+    if (body.formPublishedAt !== undefined) {
+      fields.push(`form_published_at = $${idx++}`);
+      values.push(body.formPublishedAt);
     }
 
     if (fields.length === 0) {

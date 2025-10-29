@@ -98,6 +98,12 @@ export class AdminFormsController {
       throw new BadRequestException('sections array is required');
     }
 
+    // Verificar que la convocatoria existe
+    const callCheck = await this.ds.query(`SELECT id FROM calls WHERE id = $1`, [callId]);
+    if (!callCheck || callCheck.length === 0) {
+      throw new BadRequestException('Call not found');
+    }
+
     // Eliminar secciones y campos existentes
     await this.ds.query(`DELETE FROM form_fields WHERE call_id = $1`, [callId]);
     await this.ds.query(`DELETE FROM form_sections WHERE call_id = $1`, [callId]);
@@ -105,49 +111,53 @@ export class AdminFormsController {
     // Insertar nuevas secciones y campos
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i];
-      const sectionId = section.id.startsWith('tmp_') ? undefined : section.id;
-
+      
+      // Crear sección (siempre generamos nuevo UUID)
       const [newSection] = await this.ds.query(
         `
         INSERT INTO form_sections (id, call_id, title, "order", visible)
-        VALUES (${sectionId ? '$1' : 'gen_random_uuid()'}, $2, $3, $4, $5)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4)
         RETURNING id
         `,
-        sectionId 
-          ? [sectionId, callId, section.title, i, true]
-          : [callId, section.title, i, true]
+        [callId, section.title || 'Sin título', i, true]
       );
 
       const actualSectionId = newSection.id;
 
-      // Insertar campos
+      // Insertar campos de esta sección
       if (section.fields && Array.isArray(section.fields)) {
         for (let j = 0; j < section.fields.length; j++) {
           const field = section.fields[j];
-          const fieldId = field.id.startsWith('tmp_') ? undefined : field.id;
 
           await this.ds.query(
             `
             INSERT INTO form_fields (
               id, call_id, section_id, name, label, type, 
-              required, options, help_text, "order", active
+              required, options, validation, help_text, show_if, "order", 
+              active, visibility, editable_by_roles
             )
             VALUES (
-              ${fieldId ? '$1' : 'gen_random_uuid()'}, $2, $3, $4, $5, $6, 
-              $7, $8, $9, $10, $11
+              gen_random_uuid(), $1, $2, $3, $4, $5::form_field_type, 
+              $6, $7::jsonb, $8::jsonb, $9, $10::jsonb, $11,
+              $12, $13, $14::jsonb
             )
             `,
-            fieldId
-              ? [
-                  fieldId, callId, actualSectionId, field.name, field.label, field.type,
-                  field.required || false, JSON.stringify(field.options || []), 
-                  field.helpText || null, j, field.active !== false
-                ]
-              : [
-                  callId, actualSectionId, field.name, field.label, field.type,
-                  field.required || false, JSON.stringify(field.options || []), 
-                  field.helpText || null, j, field.active !== false
-                ]
+            [
+              callId,
+              actualSectionId,
+              field.name || 'campo',
+              field.label || 'Campo sin nombre',
+              field.type || 'TEXT',
+              field.required !== false,
+              field.options ? JSON.stringify(field.options) : null,
+              field.validation ? JSON.stringify(field.validation) : null,
+              field.helpText || null,
+              field.showIf ? JSON.stringify(field.showIf) : null,
+              j,
+              field.active !== false,
+              field.visibility || 'PUBLIC',
+              field.editableByRoles ? JSON.stringify(field.editableByRoles) : '["APPLICANT"]',
+            ]
           );
         }
       }
