@@ -6,6 +6,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
 
+  // ✅ CORS COMPLETAMENTE ABIERTO - Acepta peticiones desde cualquier origen
+  app.enableCors({
+    origin: true,  // Acepta TODOS los orígenes
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Content-Disposition'],
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
