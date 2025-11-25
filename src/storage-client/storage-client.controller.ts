@@ -39,6 +39,10 @@ class UploadFileDto {
 
   @IsOptional()
   @IsString()
+  milestoneSubmissionId?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
 }
 
@@ -68,6 +72,7 @@ export class StorageClientController {
       entityType: dto.entityType,
       entityId: dto.entityId,
       uploadedBy: uploadedByUuid,
+      milestoneSubmissionId: dto.milestoneSubmissionId,
       description: dto.description,
     });
 

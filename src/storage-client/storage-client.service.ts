@@ -24,6 +24,7 @@ export interface UploadFileOptions {
   entityType?: EntityType;
   entityId?: string;
   uploadedBy: string;
+  milestoneSubmissionId?: string;
   description?: string;
 }
 
@@ -93,6 +94,7 @@ export class StorageClientService {
     if (options.entityType) formData.append('entityType', options.entityType);
     if (options.entityId) formData.append('entityId', options.entityId);
     formData.append('uploadedBy', options.uploadedBy);
+    if (options.milestoneSubmissionId) formData.append('milestoneSubmissionId', options.milestoneSubmissionId);
     if (options.description)
       formData.append('description', options.description);
 

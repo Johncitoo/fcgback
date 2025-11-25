@@ -24,6 +24,9 @@ import { AppService } from './app.service';
 import { InvitesModule } from './invites/invites.module';
 import { InstitutionsModule } from './institutions/institutions.module';
 import { StorageClientModule } from './storage-client/storage-client.module';
+import { FormsModule } from './forms/forms.module';
+import { MilestonesModule } from './milestones/milestones.module';
+import { FormSubmissionsModule } from './form-submissions/form-submissions.module';
 
 @Module({
   imports: [
@@ -91,6 +94,9 @@ import { StorageClientModule } from './storage-client/storage-client.module';
     InvitesModule,
     InstitutionsModule,
     StorageClientModule,
+    FormsModule,
+    MilestonesModule,
+    FormSubmissionsModule,
   ],
   controllers: [AppController],
   providers: [
