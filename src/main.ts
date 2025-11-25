@@ -10,6 +10,8 @@ async function bootstrap() {
 
   // Seguridad: Helmet para headers seguros
   app.use(helmet());
+  
+  console.log('✓ FCG Backend iniciando - v1.0.1');
 
   // CORS configurado correctamente (NO abierto completamente)
   const allowedOrigins = config.get<string>('CORS_ORIGINS')?.split(',') || [
