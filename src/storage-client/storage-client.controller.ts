@@ -72,9 +72,9 @@ export class StorageClientController {
       urls: {
         view: this.storageClient.getViewUrl(metadata.id),
         download: this.storageClient.getDownloadUrl(metadata.id),
-        thumbnail: metadata.thumbnailPath
+        thumbnail: metadata.thumbnailUrl || (metadata.thumbnailPath
           ? this.storageClient.getThumbnailUrl(metadata.id)
-          : null,
+          : null),
       },
     };
   }
