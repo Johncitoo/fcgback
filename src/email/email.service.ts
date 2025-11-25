@@ -124,6 +124,73 @@ export class EmailService {
     });
   }
 
+  async sendInitialInviteEmail(email: string, code: string, callName?: string): Promise<boolean> {
+    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    const applyUrl = `${baseUrl}/apply`;
+    
+    const subject = 'Invitación para postular - Fundación Carmen Goudie';
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #0369a1; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0;">Fundación Carmen Goudie</h1>
+        </div>
+        
+        <div style="background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb;">
+          <h2 style="color: #0369a1; margin-top: 0;">¡Has sido invitado a postular!</h2>
+          
+          <p>Has recibido una invitación para postular a ${callName ? `<strong>${callName}</strong>` : 'una convocatoria'} de la Fundación Carmen Goudie.</p>
+          
+          <div style="background-color: #dbeafe; border: 2px solid #0369a1; padding: 20px; text-align: center; margin: 30px 0; border-radius: 8px;">
+            <p style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">Tu código de invitación:</p>
+            <p style="margin: 0; font-size: 28px; font-weight: bold; color: #0369a1; letter-spacing: 2px; font-family: 'Courier New', monospace;">
+              ${code}
+            </p>
+          </div>
+          
+          <p>Para iniciar tu postulación:</p>
+          <ol style="line-height: 1.8;">
+            <li>Ingresa al portal de postulaciones</li>
+            <li>Introduce tu código de invitación</li>
+            <li>Completa tu información personal</li>
+            <li>Sube los documentos requeridos</li>
+          </ol>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${applyUrl}" 
+               style="background-color: #0369a1; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Iniciar Postulación
+            </a>
+          </div>
+          
+          <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-top: 20px;">
+            <p style="margin: 0; font-size: 14px;">
+              <strong>⚠️ Importante:</strong> Este código es único y personal. No lo compartas con nadie.
+            </p>
+          </div>
+        </div>
+        
+        <div style="background-color: #f3f4f6; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; margin-top: 20px;">
+          <p style="margin: 5px 0;">© ${new Date().getFullYear()} Fundación Carmen Goudie</p>
+          <p style="margin: 5px 0;">Este es un correo automático, por favor no respondas a este mensaje.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject,
+      htmlContent,
+    });
+  }
+
   async sendInviteResentEmail(email: string, newCode: string): Promise<boolean> {
     const subject = 'Nuevo código de invitación - Fundación Carmen Goudie';
     

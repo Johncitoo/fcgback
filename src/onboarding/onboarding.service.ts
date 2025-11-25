@@ -444,6 +444,38 @@ export class OnboardingService {
   }
 
   /**
+   * Envía email de invitación inicial al crear una invitación
+   */
+  async sendInitialInvite(
+    inviteId: string,
+    email: string,
+    plainCode: string,
+  ): Promise<void> {
+    const invite = await this.inviteRepo.findOne({
+      where: { id: inviteId },
+    });
+
+    if (!invite) {
+      throw new NotFoundException('Invitación no encontrada');
+    }
+
+    // Obtener nombre de la convocatoria
+    let callName: string | undefined;
+    try {
+      const call = await this.dataSource.query(
+        'SELECT name FROM calls WHERE id = $1',
+        [invite.callId],
+      );
+      callName = call[0]?.name;
+    } catch (err) {
+      this.logger.warn(`No se pudo obtener nombre de convocatoria: ${err}`);
+    }
+
+    await this.emailService.sendInitialInviteEmail(email, plainCode, callName);
+    this.logger.log(`Email de invitación inicial enviado a: ${email}`);
+  }
+
+  /**
    * Calcula el dígito verificador de un RUT chileno
    */
   private calculateRutDV(rut: number): string {
