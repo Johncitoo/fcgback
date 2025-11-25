@@ -24,10 +24,22 @@ export class UsersController {
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
     @Query('count') count?: string,
+    @Query('callId') callId?: string,
   ) {
     const limitNum = limit ? parseInt(limit, 10) : 20;
     const offsetNum = offset ? parseInt(offset, 10) : 0;
     const needCount = count === '1' || count === 'true';
+
+    const conditions: string[] = ['u.role = \'APPLICANT\''];
+    const values: any[] = [];
+    let idx = 1;
+
+    if (callId) {
+      conditions.push(`EXISTS (SELECT 1 FROM applications app WHERE app.applicant_id = u.applicant_id AND app.call_id = $${idx++})`);
+      values.push(callId);
+    }
+
+    values.push(limitNum, offsetNum);
 
     const query = `
       SELECT 
@@ -52,18 +64,17 @@ export class UsersController {
       FROM users u
       LEFT JOIN applicants a ON a.id = u.applicant_id
       LEFT JOIN institutions i ON i.id = a.institution_id
-      WHERE u.role = 'APPLICANT'
+      WHERE ${conditions.join(' AND ')}
       ORDER BY u.created_at DESC
-      LIMIT $1 OFFSET $2
+      LIMIT $${idx++} OFFSET $${idx++}
     `;
 
-    const data = await this.ds.query(query, [limitNum, offsetNum]);
+    const data = await this.ds.query(query, values);
 
     let total: number | undefined;
     if (needCount) {
-      const countResult = await this.ds.query(
-        `SELECT COUNT(*) as count FROM users WHERE role = 'APPLICANT'`,
-      );
+      const countQuery = `SELECT COUNT(*) as count FROM users u WHERE ${conditions.join(' AND ')}`;
+      const countResult = await this.ds.query(countQuery, values.slice(0, -2));
       total = parseInt(countResult[0].count, 10);
     }
 
