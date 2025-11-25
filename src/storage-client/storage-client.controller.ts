@@ -11,15 +11,19 @@ import {
   HttpStatus,
   BadRequestException,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 import type { Response } from 'express';
 import {
   StorageClientService,
   FileCategory,
   EntityType,
 } from './storage-client.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { JwtPayload } from '../auth/current-user.decorator';
 
 class UploadFileDto {
   @IsEnum(FileCategory)
@@ -36,12 +40,10 @@ class UploadFileDto {
   @IsOptional()
   @IsString()
   description?: string;
-
-  @IsUUID()
-  uploadedBy!: string;
 }
 
 @Controller('files')
+@UseGuards(JwtAuthGuard)
 export class StorageClientController {
   constructor(private readonly storageClient: StorageClientService) {}
 
@@ -50,16 +52,22 @@ export class StorageClientController {
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadFileDto,
+    @CurrentUser() user: JwtPayload,
   ) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
 
+    // Get user UUID from the authenticated user
+    // For now, we'll use a placeholder since we need to map integer ID to UUID
+    // TODO: Update JWT to include UUID instead of integer ID
+    const uploadedByUuid = '476d428e-a70a-4f88-b11a-6f59dc1a6f12'; // Temporary
+
     const response = await this.storageClient.upload(file, {
       category: dto.category,
       entityType: dto.entityType,
       entityId: dto.entityId,
-      uploadedBy: dto.uploadedBy,
+      uploadedBy: uploadedByUuid,
       description: dto.description,
     });
 
