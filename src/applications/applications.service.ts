@@ -4,10 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { AuditService } from '../common/audit.service';
 
 @Injectable()
 export class ApplicationsService {
-  constructor(private ds: DataSource) {}
+  constructor(
+    private ds: DataSource,
+    private auditService: AuditService,
+  ) {}
 
   async listApplications(params: {
     limit: number;
@@ -248,6 +252,8 @@ export class ApplicationsService {
       );
     }
 
+    const oldStatus = app.status ?? 'DRAFT';
+
     await this.ds.query(
       `UPDATE applications
        SET status = 'SUBMITTED', submitted_at = NOW(), updated_at = NOW()
@@ -259,9 +265,43 @@ export class ApplicationsService {
       `INSERT INTO application_status_history
          (id, application_id, from_status, to_status, actor_user_id, reason)
        VALUES (gen_random_uuid(), $1, $2, 'SUBMITTED', NULL, 'Submitted by applicant')`,
-      [id, app.status ?? null],
+      [id, oldStatus],
     );
 
+    // Auditoría
+    this.auditService
+      .logApplicationStatusChange(id, oldStatus, 'SUBMITTED', userId)
+      .catch(() => {}); // No bloqueante
+
     return { ok: true, status: 'SUBMITTED' };
+  }
+
+  /**
+   * Marca el código de invitación como completado después del envío del formulario
+   */
+  async completeInvite(userId: string, applicationId: string) {
+    // Verificar ownership
+    const app = await this.getById(userId, applicationId);
+
+    // Buscar la invitación asociada
+    const inviteResult = await this.ds.query(
+      `SELECT i.id FROM invites i
+       INNER JOIN applicants a ON i.applicant_id = a.id
+       WHERE a.user_id = $1 AND i.used_at IS NULL
+       LIMIT 1`,
+      [userId],
+    );
+
+    if (inviteResult && inviteResult.length > 0) {
+      const inviteId = inviteResult[0].id;
+
+      // Marcar como usado
+      await this.ds.query(
+        `UPDATE invites SET used_at = NOW() WHERE id = $1`,
+        [inviteId],
+      );
+    }
+
+    return { ok: true };
   }
 }

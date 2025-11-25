@@ -99,4 +99,13 @@ export class ApplicationsController {
       throw new BadRequestException('Applicant only');
     return this.apps.submit(user.sub, id);
   }
+
+  // Marcar código de invitación como completado después de enviar el formulario
+  @Post(':id/complete-invite')
+  async completeInvite(@Req() req: any, @Param('id') id: string) {
+    const user = this.getUserFromAuth(req);
+    if (user.role !== 'APPLICANT')
+      throw new BadRequestException('Applicant only');
+    return this.apps.completeInvite(user.sub, id);
+  }
 }

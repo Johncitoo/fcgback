@@ -11,6 +11,7 @@ import * as argon2 from 'argon2';
 import { UsersService } from '../users/users.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { OnboardingService } from '../onboarding/onboarding.service';
+import { AuditService } from '../common/audit.service';
 import { User, UserRole } from '../users/entities/user.entity';
 
 export interface AccessPayload {
@@ -30,7 +31,8 @@ export class AuthService {
     private cfg: ConfigService,
     private users: UsersService,
     private sessions: SessionsService,
-    private onboarding: OnboardingService, // Necesitamos este servicio
+    private onboarding: OnboardingService,
+    private auditService: AuditService,
   ) {}
 
   // ===== Helpers comunes =====
@@ -120,6 +122,11 @@ export class AuthService {
 
     await this.users.setLastLogin(user.id);
 
+    // Auditoría
+    this.auditService
+      .logLogin(user.id, user.role, ip)
+      .catch(() => {}); // No bloqueante
+
     return {
       user: {
         id: user.id,
@@ -187,11 +194,11 @@ export class AuthService {
     return { ok: true };
   }
 
-  // ===== Login con código de invitación =====
+  // ===== Login con código de invitación (LEGACY - usar /onboarding/validate-invite) =====
 
-  async validateInviteCode(code: string, ip?: string, ua?: string) {
+  async validateInviteCode(code: string, email: string, ip?: string, ua?: string) {
     // Validar el código y obtener/crear usuario
-    const { user } = await this.onboarding.validateInviteCode(code);
+    const { user } = await this.onboarding.validateInviteCode(code, email);
 
     // Generar tokens
     const accessToken = this.signAccessToken(user);
@@ -209,6 +216,11 @@ export class AuthService {
     });
 
     await this.users.setLastLogin(user.id);
+
+    // Auditoría
+    this.auditService
+      .logLogin(user.id, user.role, ip)
+      .catch(() => {}); // No bloqueante
 
     return {
       user: {

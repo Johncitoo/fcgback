@@ -31,13 +31,13 @@ export class AuthController {
     return this.auth.logout(dto.refreshToken);
   }
 
-  // Login con código de invitación
+  // Login con código de invitación (LEGACY - se recomienda usar /onboarding/validate-invite)
   @Post('enter-invite')
   @HttpCode(200)
   async enterInvite(@Body() dto: ValidateInviteDto, @Req() req: any) {
     const ip = req.ip;
     const ua = req.headers?.['user-agent'];
-    return this.auth.validateInviteCode(dto.code, ip, ua);
+    return this.auth.validateInviteCode(dto.code, dto.email, ip, ua);
   }
 
   // ====== SOLO DEV / SEMILLA (protegido por env) ======

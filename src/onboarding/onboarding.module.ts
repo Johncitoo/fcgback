@@ -7,12 +7,14 @@ import { Invite } from './entities/invite.entity';
 import { PasswordSetToken } from './entities/password-set-token.entity';
 import { UsersModule } from '../users/users.module';
 import { CallsModule } from '../calls/calls.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Invite, PasswordSetToken]),
     UsersModule,
     CallsModule,
+    EmailModule,
   ],
   controllers: [OnboardingController, InvitesController],
   providers: [OnboardingService],

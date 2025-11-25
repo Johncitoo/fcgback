@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
+import { CommonModule } from './common/common.module';
 import { UsersModule } from './users/users.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { AuthModule } from './auth/auth.module';
@@ -29,6 +32,25 @@ import { InvitesModule } from './invites/invites.module';
       envFilePath: ['.env.local', '.env'],
     }),
 
+    // Rate Limiting (Throttling)
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000, // 1 segundo
+        limit: 10, // 10 requests por segundo
+      },
+      {
+        name: 'medium',
+        ttl: 60000, // 1 minuto
+        limit: 100, // 100 requests por minuto
+      },
+      {
+        name: 'long',
+        ttl: 900000, // 15 minutos
+        limit: 500, // 500 requests por 15 minutos
+      },
+    ]),
+
     // TypeORM (usamos DATABASE_URL del .env / compose)
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -53,6 +75,7 @@ import { InvitesModule } from './invites/invites.module';
       },
     }),
 
+    CommonModule,
     UsersModule,
     SessionsModule,
     AuthModule,
@@ -66,6 +89,13 @@ import { InvitesModule } from './invites/invites.module';
     InvitesModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Aplicar throttling globalmente
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

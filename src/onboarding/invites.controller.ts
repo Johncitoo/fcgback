@@ -124,4 +124,24 @@ export class InvitesController {
 
     return result[0];
   }
+
+  // POST /api/invites/:id/regenerate - Regenerar código de invitación
+  @Post(':id/regenerate')
+  async regenerate(
+    @Param('id') id: string,
+    @Body() body: { code: string },
+  ) {
+    if (!body.code) {
+      throw new BadRequestException('code is required');
+    }
+
+    const result = await this.onboarding.regenerateInviteCode(id, body.code);
+    
+    return {
+      success: true,
+      message: 'Código regenerado exitosamente',
+      inviteId: result.invite.id,
+      code: result.plainCode,
+    };
+  }
 }

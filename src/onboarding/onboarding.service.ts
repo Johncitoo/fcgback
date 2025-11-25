@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -10,17 +11,23 @@ import { Invite } from '../invites/invite.entity';
 import { PasswordSetToken } from './entities/password-set-token.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
+import { EmailService } from '../email/email.service';
+import { AuditService } from '../common/audit.service';
 import { randomBytes } from 'crypto';
 import { hash, verify } from 'argon2';
 
 @Injectable()
 export class OnboardingService {
+  private readonly logger = new Logger(OnboardingService.name);
+
   constructor(
     @InjectRepository(Invite)
     private readonly inviteRepo: Repository<Invite>,
     @InjectRepository(PasswordSetToken)
     private readonly tokenRepo: Repository<PasswordSetToken>,
     private readonly usersService: UsersService,
+    private readonly emailService: EmailService,
+    private readonly auditService: AuditService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -79,74 +86,171 @@ export class OnboardingService {
   }
 
   /**
-   * Valida un código de invitación y crea/obtiene usuario
+   * Valida un código de invitación y crea/actualiza usuario + applicant + application
+   * NUEVA LÓGICA: NO quema el código hasta completar el formulario
    */
   async validateInviteCode(
     code: string,
-  ): Promise<{ user: User; invite: Invite }> {
-    const invite = await this.findInviteByCode(code);
+    email: string,
+  ): Promise<{ 
+    user: User; 
+    invite: Invite; 
+    applicationId: string;
+    passwordToken: string;
+    isNewUser: boolean;
+  }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (!invite) {
-      throw new NotFoundException('Código de invitación no encontrado');
-    }
+    try {
+      const invite = await this.findInviteByCode(code);
 
-    if (invite.usedAt) {
-      throw new BadRequestException('El código ya fue utilizado');
-    }
-
-    if (invite.expiresAt && invite.expiresAt < new Date()) {
-      throw new BadRequestException('El código ha expirado');
-    }
-
-    // Si ya tiene un applicant asociado, buscar el usuario
-    if (invite.usedByApplicant) {
-      // Buscar el usuario que tiene este applicantId
-      const user = await this.dataSource.query(
-        'SELECT * FROM users WHERE applicant_id = $1 LIMIT 1',
-        [invite.usedByApplicant],
-      );
-      if (!user || user.length === 0) {
-        throw new NotFoundException('Usuario no encontrado');
+      if (!invite) {
+        throw new NotFoundException('Código de invitación no encontrado');
       }
-      return { user: user[0], invite };
+
+      // Verificar expiración
+      if (invite.expiresAt && invite.expiresAt < new Date()) {
+        throw new BadRequestException('El código ha expirado');
+      }
+
+      // Si ya tiene un applicant vinculado, permitir reingreso (código no quemado hasta completar)
+      let applicantId: string;
+      let user: User;
+      let isNewUser = false;
+
+      if (invite.usedByApplicant) {
+        // Ya existe applicant, buscar usuario
+        const existingUser = await queryRunner.manager.query(
+          'SELECT * FROM users WHERE applicant_id = $1 LIMIT 1',
+          [invite.usedByApplicant],
+        );
+        
+        if (!existingUser || existingUser.length === 0) {
+          throw new NotFoundException('Usuario no encontrado para este applicant');
+        }
+
+        user = existingUser[0];
+        applicantId = invite.usedByApplicant;
+
+        // Actualizar email si es temporal
+        if (user.email.includes('@pending.local')) {
+          await queryRunner.manager.query(
+            'UPDATE users SET email = $1 WHERE id = $2',
+            [email, user.id],
+          );
+          user.email = email;
+        }
+
+        this.logger.log(`Usuario existente reutilizado: ${user.id}`);
+      } else {
+        // Crear nuevo applicant con email real
+        // Generar RUT temporal único usando timestamp + random
+        const timestamp = Date.now().toString().slice(-8);
+        const random = Math.floor(Math.random() * 1000);
+        const tempRut = parseInt(timestamp + random.toString().padStart(3, '0').slice(-3));
+        const dv = this.calculateRutDV(tempRut);
+
+        // Verificar que no exista este RUT
+        const existingRut = await queryRunner.manager.query(
+          'SELECT id FROM applicants WHERE rut_number = $1 AND rut_dv = $2',
+          [tempRut, dv],
+        );
+
+        if (existingRut && existingRut.length > 0) {
+          throw new ConflictException('Error al generar RUT temporal, intenta nuevamente');
+        }
+
+        const applicantResult = await queryRunner.manager.query(
+          `INSERT INTO applicants (rut_number, rut_dv, first_name, last_name, email)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING id`,
+          [tempRut, dv, 'Postulante', 'Pendiente', email],
+        );
+
+        applicantId = applicantResult[0].id;
+
+        // Crear usuario con email real
+        const tempPassword = randomBytes(32).toString('hex');
+        const passwordHash = await hash(tempPassword);
+
+        const userResult = await queryRunner.manager.query(
+          `INSERT INTO users (email, full_name, password_hash, role, is_active, applicant_id)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING *`,
+          [email, `Postulante ${code}`, passwordHash, 'APPLICANT', true, applicantId],
+        );
+
+        user = userResult[0];
+        isNewUser = true;
+
+        // Vincular invitación con applicant (pero NO marcar como usado aún)
+        await queryRunner.manager.query(
+          'UPDATE invites SET used_by_applicant = $1 WHERE id = $2',
+          [applicantId, invite.id],
+        );
+
+        this.logger.log(`Nuevo usuario creado: ${user.id} para applicant: ${applicantId}`);
+      }
+
+      // Crear o recuperar application (siempre en DRAFT hasta completar)
+      let applicationId: string;
+      const existingApp = await queryRunner.manager.query(
+        'SELECT id, status FROM applications WHERE applicant_id = $1 AND call_id = $2 LIMIT 1',
+        [applicantId, invite.callId],
+      );
+
+      if (existingApp && existingApp.length > 0) {
+        applicationId = existingApp[0].id;
+        this.logger.log(`Application existente recuperada: ${applicationId}`);
+      } else {
+        const appResult = await queryRunner.manager.query(
+          `INSERT INTO applications (applicant_id, call_id, status)
+           VALUES ($1, $2, $3)
+           RETURNING id`,
+          [applicantId, invite.callId, 'DRAFT'],
+        );
+        applicationId = appResult[0].id;
+        this.logger.log(`Nueva application creada: ${applicationId}`);
+      }
+
+      // Generar token para establecer contraseña
+      const token = randomBytes(32).toString('hex');
+      const tokenHash = await hash(token);
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await queryRunner.manager.query(
+        `INSERT INTO password_set_tokens (user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3)`,
+        [user.id, tokenHash, expiresAt],
+      );
+
+      await queryRunner.commitTransaction();
+
+      // Auditoría
+      this.auditService
+        .logInviteValidation(invite.id, applicantId, isNewUser)
+        .catch((err) => this.logger.error(`Error en auditoría: ${err}`));
+
+      // Enviar email con token (no bloqueante)
+      this.emailService
+        .sendPasswordSetEmail(email, token, user.fullName)
+        .catch((err) => this.logger.error(`Error enviando email: ${err}`));
+
+      return { 
+        user, 
+        invite, 
+        applicationId, 
+        passwordToken: token,
+        isNewUser,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    // Crear nuevo applicant (con datos placeholder que el usuario completará después)
-    // Generar RUT válido con dígito verificador correcto
-    const tempRut = Math.floor(Math.random() * 20000000) + 5000000;
-    const dv = this.calculateRutDV(tempRut);
-    
-    const applicantResult = await this.dataSource.query(
-      `INSERT INTO applicants (rut_number, rut_dv, first_name, last_name, email)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [tempRut, dv, 'Pendiente', 'Completar', null],
-    );
-
-    const applicantId = applicantResult[0].id;
-
-    // Crear usuario vinculado al applicant
-    const userId = randomBytes(8).toString('hex');
-    const email = `temp_${userId}@pending.local`;
-    const tempPassword = randomBytes(32).toString('hex');
-    const passwordHash = await hash(tempPassword);
-
-    const user = await this.usersService.createUser({
-      email,
-      fullName: `Postulante ${code}`,
-      passwordHash,
-      role: 'APPLICANT' as UserRole,
-      isActive: true,
-      applicantId: applicantId,
-    });
-
-    // Marcar invitación como usada
-    await this.inviteRepo.update(invite.id, {
-      usedByApplicant: applicantId,
-      usedAt: new Date(),
-    });
-
-    return { user, invite };
   }
 
   /**
@@ -238,7 +342,105 @@ export class OnboardingService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
+    // Auditoría
+    this.auditService
+      .logPasswordSet(user.id)
+      .catch((err) => this.logger.error(`Error en auditoría: ${err}`));
+
     return user;
+  }
+
+  /**
+   * Marca el código como completamente usado después de enviar el formulario
+   */
+  async markInviteAsCompleted(inviteId: string): Promise<void> {
+    await this.inviteRepo.update(inviteId, {
+      usedAt: new Date(),
+    });
+    this.logger.log(`Invitación marcada como completada: ${inviteId}`);
+  }
+
+  /**
+   * Regenera un código de invitación (invalida el anterior y crea uno nuevo)
+   */
+  async regenerateInviteCode(
+    inviteId: string,
+    newCode: string,
+  ): Promise<{ invite: Invite; plainCode: string }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Buscar invitación original
+      const originalInvite = await queryRunner.manager.findOne(Invite, {
+        where: { id: inviteId },
+      });
+
+      if (!originalInvite) {
+        throw new NotFoundException('Invitación no encontrada');
+      }
+
+      // Invalidar invitación anterior (marcar como usada)
+      await queryRunner.manager.update(Invite, inviteId, {
+        usedAt: new Date(),
+        meta: {
+          ...((originalInvite.meta as any) || {}),
+          invalidatedReason: 'Código regenerado',
+          invalidatedAt: new Date().toISOString(),
+        },
+      });
+
+      // Crear nueva invitación con el mismo applicant y call
+      const codeHash = await hash(newCode.toUpperCase());
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      const newInvite = queryRunner.manager.create(Invite, {
+        callId: originalInvite.callId,
+        institutionId: originalInvite.institutionId,
+        codeHash,
+        expiresAt,
+        usedByApplicant: originalInvite.usedByApplicant,
+        usedAt: null,
+        createdByUserId: originalInvite.createdByUserId,
+        meta: {
+          regeneratedFrom: inviteId,
+          regeneratedAt: new Date().toISOString(),
+        },
+      });
+
+      const savedInvite = await queryRunner.manager.save(newInvite);
+
+      await queryRunner.commitTransaction();
+
+      // Auditoría
+      this.auditService
+        .logInviteRegenerated(inviteId, savedInvite.id)
+        .catch((err) => this.logger.error(`Error en auditoría: ${err}`));
+
+      // Enviar email si hay applicant vinculado
+      if (originalInvite.usedByApplicant) {
+        const applicant = await this.dataSource.query(
+          'SELECT email FROM applicants WHERE id = $1',
+          [originalInvite.usedByApplicant],
+        );
+
+        if (applicant && applicant[0]?.email) {
+          this.emailService
+            .sendInviteResentEmail(applicant[0].email, newCode)
+            .catch((err) => this.logger.error(`Error enviando email: ${err}`));
+        }
+      }
+
+      this.logger.log(`Código regenerado para invitación: ${inviteId} -> ${savedInvite.id}`);
+
+      return { invite: savedInvite, plainCode: newCode };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   /**

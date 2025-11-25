@@ -10,7 +10,7 @@ export class PublicFormsController {
   async getPublicForm() {
     // Buscar convocatoria activa (status = OPEN)
     const call = await this.ds.query(
-      `SELECT id, name, year, status FROM calls WHERE status = 'OPEN' ORDER BY created_at DESC LIMIT 1`,
+      `SELECT id, name, year, status FROM calls WHERE status = 'OPEN' ORDER BY created_at DESC LIMIT 1`
     );
 
     if (!call || call.length === 0) {
@@ -31,12 +31,12 @@ export class PublicFormsController {
       WHERE call_id = $1 AND visible = true
       ORDER BY "order" ASC
       `,
-      [callId],
+      [callId]
     );
 
     // Obtener campos activos de cada sección
     const sectionIds = sections.map((s: any) => s.id);
-
+    
     let fields = [];
     if (sectionIds.length > 0) {
       fields = await this.ds.query(
@@ -50,14 +50,13 @@ export class PublicFormsController {
           required, 
           options, 
           help_text as "helpText",
-          placeholder,
           "order",
           active
         FROM form_fields 
         WHERE section_id = ANY($1) AND active = true
         ORDER BY "order" ASC
         `,
-        [sectionIds],
+        [sectionIds]
       );
     }
 
@@ -75,7 +74,6 @@ export class PublicFormsController {
           required: f.required,
           options: f.options,
           helpText: f.helpText,
-          placeholder: f.placeholder,
           active: f.active,
         })),
     }));
@@ -97,7 +95,7 @@ export class PublicFormsController {
     // Verificar que la convocatoria exista
     const call = await this.ds.query(
       `SELECT id, name, year, status FROM calls WHERE id = $1 LIMIT 1`,
-      [callId],
+      [callId]
     );
 
     if (!call || call.length === 0) {
@@ -116,12 +114,12 @@ export class PublicFormsController {
       WHERE call_id = $1 AND visible = true
       ORDER BY "order" ASC
       `,
-      [callId],
+      [callId]
     );
 
     // Obtener campos activos
     const sectionIds = sections.map((s: any) => s.id);
-
+    
     let fields = [];
     if (sectionIds.length > 0) {
       fields = await this.ds.query(
@@ -135,14 +133,13 @@ export class PublicFormsController {
           required, 
           options, 
           help_text as "helpText",
-          placeholder,
           "order",
           active
         FROM form_fields 
         WHERE section_id = ANY($1) AND active = true
         ORDER BY "order" ASC
         `,
-        [sectionIds],
+        [sectionIds]
       );
     }
 
@@ -160,7 +157,6 @@ export class PublicFormsController {
           required: f.required,
           options: f.options,
           helpText: f.helpText,
-          placeholder: f.placeholder,
           active: f.active,
         })),
     }));
