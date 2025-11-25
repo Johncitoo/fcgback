@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 @Controller('email/templates')
@@ -33,7 +42,9 @@ export class EmailTemplatesController {
 
     let total: number | undefined;
     if (needCount) {
-      const countResult = await this.ds.query(`SELECT COUNT(*) as count FROM email_templates`);
+      const countResult = await this.ds.query(
+        `SELECT COUNT(*) as count FROM email_templates`,
+      );
       total = parseInt(countResult[0].count, 10);
     }
 
@@ -42,9 +53,24 @@ export class EmailTemplatesController {
 
   // POST /api/email/templates - Crear template
   @Post()
-  async create(@Body() body: { key: string; name: string; subjectTemplate: string; bodyTemplate: string }) {
-    if (!body.key || !body.name || !body.subjectTemplate || !body.bodyTemplate) {
-      throw new BadRequestException('key, name, subjectTemplate, and bodyTemplate are required');
+  async create(
+    @Body()
+    body: {
+      key: string;
+      name: string;
+      subjectTemplate: string;
+      bodyTemplate: string;
+    },
+  ) {
+    if (
+      !body.key ||
+      !body.name ||
+      !body.subjectTemplate ||
+      !body.bodyTemplate
+    ) {
+      throw new BadRequestException(
+        'key, name, subjectTemplate, and bodyTemplate are required',
+      );
     }
 
     const result = await this.ds.query(
@@ -53,7 +79,7 @@ export class EmailTemplatesController {
       VALUES (gen_random_uuid(), $1, $2, $3, $4)
       RETURNING id, key, name, subject_tpl as "subjectTemplate", body_tpl as "bodyTemplate", created_at as "createdAt"
       `,
-      [body.key, body.name, body.subjectTemplate, body.bodyTemplate]
+      [body.key, body.name, body.subjectTemplate, body.bodyTemplate],
     );
 
     return result[0];
@@ -75,7 +101,7 @@ export class EmailTemplatesController {
       WHERE id = $1
       LIMIT 1
       `,
-      [id]
+      [id],
     );
 
     if (!result || result.length === 0) {

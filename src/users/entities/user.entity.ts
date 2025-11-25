@@ -1,4 +1,12 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
 import { UserSession } from '../entities/user-session.entity';
 
 export type UserRole = 'ADMIN' | 'REVIEWER' | 'APPLICANT';
@@ -15,14 +23,22 @@ export class User {
   @Column({ type: 'text', name: 'password_hash' })
   passwordHash!: string;
 
-  @Column({ type: 'timestamptz', name: 'password_updated_at', default: () => 'NOW()' })
+  @Column({
+    type: 'timestamptz',
+    name: 'password_updated_at',
+    default: () => 'NOW()',
+  })
   passwordUpdatedAt!: Date;
 
   @Column({ type: 'text', name: 'full_name' })
   fullName!: string;
 
   @Index()
-  @Column({ type: 'enum', enum: ['ADMIN','REVIEWER','APPLICANT'], enumName: 'user_role' })
+  @Column({
+    type: 'enum',
+    enum: ['ADMIN', 'REVIEWER', 'APPLICANT'],
+    enumName: 'user_role',
+  })
   role!: UserRole;
 
   @Column({ type: 'boolean', name: 'is_active', default: true })

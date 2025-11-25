@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 @Injectable()
@@ -65,7 +69,7 @@ export class CallsService {
       WHERE c.id = $1
       LIMIT 1
       `,
-      [id]
+      [id],
     );
 
     if (!call || call.length === 0) {
@@ -96,7 +100,7 @@ export class CallsService {
         body.dates ? JSON.stringify(body.dates) : null,
         body.rules ? JSON.stringify(body.rules) : null,
         body.formPublishedAt || null,
-      ]
+      ],
     );
 
     return result[0];
@@ -164,7 +168,10 @@ export class CallsService {
 
   async getForm(callId: string) {
     const call = (
-      await this.ds.query(`SELECT id, name, year FROM calls WHERE id = $1 LIMIT 1`, [callId])
+      await this.ds.query(
+        `SELECT id, name, year FROM calls WHERE id = $1 LIMIT 1`,
+        [callId],
+      )
     )?.[0];
     if (!call) throw new NotFoundException('Call not found');
 

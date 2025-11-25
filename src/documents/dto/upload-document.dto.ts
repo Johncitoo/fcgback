@@ -1,4 +1,11 @@
-import { IsUUID, IsString, IsInt, Min, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsUUID,
+  IsString,
+  IsInt,
+  Min,
+  IsOptional,
+  IsEnum,
+} from 'class-validator';
 import { DocumentType } from '../documents.entity';
 
 export class UploadDocumentDto {
@@ -12,13 +19,13 @@ export class UploadDocumentDto {
   fileName: string;
 
   @IsString()
-  mimeType: string;       // se mapea a contentType
+  mimeType: string; // se mapea a contentType
 
   @IsInt()
   @Min(1)
-  sizeKb: number;         // se mapea a sizeBytes
+  sizeKb: number; // se mapea a sizeBytes
 
   @IsOptional()
   @IsString()
-  storageUrl?: string;    // ignorado por ahora
+  storageUrl?: string; // ignorado por ahora
 }

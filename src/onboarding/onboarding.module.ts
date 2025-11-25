@@ -6,17 +6,16 @@ import { InvitesController } from './invites.controller';
 import { Invite } from './entities/invite.entity';
 import { PasswordSetToken } from './entities/password-set-token.entity';
 import { UsersModule } from '../users/users.module';
-import { SessionsModule } from '../sessions/sessions.module';
-import { JwtModule } from '@nestjs/jwt';
+import { CallsModule } from '../calls/calls.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Invite, PasswordSetToken]),
     UsersModule,
-    SessionsModule,
-    JwtModule.register({}), // usamos AuthService-style, config viene vía ConfigService
+    CallsModule,
   ],
-  providers: [OnboardingService],
   controllers: [OnboardingController, InvitesController],
+  providers: [OnboardingService],
+  exports: [OnboardingService], // ← Importante: exportar el servicio
 })
 export class OnboardingModule {}

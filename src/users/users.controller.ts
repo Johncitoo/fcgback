@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, Patch, Query, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { DataSource } from 'typeorm';
 
@@ -40,7 +49,7 @@ export class UsersController {
     let total: number | undefined;
     if (needCount) {
       const countResult = await this.ds.query(
-        `SELECT COUNT(*) as count FROM users WHERE role = 'APPLICANT'`
+        `SELECT COUNT(*) as count FROM users WHERE role = 'APPLICANT'`,
       );
       total = parseInt(countResult[0].count, 10);
     }
@@ -50,7 +59,9 @@ export class UsersController {
 
   // POST /api/applicants - Crear nuevo postulante
   @Post()
-  async create(@Body() body: { email: string; fullName: string; password?: string }) {
+  async create(
+    @Body() body: { email: string; fullName: string; password?: string },
+  ) {
     if (!body.email || !body.fullName) {
       throw new BadRequestException('Email and fullName are required');
     }
@@ -65,7 +76,11 @@ export class UsersController {
     const argon2 = await import('argon2');
     const hash = await argon2.hash(password, { type: argon2.argon2id });
 
-    const user = await this.users.createApplicantUser(body.email, body.fullName, hash);
+    const user = await this.users.createApplicantUser(
+      body.email,
+      body.fullName,
+      hash,
+    );
 
     return {
       id: user.id,
@@ -93,7 +108,7 @@ export class UsersController {
       WHERE u.id = $1 AND u.role = 'APPLICANT'
       LIMIT 1
       `,
-      [id]
+      [id],
     );
 
     if (!result || result.length === 0) {
@@ -116,7 +131,7 @@ export class UsersController {
       WHERE a.applicant_id = $1
       ORDER BY a.created_at DESC
       `,
-      [result[0].applicantId]
+      [result[0].applicantId],
     );
 
     return { ...result[0], applications };

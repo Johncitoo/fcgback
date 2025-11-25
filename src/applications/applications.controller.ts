@@ -1,4 +1,14 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Req, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  Query,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ApplicationsService } from './applications.service';
@@ -69,21 +79,24 @@ export class ApplicationsController {
   @Get(':id')
   async getById(@Req() req: any, @Param('id') id: string) {
     const user = this.getUserFromAuth(req);
-    if (user.role !== 'APPLICANT') throw new BadRequestException('Applicant only');
+    if (user.role !== 'APPLICANT')
+      throw new BadRequestException('Applicant only');
     return this.apps.getById(user.sub, id);
   }
 
   @Patch(':id')
   async patch(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     const user = this.getUserFromAuth(req);
-    if (user.role !== 'APPLICANT') throw new BadRequestException('Applicant only');
+    if (user.role !== 'APPLICANT')
+      throw new BadRequestException('Applicant only');
     return this.apps.patch(user.sub, id, body);
   }
 
   @Post(':id/submit')
   async submit(@Req() req: any, @Param('id') id: string) {
     const user = this.getUserFromAuth(req);
-    if (user.role !== 'APPLICANT') throw new BadRequestException('Applicant only');
+    if (user.role !== 'APPLICANT')
+      throw new BadRequestException('Applicant only');
     return this.apps.submit(user.sub, id);
   }
 }

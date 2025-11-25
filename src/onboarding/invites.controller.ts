@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param, Query, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { OnboardingService } from './onboarding.service';
 
@@ -30,7 +38,8 @@ export class InvitesController {
       values.push(callId);
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     values.push(limitNum, offsetNum);
 
@@ -65,7 +74,16 @@ export class InvitesController {
 
   // POST /api/invites - Crear nueva invitación
   @Post()
-  async create(@Body() body: { callId: string; code: string; ttlDays?: number; institutionId?: string }) {
+  async create(
+    @Body()
+    body: {
+      callId: string;
+      code: string;
+      ttlDays?: number;
+      institutionId?: string;
+      email?: string;
+    },
+  ) {
     if (!body.callId || !body.code) {
       throw new BadRequestException('callId and code are required');
     }
@@ -75,7 +93,6 @@ export class InvitesController {
       body.code,
       body.ttlDays,
       body.institutionId,
-      undefined
     );
   }
 
@@ -98,7 +115,7 @@ export class InvitesController {
       WHERE i.id = $1
       LIMIT 1
       `,
-      [id]
+      [id],
     );
 
     if (!result || result.length === 0) {

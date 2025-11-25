@@ -19,10 +19,12 @@ export class ProfileService {
 
   async ensureApplicant(userId: string, data: ApplicantPayload) {
     // Revisa si el user ya está vinculado
-    const user = (await this.ds.query(
-      `SELECT id, applicant_id FROM users WHERE id = $1 LIMIT 1`,
-      [userId],
-    ))?.[0];
+    const user = (
+      await this.ds.query(
+        `SELECT id, applicant_id FROM users WHERE id = $1 LIMIT 1`,
+        [userId],
+      )
+    )?.[0];
     if (!user) throw new BadRequestException('User not found');
 
     if (user.applicant_id) {

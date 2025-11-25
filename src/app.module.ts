@@ -15,6 +15,11 @@ import { CallsModule } from './calls/calls.module';
 import { DocumentsModule } from './documents/documents.module';
 import { EmailModule } from './email/email.module';
 
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+
+import { InvitesModule } from './invites/invites.module';
+
 @Module({
   imports: [
     // Carga variables de entorno y las deja disponibles globalmente
@@ -37,12 +42,12 @@ import { EmailModule } from './email/email.module';
             : false;
 
         return {
-          type: 'postgres',               // IMPORTANTE: fija el driver
+          type: 'postgres', // IMPORTANTE: fija el driver
           url,
           ssl,
-          autoLoadEntities: true,         // carga entidades de todos los módulos
-          synchronize: false,             // usamos SQL/init/migraciones
-          keepConnectionAlive: true,      // evita reconexiones en hot-reload
+          autoLoadEntities: true, // carga entidades de todos los módulos
+          synchronize: false, // usamos SQL/init/migraciones
+          keepConnectionAlive: true, // evita reconexiones en hot-reload
           // logging: true,               // habilítalo para depurar SQL
         };
       },
@@ -58,6 +63,9 @@ import { EmailModule } from './email/email.module';
     CallsModule,
     DocumentsModule,
     EmailModule,
+    InvitesModule,
   ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

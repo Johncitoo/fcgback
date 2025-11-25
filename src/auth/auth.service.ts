@@ -1,9 +1,16 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import { UsersService } from '../users/users.service';
 import { SessionsService } from '../sessions/sessions.service';
+import { OnboardingService } from '../onboarding/onboarding.service';
 import { User, UserRole } from '../users/entities/user.entity';
 
 export interface AccessPayload {
@@ -23,6 +30,7 @@ export class AuthService {
     private cfg: ConfigService,
     private users: UsersService,
     private sessions: SessionsService,
+    private onboarding: OnboardingService, // Necesitamos este servicio
   ) {}
 
   // ===== Helpers comunes =====
@@ -113,7 +121,12 @@ export class AuthService {
     await this.users.setLastLogin(user.id);
 
     return {
-      user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+      },
       accessToken,
       refreshToken,
       refresh: { sessionId: session.id, expiresAt: session.expiresAt },
@@ -143,15 +156,16 @@ export class AuthService {
     await this.sessions.revokeSession(current.id);
 
     const ttlDays = Number(this.cfg.get('REFRESH_TOKEN_TTL_DAYS') ?? 15);
-    const { session: newSession, refreshToken: newRefresh } = await this.sessions.createSession({
-      userId: user.id,
-      userAgent: ua,
-      ip,
-      ttlDays,
-      pepper,
-      rotatedFromSessionId: current.id,
-      familyId: current.tokenFamilyId,
-    });
+    const { session: newSession, refreshToken: newRefresh } =
+      await this.sessions.createSession({
+        userId: user.id,
+        userAgent: ua,
+        ip,
+        ttlDays,
+        pepper,
+        rotatedFromSessionId: current.id,
+        familyId: current.tokenFamilyId,
+      });
 
     const accessToken = this.signAccessToken(user);
     return {
@@ -173,8 +187,49 @@ export class AuthService {
     return { ok: true };
   }
 
+  // ===== Login con código de invitación =====
+
+  async validateInviteCode(code: string, ip?: string, ua?: string) {
+    // Validar el código y obtener/crear usuario
+    const { user } = await this.onboarding.validateInviteCode(code);
+
+    // Generar tokens
+    const accessToken = this.signAccessToken(user);
+
+    const ttlDays = Number(this.cfg.get('REFRESH_TOKEN_TTL_DAYS') ?? 15);
+    const pepper = this.cfg.get<string>('REFRESH_TOKEN_PEPPER') ?? '';
+    if (!pepper) throw new Error('REFRESH_TOKEN_PEPPER not set');
+
+    const { session, refreshToken } = await this.sessions.createSession({
+      userId: user.id,
+      userAgent: ua,
+      ip,
+      ttlDays,
+      pepper,
+    });
+
+    await this.users.setLastLogin(user.id);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+      },
+      accessToken,
+      refreshToken,
+      refresh: { sessionId: session.id, expiresAt: session.expiresAt },
+    };
+  }
+
   // ==== DEV SEED (solo si ALLOW_DEV_SEED=true) ====
-  async devSeedStaff(email: string, fullName: string, role: Exclude<UserRole, 'APPLICANT'>, password: string) {
+  async devSeedStaff(
+    email: string,
+    fullName: string,
+    role: Exclude<UserRole, 'APPLICANT'>,
+    password: string,
+  ) {
     const hash = await argon2.hash(password, { type: argon2.argon2id });
     return this.users.createStaffIfAllowed(email, fullName, hash, role);
   }

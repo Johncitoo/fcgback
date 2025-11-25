@@ -47,7 +47,7 @@ export class Document {
     type: 'bigint',
     nullable: true,
     transformer: {
-      to: (v?: number | null) => (v ?? null),
+      to: (v?: number | null) => v ?? null,
       from: (v?: string | null) => (v == null ? null : Number(v)),
     },
   })

@@ -1,224 +1,265 @@
 import {
-  BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
+  BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import * as crypto from 'crypto';
-import * as argon2 from 'argon2';
-import { Invite } from './entities/invite.entity';
+import { Repository, DataSource } from 'typeorm';
+import { Invite } from '../invites/invite.entity';
 import { PasswordSetToken } from './entities/password-set-token.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
-import { User } from '../users/entities/user.entity';
-import { SessionsService } from '../sessions/sessions.service';
-import { JwtService } from '@nestjs/jwt';
-
-type TimeStr = `${number}${'s' | 'm' | 'h' | 'd'}`; // para @nestjs/jwt types modernos
+import { randomBytes } from 'crypto';
+import { hash, verify } from 'argon2';
 
 @Injectable()
 export class OnboardingService {
   constructor(
-    private cfg: ConfigService,
-    @InjectRepository(Invite) private invitesRepo: Repository<Invite>,
-    @InjectRepository(PasswordSetToken) private pstRepo: Repository<PasswordSetToken>,
-    private users: UsersService,
-    private sessions: SessionsService,
-    private jwt: JwtService,
+    @InjectRepository(Invite)
+    private readonly inviteRepo: Repository<Invite>,
+    @InjectRepository(PasswordSetToken)
+    private readonly tokenRepo: Repository<PasswordSetToken>,
+    private readonly usersService: UsersService,
+    private readonly dataSource: DataSource,
   ) {}
 
-  // ==== Helpers
-  static hmac(value: string, pepper: string) {
-    return crypto.createHmac('sha256', pepper).update(value).digest('hex');
-  }
-  static randToken(bytes = 32) {
-    return crypto.randomBytes(bytes).toString('base64url');
-  }
-  private ensurePepper(name: string) {
-    const v = this.cfg.get<string>(name) ?? '';
-    if (!v) throw new Error(`${name} not set`);
-    return v;
-  }
-
-  // ==== validate-invite
-  async validateInvite(code: string, callId: string) {
-    const pepper = this.ensurePepper('INVITE_CODE_PEPPER');
-    const codeHash = OnboardingService.hmac(code, pepper);
-
-    const invite = await this.invitesRepo.findOne({
-      where: { codeHash, callId },
+  /**
+   * Busca una invitación por su código
+   */
+  async findInviteByCode(code: string): Promise<Invite | null> {
+    const normalizedCode = code.trim().toUpperCase();
+    
+    // Obtener todas las invitaciones no usadas
+    const invites = await this.inviteRepo.find({
+      where: { usedAt: null as any },
     });
-    if (!invite) throw new NotFoundException('Invite not found');
+    
+    // Buscar la invitación cuyo hash coincida
+    for (const invite of invites) {
+      try {
+        if (await verify(invite.codeHash, normalizedCode)) {
+          return invite;
+        }
+      } catch {
+        // Si falla la verificación, continuar con el siguiente
+        continue;
+      }
+    }
+    
+    return null;
+  }
 
-    if (invite.usedAt) throw new ForbiddenException('Invite already used');
-    if (invite.expiresAt && invite.expiresAt.getTime() <= Date.now()) {
-      throw new ForbiddenException('Invite expired');
+  /**
+   * Crea una invitación (para desarrollo)
+   */
+  async devCreateInvite(
+    callId: string,
+    code: string,
+    ttlDays?: number,
+    institutionId?: string,
+  ): Promise<Invite> {
+    const codeHash = await hash(code.toUpperCase());
+    
+    const ttl = ttlDays || 30;
+    const expiresAt = new Date(Date.now() + ttl * 24 * 60 * 60 * 1000);
+
+    const invite = this.inviteRepo.create({
+      callId,
+      codeHash,
+      expiresAt,
+      institutionId: institutionId || null,
+      usedByApplicant: null,
+      usedAt: null,
+      meta: null,
+      createdByUserId: null,
+    });
+
+    return this.inviteRepo.save(invite);
+  }
+
+  /**
+   * Valida un código de invitación y crea/obtiene usuario
+   */
+  async validateInviteCode(
+    code: string,
+  ): Promise<{ user: User; invite: Invite }> {
+    const invite = await this.findInviteByCode(code);
+
+    if (!invite) {
+      throw new NotFoundException('Código de invitación no encontrado');
     }
 
-    return {
-      ok: true,
-      inviteId: invite.id,
-      callId: invite.callId,
-      institutionId: invite.institutionId,
-      expiresAt: invite.expiresAt,
-    };
+    if (invite.usedAt) {
+      throw new BadRequestException('El código ya fue utilizado');
+    }
+
+    if (invite.expiresAt && invite.expiresAt < new Date()) {
+      throw new BadRequestException('El código ha expirado');
+    }
+
+    // Si ya tiene un applicant asociado, buscar el usuario
+    if (invite.usedByApplicant) {
+      // Buscar el usuario que tiene este applicantId
+      const user = await this.dataSource.query(
+        'SELECT * FROM users WHERE applicant_id = $1 LIMIT 1',
+        [invite.usedByApplicant],
+      );
+      if (!user || user.length === 0) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+      return { user: user[0], invite };
+    }
+
+    // Crear nuevo applicant (con datos placeholder que el usuario completará después)
+    // Generar RUT válido con dígito verificador correcto
+    const tempRut = Math.floor(Math.random() * 20000000) + 5000000;
+    const dv = this.calculateRutDV(tempRut);
+    
+    const applicantResult = await this.dataSource.query(
+      `INSERT INTO applicants (rut_number, rut_dv, first_name, last_name, email)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id`,
+      [tempRut, dv, 'Pendiente', 'Completar', null],
+    );
+
+    const applicantId = applicantResult[0].id;
+
+    // Crear usuario vinculado al applicant
+    const userId = randomBytes(8).toString('hex');
+    const email = `temp_${userId}@pending.local`;
+    const tempPassword = randomBytes(32).toString('hex');
+    const passwordHash = await hash(tempPassword);
+
+    const user = await this.usersService.createUser({
+      email,
+      fullName: `Postulante ${code}`,
+      passwordHash,
+      role: 'APPLICANT' as UserRole,
+      isActive: true,
+      applicantId: applicantId,
+    });
+
+    // Marcar invitación como usada
+    await this.inviteRepo.update(invite.id, {
+      usedByApplicant: applicantId,
+      usedAt: new Date(),
+    });
+
+    return { user, invite };
   }
 
-  // ==== issue-password-link
-  async issuePasswordLink(
-    code: string,
-    callId: string,
-    email: string,
-    fullName?: string,
+  /**
+   * Crea un token para establecer contraseña
+   */
+  async issuePasswordSetToken(
+    userId: string,
     ip?: string,
     ua?: string,
-  ) {
-    await this.validateInvite(code, callId); // valida (lanza si no existe/expirado/usado)
-    const pepper = this.ensurePepper('PASSWORD_SET_PEPPER');
+  ): Promise<{ token: string; tokenEntity: PasswordSetToken }> {
+    const token = randomBytes(32).toString('hex');
+    const tokenHash = await hash(token);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
 
-    // Asegurar user APPLICANT por email
-    let user = await this.users.findByEmail(email);
-    if (!user) {
-      if (!fullName) throw new BadRequestException('fullName required for new applicant');
-      // Crear user con password temporal (se reemplaza en set-password)
-      const tmpPass = OnboardingService.randToken(18);
-      const hash = await argon2.hash(tmpPass, { type: argon2.argon2id });
-      user = await this.users.createApplicantUser(email, fullName, hash);
-    } else if (user.role !== 'APPLICANT') {
-      throw new ForbiddenException('Email already used by staff');
-    } else if (!user.isActive) {
-      throw new ForbiddenException('User inactive');
-    }
-
-    // Crear token one-time para set-password
-    const ttlMin = Number(this.cfg.get('PASSWORD_SET_TTL_MIN') ?? 60);
-    const plain = OnboardingService.randToken(32);
-    const tokenHash = OnboardingService.hmac(plain, pepper);
-    const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
-
-    const pst = this.pstRepo.create({
-      userId: user.id,
+    const passwordToken = this.tokenRepo.create({
+      userId,
       tokenHash,
       expiresAt,
-      issuedIp: ip ?? null,
-      issuedUserAgent: ua ?? null,
       usedAt: null,
+      issuedIp: ip || null,
+      issuedUserAgent: ua || null,
       consumedIp: null,
       consumedUserAgent: null,
     });
-    await this.pstRepo.save(pst);
 
-    // Por ahora devolvemos el token en la respuesta para pruebas
-    return {
-      ok: true,
-      userId: user.id,
-      token: plain,
-      expiresAt,
-    };
+    const saved = await this.tokenRepo.save(passwordToken);
+    return { token, tokenEntity: saved };
   }
 
-  // ==== set-password
-  async setPassword(token: string, newPassword: string, ip?: string, ua?: string) {
-    const pepper = this.ensurePepper('PASSWORD_SET_PEPPER');
-    const tokenHash = OnboardingService.hmac(token, pepper);
+  /**
+   * Valida un token de establecimiento de contraseña
+   */
+  async validatePasswordToken(token: string): Promise<PasswordSetToken> {
+    const allTokens = await this.tokenRepo
+      .createQueryBuilder('token')
+      .where('token.usedAt IS NULL')
+      .andWhere('token.expiresAt > :now', { now: new Date() })
+      .leftJoinAndSelect('token.user', 'user')
+      .getMany();
 
-    const pst = await this.pstRepo.findOne({ where: { tokenHash } });
-    if (!pst) throw new UnauthorizedException('Invalid token');
-    if (pst.usedAt) throw new ForbiddenException('Token already used');
-    if (pst.expiresAt.getTime() <= Date.now()) throw new ForbiddenException('Token expired');
+    // Verificar cada token con argon2
+    let passwordToken: PasswordSetToken | null = null;
 
-    const user = await this.users.findById(pst.userId);
-    if (!user || !user.isActive) throw new ForbiddenException('User inactive');
+    for (const t of allTokens) {
+      try {
+        const isValid = await verify(t.tokenHash, token);
+        if (isValid) {
+          passwordToken = t;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
 
-    const hash = await argon2.hash(newPassword, { type: argon2.argon2id });
-    await this.users.updatePassword(user.id, hash);
+    if (!passwordToken) {
+      throw new NotFoundException('Token no encontrado o expirado');
+    }
 
-    pst.usedAt = new Date();
-    pst.consumedIp = ip ?? null;
-    pst.consumedUserAgent = ua ?? null;
-    await this.pstRepo.save(pst);
-
-    return { ok: true };
+    return passwordToken;
   }
 
-  // ==== login applicant
-  private signAccessToken(user: User) {
-    const iss = this.cfg.get<string>('AUTH_JWT_ISS');
-    const aud = this.cfg.get<string>('AUTH_JWT_AUD');
-    const secret = this.cfg.get<string>('AUTH_JWT_SECRET')!;
+  /**
+   * Establece la contraseña del usuario usando un token
+   */
+  async setPasswordWithToken(
+    token: string,
+    newPassword: string,
+    ip?: string,
+    ua?: string,
+  ): Promise<User> {
+    const passwordToken = await this.validatePasswordToken(token);
 
-    // Tipado seguro para evitar el error de overload:
-    const raw = this.cfg.get<string>('AUTH_JWT_EXPIRES') ?? '900s';
-    const expiresIn: number | TimeStr = /^\d+$/.test(raw)
-      ? Number(raw)
-      : (raw as TimeStr); // fuerza a template literal válido (e.g., "15m", "900s")
+    // Hash de la nueva contraseña
+    const passwordHash = await hash(newPassword);
 
-    const payload = { sub: user.id, role: user.role, typ: 'access' as const };
-    return this.jwt.sign(payload, { secret, expiresIn, issuer: iss, audience: aud });
-  }
+    // Actualizar contraseña del usuario
+    await this.usersService.updatePassword(passwordToken.userId, passwordHash);
 
-  async loginApplicant(email: string, password: string, ip?: string, ua?: string) {
-    const user = await this.users.findByEmail(email);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
-    if (user.role !== 'APPLICANT') throw new ForbiddenException('Applicant only');
-    if (!user.isActive) throw new ForbiddenException('User inactive');
-
-    const ok = await argon2.verify(user.passwordHash, password);
-    if (!ok) throw new UnauthorizedException('Invalid credentials');
-
-    const accessToken = this.signAccessToken(user);
-
-    const ttlDays = Number(this.cfg.get('REFRESH_TOKEN_TTL_DAYS') ?? 15);
-    const pepper = this.ensurePepper('REFRESH_TOKEN_PEPPER');
-
-    const { session, refreshToken } = await this.sessions.createSession({
-      userId: user.id,
-      userAgent: ua,
-      ip,
-      ttlDays,
-      pepper,
+    // Marcar token como usado
+    await this.tokenRepo.update(passwordToken.id, {
+      usedAt: new Date(),
+      consumedIp: ip || null,
+      consumedUserAgent: ua || null,
     });
 
-    await this.users.setLastLogin(user.id);
+    const user = await this.usersService.findById(passwordToken.userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
 
-    return {
-      user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role },
-      accessToken,
-      refreshToken,
-      refresh: { sessionId: session.id, expiresAt: session.expiresAt },
-    };
+    return user;
   }
 
-  // ==== SOLO DEV: crear invite rápido
-  async devCreateInvite(
-    callId: string,
-    codePlain: string,
-    ttlDays?: number,
-    institutionId?: string,
-    creatorUserId?: string,
-  ) {
-    const pepper = this.ensurePepper('INVITE_CODE_PEPPER');
-    const codeHash = OnboardingService.hmac(codePlain, pepper);
-    const expiresAt =
-      ttlDays && ttlDays > 0 ? new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000) : null;
+  /**
+   * Calcula el dígito verificador de un RUT chileno
+   */
+  private calculateRutDV(rut: number): string {
+    let sum = 0;
+    let multiplier = 2;
+    let rutStr = rut.toString();
 
-    const existing = await this.invitesRepo.findOne({ where: { codeHash, callId } });
-    if (existing) throw new BadRequestException('Invite code already exists for this call');
+    // Recorrer el RUT de derecha a izquierda
+    for (let i = rutStr.length - 1; i >= 0; i--) {
+      sum += parseInt(rutStr[i]) * multiplier;
+      multiplier = multiplier === 7 ? 2 : multiplier + 1;
+    }
 
-    const inv = this.invitesRepo.create({
-      callId,
-      institutionId: institutionId ?? null,
-      codeHash,
-      expiresAt,
-      usedAt: null,
-      usedByApplicant: null,
-      meta: null,
-      createdByUserId: creatorUserId ?? null,
-    });
-    await this.invitesRepo.save(inv);
-    return { ok: true, inviteId: inv.id };
+    const remainder = sum % 11;
+    const dv = 11 - remainder;
+
+    if (dv === 11) return '0';
+    if (dv === 10) return 'K';
+    return dv.toString();
   }
 }

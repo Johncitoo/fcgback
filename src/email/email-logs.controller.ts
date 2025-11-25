@@ -34,7 +34,9 @@ export class EmailLogsController {
 
     let total: number | undefined;
     if (needCount) {
-      const countResult = await this.ds.query(`SELECT COUNT(*) as count FROM email_logs`);
+      const countResult = await this.ds.query(
+        `SELECT COUNT(*) as count FROM email_logs`,
+      );
       total = parseInt(countResult[0].count, 10);
     }
 

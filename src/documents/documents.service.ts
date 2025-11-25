@@ -39,7 +39,11 @@ export class DocumentsService {
     }
 
     const prev = await this.repo.findOne({
-      where: { applicationId: dto.applicationId, fileName: dto.fileName, isCurrent: true },
+      where: {
+        applicationId: dto.applicationId,
+        fileName: dto.fileName,
+        isCurrent: true,
+      },
       select: ['id', 'version'],
     });
     const nextVersion = (prev?.version ?? 0) + 1;
@@ -77,7 +81,11 @@ export class DocumentsService {
     return doc;
   }
 
-  async listByApplication(applicationId: string, userId: string, userRole: string) {
+  async listByApplication(
+    applicationId: string,
+    userId: string,
+    userRole: string,
+  ) {
     if (userRole === 'APPLICANT') {
       await this.assertApplicantOwnsApplication(applicationId, userId);
     }
@@ -98,7 +106,12 @@ export class DocumentsService {
   }
 
   /** Moderación Staff */
-  async moderate(id: string, status: ModerateStatus, reason: string | null, actorUserId: string) {
+  async moderate(
+    id: string,
+    status: ModerateStatus,
+    reason: string | null,
+    actorUserId: string,
+  ) {
     const doc = await this.repo.findOne({ where: { id } });
     if (!doc) return { ok: true };
 

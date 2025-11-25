@@ -7,5 +7,6 @@ import { CallsService } from './calls.service';
   imports: [TypeOrmModule.forFeature([])],
   controllers: [CallsController],
   providers: [CallsService],
+  exports: [CallsService],
 })
 export class CallsModule {}

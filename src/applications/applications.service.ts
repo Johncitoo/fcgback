@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 @Injectable()
@@ -28,7 +32,8 @@ export class ApplicationsService {
       values.push(callId);
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     values.push(limit, offset);
 
@@ -67,10 +72,12 @@ export class ApplicationsService {
 
   async getOrCreate(userId: string, callId: string) {
     // Trae applicantId del user
-    const u = (await this.ds.query(
-      `SELECT applicant_id FROM users WHERE id = $1 LIMIT 1`,
-      [userId],
-    ))?.[0];
+    const u = (
+      await this.ds.query(
+        `SELECT applicant_id FROM users WHERE id = $1 LIMIT 1`,
+        [userId],
+      )
+    )?.[0];
     if (!u?.applicant_id) {
       throw new BadRequestException('User has no applicant profile linked');
     }
@@ -80,7 +87,12 @@ export class ApplicationsService {
       `SELECT id, status FROM applications WHERE applicant_id = $1 AND call_id = $2 LIMIT 1`,
       [u.applicant_id, callId],
     );
-    if (existing?.length) return { id: existing[0].id, status: existing[0].status, mode: 'existing' };
+    if (existing?.length)
+      return {
+        id: existing[0].id,
+        status: existing[0].status,
+        mode: 'existing',
+      };
 
     // crea
     const created = await this.ds.query(
@@ -96,20 +108,24 @@ export class ApplicationsService {
   // Obtener o crear application para la convocatoria activa (OPEN)
   async getOrCreateForActiveCall(userId: string) {
     // Buscar convocatoria activa (status = OPEN)
-    const activeCall = (await this.ds.query(
-      `SELECT id, name, year FROM calls WHERE status = 'OPEN' ORDER BY created_at DESC LIMIT 1`,
-    ))?.[0];
+    const activeCall = (
+      await this.ds.query(
+        `SELECT id, name, year FROM calls WHERE status = 'OPEN' ORDER BY created_at DESC LIMIT 1`,
+      )
+    )?.[0];
 
     if (!activeCall) {
       throw new NotFoundException('No hay convocatoria activa en este momento');
     }
 
     // Obtener applicantId del usuario
-    const u = (await this.ds.query(
-      `SELECT applicant_id FROM users WHERE id = $1 LIMIT 1`,
-      [userId],
-    ))?.[0];
-    
+    const u = (
+      await this.ds.query(
+        `SELECT applicant_id FROM users WHERE id = $1 LIMIT 1`,
+        [userId],
+      )
+    )?.[0];
+
     if (!u?.applicant_id) {
       throw new BadRequestException('User has no applicant profile linked');
     }
@@ -171,14 +187,16 @@ export class ApplicationsService {
   }
 
   async getById(userId: string, id: string) {
-    const app = (await this.ds.query(
-      `SELECT a.*
+    const app = (
+      await this.ds.query(
+        `SELECT a.*
        FROM applications a
        JOIN users u ON u.applicant_id = a.applicant_id
        WHERE a.id = $1 AND u.id = $2
        LIMIT 1`,
-      [id, userId],
-    ))?.[0];
+        [id, userId],
+      )
+    )?.[0];
     if (!app) throw new NotFoundException('Application not found');
     return app;
   }
@@ -198,7 +216,8 @@ export class ApplicationsService {
 
     if (dto.academic !== undefined) push('academic', dto.academic);
     if (dto.household !== undefined) push('household', dto.household);
-    if (dto.participation !== undefined) push('participation', dto.participation);
+    if (dto.participation !== undefined)
+      push('participation', dto.participation);
     if (dto.texts !== undefined) push('texts', dto.texts);
     if (dto.builderExtra !== undefined) push('builder_extra', dto.builderExtra);
 
@@ -214,13 +233,19 @@ export class ApplicationsService {
   async submit(userId: string, id: string) {
     // ownership + estado
     const app = await this.getById(userId, id);
-    if (app.status !== 'DRAFT' && app.status !== 'IN_REVIEW' && app.status !== 'NEEDS_FIX') {
+    if (
+      app.status !== 'DRAFT' &&
+      app.status !== 'IN_REVIEW' &&
+      app.status !== 'NEEDS_FIX'
+    ) {
       throw new BadRequestException('Invalid state to submit');
     }
 
     // Validación mínima demo: que exista academic y household
     if (!app.academic || !app.household) {
-      throw new BadRequestException('Missing required sections (academic/household)');
+      throw new BadRequestException(
+        'Missing required sections (academic/household)',
+      );
     }
 
     await this.ds.query(

@@ -1,4 +1,13 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('password_set_tokens')
 export class PasswordSetToken {
@@ -8,6 +17,10 @@ export class PasswordSetToken {
   @Column('uuid', { name: 'user_id' })
   @Index('idx_pst_user')
   userId: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
+  user?: User;
 
   @Column({ name: 'token_hash', type: 'text', unique: true })
   tokenHash: string;

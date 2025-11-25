@@ -6,7 +6,9 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class SessionsService {
-  constructor(@InjectRepository(UserSession) private repo: Repository<UserSession>) {}
+  constructor(
+    @InjectRepository(UserSession) private repo: Repository<UserSession>,
+  ) {}
 
   /** Genera un token opaco aleatorio (base64url). */
   static generateOpaqueToken(): string {
@@ -29,9 +31,14 @@ export class SessionsService {
     familyId?: string | null;
   }) {
     const refreshToken = SessionsService.generateOpaqueToken();
-    const refreshTokenHash = SessionsService.hmacRefresh(refreshToken, params.pepper);
+    const refreshTokenHash = SessionsService.hmacRefresh(
+      refreshToken,
+      params.pepper,
+    );
 
-    const expiresAt = new Date(Date.now() + params.ttlDays * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(
+      Date.now() + params.ttlDays * 24 * 60 * 60 * 1000,
+    );
     const tokenFamilyId = params.familyId ?? crypto.randomUUID();
 
     const entity = this.repo.create({
