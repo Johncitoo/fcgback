@@ -55,13 +55,16 @@ export class StorageClientController {
       throw new BadRequestException('No file provided');
     }
 
-    const metadata = await this.storageClient.upload(file, {
+    const response = await this.storageClient.upload(file, {
       category: dto.category,
       entityType: dto.entityType,
       entityId: dto.entityId,
       uploadedBy: dto.uploadedBy,
       description: dto.description,
     });
+
+    // Storage service returns {success, file}, extract the file
+    const metadata = (response as any).file || response;
 
     return {
       success: true,
