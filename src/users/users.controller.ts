@@ -96,6 +96,7 @@ export class UsersController {
       commune?: string;
       region?: string;
       institution_id?: string;
+      call_id?: string;
       password?: string;
     },
   ) {
@@ -161,6 +162,16 @@ export class UsersController {
       `UPDATE users SET applicant_id = $1 WHERE id = $2`,
       [applicantId, user.id],
     );
+
+    // Si se proporciona call_id, crear automáticamente una application
+    if (body.call_id) {
+      await this.ds.query(
+        `INSERT INTO applications (applicant_id, call_id, institution_id, status)
+         VALUES ($1, $2, $3, 'DRAFT')
+         ON CONFLICT (applicant_id, call_id) DO NOTHING`,
+        [applicantId, body.call_id, body.institution_id || null],
+      );
+    }
 
     return {
       id: user.id,
