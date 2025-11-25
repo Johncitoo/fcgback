@@ -19,18 +19,9 @@ async function bootstrap() {
     'https://fundacion-carmen-goudie.vercel.app',
   ];
 
+  // CORS abierto para todos los orígenes
   app.enableCors({
-    origin: (origin, callback) => {
-      // Permitir requests sin origin (Postman, mobile apps, etc.)
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`⚠️  CORS blocked origin: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: true, // Permite todos los orígenes
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
