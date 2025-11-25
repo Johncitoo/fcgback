@@ -37,8 +37,28 @@ export class UsersController {
         u.created_at as "createdAt",
         u.last_login_at as "lastLoginAt",
         u.is_active as "isActive",
-        u.applicant_id as "applicantId"
+        u.applicant_id as "applicantId",
+        a.rut_number as "rutNumber",
+        a.rut_dv as "rutDv",
+        a.first_name as "firstName",
+        a.last_name as "lastName",
+        a.phone,
+        a.birth_date as "birthDate",
+        a.address,
+        a.commune,
+        a.region,
+        i.name as "institutionName",
+        i.commune as "institutionCommune"
       FROM users u
+      LEFT JOIN applicants a ON a.id = u.applicant_id
+      LEFT JOIN LATERAL (
+        SELECT app.institution_id
+        FROM applications app
+        WHERE app.applicant_id = u.applicant_id
+        ORDER BY app.created_at DESC
+        LIMIT 1
+      ) latest_app ON true
+      LEFT JOIN institutions i ON i.id = latest_app.institution_id
       WHERE u.role = 'APPLICANT'
       ORDER BY u.created_at DESC
       LIMIT $1 OFFSET $2
