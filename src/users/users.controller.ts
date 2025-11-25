@@ -51,14 +51,7 @@ export class UsersController {
         i.commune as "institutionCommune"
       FROM users u
       LEFT JOIN applicants a ON a.id = u.applicant_id
-      LEFT JOIN LATERAL (
-        SELECT app.institution_id
-        FROM applications app
-        WHERE app.applicant_id = u.applicant_id
-        ORDER BY app.created_at DESC
-        LIMIT 1
-      ) latest_app ON true
-      LEFT JOIN institutions i ON i.id = latest_app.institution_id
+      LEFT JOIN institutions i ON i.id = a.institution_id
       WHERE u.role = 'APPLICANT'
       ORDER BY u.created_at DESC
       LIMIT $1 OFFSET $2
@@ -80,10 +73,23 @@ export class UsersController {
   // POST /api/applicants - Crear nuevo postulante
   @Post()
   async create(
-    @Body() body: { email: string; fullName: string; password?: string },
+    @Body() body: {
+      email: string;
+      fullName?: string;
+      first_name?: string;
+      last_name?: string;
+      rut?: string;
+      phone?: string;
+      birth_date?: string;
+      address?: string;
+      commune?: string;
+      region?: string;
+      institution_id?: string;
+      password?: string;
+    },
   ) {
-    if (!body.email || !body.fullName) {
-      throw new BadRequestException('Email and fullName are required');
+    if (!body.email) {
+      throw new BadRequestException('Email is required');
     }
 
     const existing = await this.users.findByEmail(body.email);
@@ -91,21 +97,65 @@ export class UsersController {
       throw new BadRequestException('Email already exists');
     }
 
+    // Parsear RUT si viene
+    let rutNumber: number | null = null;
+    let rutDv: string | null = null;
+    if (body.rut) {
+      const parts = body.rut.replace(/\./g, '').split('-');
+      if (parts.length === 2) {
+        rutNumber = parseInt(parts[0], 10);
+        rutDv = parts[1].toUpperCase();
+      }
+    }
+
+    // Insertar en applicants
+    const applicantResult = await this.ds.query(
+      `INSERT INTO applicants (
+        rut_number, rut_dv, first_name, last_name, email, phone,
+        birth_date, address, commune, region, institution_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id`,
+      [
+        rutNumber,
+        rutDv,
+        body.first_name || null,
+        body.last_name || null,
+        body.email,
+        body.phone || null,
+        body.birth_date || null,
+        body.address || null,
+        body.commune || null,
+        body.region || null,
+        body.institution_id || null,
+      ],
+    );
+
+    const applicantId = applicantResult[0].id;
+
     // Generar password temporal si no se provee
     const password = body.password || Math.random().toString(36).slice(-8);
     const argon2 = await import('argon2');
     const hash = await argon2.hash(password, { type: argon2.argon2id });
 
+    // Crear usuario
+    const fullName = body.fullName || `${body.first_name || ''} ${body.last_name || ''}`.trim() || body.email;
     const user = await this.users.createApplicantUser(
       body.email,
-      body.fullName,
+      fullName,
       hash,
+    );
+
+    // Actualizar applicant_id en users
+    await this.ds.query(
+      `UPDATE users SET applicant_id = $1 WHERE id = $2`,
+      [applicantId, user.id],
     );
 
     return {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
+      applicantId,
       createdAt: user.createdAt,
       temporaryPassword: body.password ? undefined : password,
     };
