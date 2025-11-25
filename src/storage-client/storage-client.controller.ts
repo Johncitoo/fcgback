@@ -13,6 +13,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import type { Response } from 'express';
 import {
   StorageClientService,
@@ -21,10 +22,23 @@ import {
 } from './storage-client.service';
 
 class UploadFileDto {
+  @IsEnum(FileCategory)
   category!: FileCategory;
+
+  @IsOptional()
+  @IsEnum(EntityType)
   entityType?: EntityType;
+
+  @IsOptional()
+  @IsString()
   entityId?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
+
+  @IsUUID()
+  uploadedBy!: string;
 }
 
 @Controller('files')
@@ -36,21 +50,16 @@ export class StorageClientController {
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadFileDto,
-    @Body('uploadedBy') uploadedBy: string,
   ) {
     if (!file) {
       throw new BadRequestException('No file provided');
-    }
-
-    if (!uploadedBy) {
-      throw new BadRequestException('uploadedBy is required');
     }
 
     const metadata = await this.storageClient.upload(file, {
       category: dto.category,
       entityType: dto.entityType,
       entityId: dto.entityId,
-      uploadedBy,
+      uploadedBy: dto.uploadedBy,
       description: dto.description,
     });
 
