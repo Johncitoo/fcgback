@@ -18,7 +18,8 @@ async function bootstrap() {
     'http://localhost:5173',
     'http://localhost:3000',
     'https://fcg-production.up.railway.app',
-    'https://fundacion-carmen-goudie.vercel.app',
+    'https://fundacioncarmesgoudie.vercel.app',
+    'https://fcgfront.vercel.app',
   ];
 
   // CORS abierto para todos los orígenes
@@ -28,6 +29,8 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
     exposedHeaders: ['X-Total-Count'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
   // Validación global
