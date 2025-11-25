@@ -91,12 +91,21 @@ export class StorageClientService {
       formData.append('description', options.description);
 
     try {
+      this.logger.debug(`Uploading file to storage: ${file.originalname}`);
+      this.logger.debug(`Storage URL: ${this.client.defaults.baseURL}/storage/upload`);
+      
       const response = await this.client.post('/storage/upload', formData, {
         headers: formData.getHeaders(),
       });
+      
+      this.logger.log(`File uploaded successfully: ${response.data.id}`);
       return response.data;
     } catch (error: any) {
       this.logger.error(`Upload failed: ${error.message}`);
+      if (error.response) {
+        this.logger.error(`Response status: ${error.response.status}`);
+        this.logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
+      }
       throw error;
     }
   }
