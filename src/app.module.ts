@@ -22,6 +22,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 import { InvitesModule } from './invites/invites.module';
+import { InstitutionsModule } from './institutions/institutions.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { InvitesModule } from './invites/invites.module';
     DocumentsModule,
     EmailModule,
     InvitesModule,
+    InstitutionsModule,
   ],
   controllers: [AppController],
   providers: [
