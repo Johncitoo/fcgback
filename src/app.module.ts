@@ -17,7 +17,6 @@ import { CallsModule } from './calls/calls.module';
 
 import { DocumentsModule } from './documents/documents.module';
 import { EmailModule } from './email/email.module';
-import { MigrationsModule } from './migrations/migrations.module';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -90,7 +89,6 @@ import { InstitutionsModule } from './institutions/institutions.module';
     EmailModule,
     InvitesModule,
     InstitutionsModule,
-    MigrationsModule,
   ],
   controllers: [AppController],
   providers: [
