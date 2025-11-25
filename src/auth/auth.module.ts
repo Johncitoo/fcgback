@@ -14,12 +14,15 @@ import { JwtAuthGuard } from './jwt-auth.guard';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('AUTH_JWT_SECRET'),
-        signOptions: {
-          expiresIn: config.get<string>('AUTH_JWT_EXPIRES', '900s'),
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const expiresIn = config.get<string>('AUTH_JWT_EXPIRES', '900s');
+        return {
+          secret: config.get<string>('AUTH_JWT_SECRET'),
+          signOptions: {
+            expiresIn: expiresIn as any, // Cast para compatibilidad con versiones de @nestjs/jwt
+          },
+        };
+      },
     }),
     UsersModule,
     SessionsModule,
