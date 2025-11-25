@@ -51,13 +51,19 @@ export class StorageClientService {
   private readonly apiKey: string;
 
   constructor(private readonly config: ConfigService) {
-    const baseURL = this.config.get<string>('STORAGE_SERVICE_URL');
+    let baseURL = this.config.get<string>('STORAGE_SERVICE_URL');
     this.apiKey = this.config.get<string>('STORAGE_SERVICE_API_KEY')!;
 
     if (!baseURL || !this.apiKey) {
       throw new Error(
         'STORAGE_SERVICE_URL and STORAGE_SERVICE_API_KEY must be configured',
       );
+    }
+
+    // Ensure URL has protocol
+    if (!baseURL.startsWith('http://') && !baseURL.startsWith('https://')) {
+      baseURL = `https://${baseURL}`;
+      this.logger.warn(`Added https:// protocol to STORAGE_SERVICE_URL: ${baseURL}`);
     }
 
     this.client = axios.create({
