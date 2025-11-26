@@ -114,6 +114,11 @@ export class OnboardingService {
       if (invite.expiresAt && invite.expiresAt < new Date()) {
         throw new BadRequestException('El código ha expirado');
       }
+
+      // NUEVO: Verificar que el código NO haya sido usado
+      if (invite.usedAt || invite.usedByApplicant) {
+        throw new BadRequestException('Este código ya ha sido utilizado. Si necesitas acceso nuevamente, contacta con el administrador para obtener un nuevo código.');
+      }
       
       // Si el email viene vacío o es temporal, intentar obtenerlo del meta del invite
       let finalEmail = email;
@@ -127,37 +132,12 @@ export class OnboardingService {
         }
       }
 
-      // Si ya tiene un applicant vinculado, permitir reingreso (código no quemado hasta completar)
+      // Crear nuevo applicant y usuario (código validado como no usado)
       let applicantId: string;
       let user: User;
-      let isNewUser = false;
+      const isNewUser = true;
 
-      if (invite.usedByApplicant) {
-        // Ya existe applicant, buscar usuario
-        const existingUser = await queryRunner.manager.query(
-          'SELECT * FROM users WHERE applicant_id = $1 LIMIT 1',
-          [invite.usedByApplicant],
-        );
-        
-        if (!existingUser || existingUser.length === 0) {
-          throw new NotFoundException('Usuario no encontrado para este applicant');
-        }
-
-        user = existingUser[0];
-        applicantId = invite.usedByApplicant;
-
-        // Actualizar email si es temporal
-        if (user.email.includes('@pending.local')) {
-          await queryRunner.manager.query(
-            'UPDATE users SET email = $1 WHERE id = $2',
-            [finalEmail, user.id],
-          );
-          user.email = finalEmail;
-        }
-
-        this.logger.log(`Usuario existente reutilizado: ${user.id}`);
-      } else {
-        // Crear nuevo applicant con email real
+      // Crear nuevo applicant con email real
         // Generar RUT temporal único usando timestamp + random
         const timestamp = Date.now().toString().slice(-8);
         const random = Math.floor(Math.random() * 1000);
@@ -195,7 +175,6 @@ export class OnboardingService {
         );
 
         user = userResult[0];
-        isNewUser = true;
 
         // Vincular invitación con applicant y marcar como usado
         // (el constraint requiere que both used_by_applicant y used_at sean NULL o ambos tengan valor)
@@ -205,28 +184,16 @@ export class OnboardingService {
         );
 
         this.logger.log(`Nuevo usuario creado: ${user.id} para applicant: ${applicantId}`);
-      }
 
-      // Crear o recuperar application (siempre en DRAFT hasta completar)
-      let applicationId: string;
-      const existingApp = await queryRunner.manager.query(
-        'SELECT id, status FROM applications WHERE applicant_id = $1 AND call_id = $2 LIMIT 1',
-        [applicantId, invite.callId],
+      // Crear application en DRAFT
+      const appResult = await queryRunner.manager.query(
+        `INSERT INTO applications (applicant_id, call_id, status)
+         VALUES ($1, $2, $3)
+         RETURNING id`,
+        [applicantId, invite.callId, 'DRAFT'],
       );
-
-      if (existingApp && existingApp.length > 0) {
-        applicationId = existingApp[0].id;
-        this.logger.log(`Application existente recuperada: ${applicationId}`);
-      } else {
-        const appResult = await queryRunner.manager.query(
-          `INSERT INTO applications (applicant_id, call_id, status)
-           VALUES ($1, $2, $3)
-           RETURNING id`,
-          [applicantId, invite.callId, 'DRAFT'],
-        );
-        applicationId = appResult[0].id;
-        this.logger.log(`Nueva application creada: ${applicationId}`);
-      }
+      const applicationId = appResult[0].id;
+      this.logger.log(`Nueva application creada: ${applicationId}`);
 
       // Generar token para establecer contraseña
       const token = randomBytes(32).toString('hex');
