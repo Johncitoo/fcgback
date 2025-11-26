@@ -132,12 +132,31 @@ export class OnboardingService {
         }
       }
 
-      // Crear nuevo applicant y usuario (código validado como no usado)
+      // Verificar si ya existe usuario con este email (puede ser de código anterior)
+      const existingUserCheck = await queryRunner.manager.query(
+        'SELECT u.id, u.applicant_id, a.id as applicant_exists FROM users u LEFT JOIN applicants a ON a.id = u.applicant_id WHERE u.email = $1 AND u.role = $2',
+        [finalEmail, 'APPLICANT'],
+      );
+
       let applicantId: string;
       let user: User;
-      const isNewUser = true;
+      let isNewUser = false;
 
-      // Crear nuevo applicant con email real
+      if (existingUserCheck && existingUserCheck.length > 0) {
+        // Usuario ya existe - reutilizar
+        const existingUser = existingUserCheck[0];
+        user = existingUser;
+        applicantId = existingUser.applicant_id;
+        
+        if (!applicantId || !existingUser.applicant_exists) {
+          throw new BadRequestException('Usuario existe pero no tiene applicant asociado. Contacta soporte.');
+        }
+
+        this.logger.log(`Reutilizando usuario existente: ${user.id}, applicant: ${applicantId}`);
+      } else {
+        // Crear nuevo applicant y usuario
+        isNewUser = true;
+
         // Generar RUT temporal único usando timestamp + random
         const timestamp = Date.now().toString().slice(-8);
         const random = Math.floor(Math.random() * 1000);
@@ -175,15 +194,15 @@ export class OnboardingService {
         );
 
         user = userResult[0];
-
-        // Vincular invitación con applicant y marcar como usado
-        // (el constraint requiere que both used_by_applicant y used_at sean NULL o ambos tengan valor)
-        await queryRunner.manager.query(
-          'UPDATE invites SET used_by_applicant = $1, used_at = NOW() WHERE id = $2',
-          [applicantId, invite.id],
-        );
-
         this.logger.log(`Nuevo usuario creado: ${user.id} para applicant: ${applicantId}`);
+      }
+
+      // Vincular invitación con applicant y marcar como usado
+      // (el constraint requiere que both used_by_applicant y used_at sean NULL o ambos tengan valor)
+      await queryRunner.manager.query(
+        'UPDATE invites SET used_by_applicant = $1, used_at = NOW() WHERE id = $2',
+        [applicantId, invite.id],
+      );
 
       // Crear application en DRAFT
       const appResult = await queryRunner.manager.query(
