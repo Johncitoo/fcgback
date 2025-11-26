@@ -7,15 +7,24 @@ import {
   Patch,
   Query,
   BadRequestException,
+  Req,
+  UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { DataSource } from 'typeorm';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('applicants')
 export class UsersController {
+  private readonly logger = new Logger(UsersController.name);
+
   constructor(
     private users: UsersService,
     private ds: DataSource,
+    private jwt: JwtService,
+    private cfg: ConfigService,
   ) {}
 
   // GET /api/applicants - Lista de postulantes con paginación
@@ -79,6 +88,75 @@ export class UsersController {
     }
 
     return { data, total, limit: limitNum, offset: offsetNum };
+  }
+
+  // GET /api/applicants/me - Obtener perfil del postulante autenticado
+  @Get('me')
+  async getMe(@Req() req: any) {
+    try {
+      this.logger.log('GET /applicants/me - Iniciando...');
+      
+      // Extraer y verificar JWT
+      const hdr = req.headers?.authorization ?? '';
+      const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
+      if (!token) {
+        this.logger.warn('No bearer token provided');
+        throw new UnauthorizedException('Missing bearer token');
+      }
+
+      const secret = this.cfg.get<string>('AUTH_JWT_SECRET');
+      if (!secret) {
+        this.logger.error('AUTH_JWT_SECRET not configured');
+        throw new Error('JWT secret not configured');
+      }
+
+      const user = this.jwt.verify(token, {
+        secret,
+        ignoreExpiration: false,
+      }) as { sub: string; role: string; typ: string };
+      
+      this.logger.log(`Usuario autenticado: ${user.sub}, role: ${user.role}`);
+      
+      if (user.role !== 'APPLICANT') {
+        this.logger.warn(`Usuario no es APPLICANT: ${user.role}`);
+        throw new UnauthorizedException('Applicant access required');
+      }
+
+      // Buscar el applicant_id del usuario
+      this.logger.log(`Buscando applicant_id para user: ${user.sub}`);
+      const userResult = await this.ds.query(
+        'SELECT applicant_id FROM users WHERE id = $1',
+        [user.sub],
+      );
+
+      if (!userResult || userResult.length === 0 || !userResult[0].applicant_id) {
+        this.logger.error(`No se encontró applicant_id para user: ${user.sub}`);
+        throw new UnauthorizedException('Applicant not found');
+      }
+
+      const applicantId = userResult[0].applicant_id;
+      this.logger.log(`applicant_id encontrado: ${applicantId}`);
+
+      // Obtener datos del applicant
+      const applicantResult = await this.ds.query(
+        `SELECT id, email, first_name, last_name, phone, rut_number, rut_dv, 
+                birth_date, address, commune, region, institution_id
+         FROM applicants 
+         WHERE id = $1`,
+        [applicantId],
+      );
+
+      if (!applicantResult || applicantResult.length === 0) {
+        this.logger.error(`No se encontró applicant con id: ${applicantId}`);
+        throw new UnauthorizedException('Applicant profile not found');
+      }
+
+      this.logger.log('✅ Applicant encontrado, retornando datos');
+      return applicantResult[0];
+    } catch (error: any) {
+      this.logger.error(`Error en GET /applicants/me: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // POST /api/applicants - Crear nuevo postulante

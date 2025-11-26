@@ -27,7 +27,6 @@ import { StorageClientModule } from './storage-client/storage-client.module';
 import { FormsModule } from './forms/forms.module';
 import { MilestonesModule } from './milestones/milestones.module';
 import { FormSubmissionsModule } from './form-submissions/form-submissions.module';
-import { ApplicantsModule } from './applicants/applicants.module';
 
 @Module({
   imports: [
@@ -98,7 +97,6 @@ import { ApplicantsModule } from './applicants/applicants.module';
     FormsModule,
     MilestonesModule,
     FormSubmissionsModule,
-    ApplicantsModule,
   ],
   controllers: [AppController],
   providers: [
