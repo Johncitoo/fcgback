@@ -11,12 +11,31 @@ export class FormsService {
   ) {}
 
   async create(data: {
-    name: string;
+    name?: string;
+    title?: string;
     description?: string;
     isTemplate?: boolean;
     parentFormId?: string;
+    schema?: any;
+    sections?: any[];
   }): Promise<Form> {
-    const form = this.formsRepo.create(data);
+    // Mapear title → name si viene title
+    const formData: any = {
+      name: data.name || data.title || 'Formulario sin título',
+      description: data.description,
+      isTemplate: data.isTemplate,
+      parentFormId: data.parentFormId,
+    };
+
+    // Si viene sections, guardarlo en schema
+    if (data.sections && Array.isArray(data.sections)) {
+      formData.schema = { sections: data.sections };
+    } else if (data.schema) {
+      formData.schema = data.schema;
+    }
+
+    const form = this.formsRepo.create(formData);
+    // @ts-ignore
     return this.formsRepo.save(form);
   }
 

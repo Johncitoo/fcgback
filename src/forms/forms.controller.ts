@@ -6,7 +6,14 @@ export class FormsController {
   constructor(private formsService: FormsService) {}
 
   @Post()
-  create(@Body() data: { name: string; description?: string; isTemplate?: boolean }) {
+  create(@Body() data: { 
+    name?: string;
+    title?: string;
+    description?: string;
+    isTemplate?: boolean;
+    schema?: any;
+    sections?: any[];
+  }) {
     return this.formsService.create(data);
   }
 
