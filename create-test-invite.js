@@ -22,8 +22,24 @@ async function createTestInvite() {
     await client.connect();
     console.log('✅ Conectado a Railway PostgreSQL\n');
 
-    // ID de convocatoria activa
-    const callId = '5e33c8ee-52a7-4736-89a4-043845ea7f1a';
+    // Obtener la convocatoria activa
+    const activeCallResult = await client.query(`
+      SELECT id, name, year
+      FROM calls 
+      WHERE is_active = true 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `);
+
+    if (activeCallResult.rows.length === 0) {
+      console.log('❌ No hay convocatorias activas');
+      return;
+    }
+
+    const activeCall = activeCallResult.rows[0];
+    console.log(`📋 Convocatoria activa encontrada: ${activeCall.name} (${activeCall.year})\n`);
+
+    const callId = activeCall.id;
     const code = generateCode();
     const codeHash = await hashInviteCode(code);
     
@@ -43,11 +59,12 @@ async function createTestInvite() {
     console.log(`📧 Email sugerido: postulante.prueba@test.cl`);
     console.log(`🎫 Código:         ${code}`);
     console.log(`📅 Expira:         ${expiresAt.toLocaleDateString()}`);
-    console.log(`🎯 Convocatoria:   Becas FCG 2026`);
+    console.log(`🎯 Convocatoria:   ${activeCall.name} (${activeCall.year})`);
+    console.log(`🆔 Call ID:        ${activeCall.id}`);
     console.log(`🆔 Invite ID:      ${result.rows[0].id}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('\n✨ Usa estos datos para probar el flujo completo:\n');
-    console.log('1. Ir a http://localhost:5173/#/enter-invite-code');
+    console.log('1. Ir a https://fcgfront.vercel.app/#/login');
     console.log(`2. Ingresar email: postulante.prueba@test.cl`);
     console.log(`3. Ingresar código: ${code}\n`);
 
