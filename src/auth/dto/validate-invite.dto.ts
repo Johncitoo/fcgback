@@ -5,8 +5,8 @@ export class ValidateInviteDto {
   @IsNotEmpty()
   code: string;
 
-  @IsEmail()
-  @IsOptional() // Email es opcional - se puede obtener del invite
+  @IsOptional() // DEBE IR PRIMERO - Email es opcional
+  @IsEmail() // Solo valida si el email está presente
   email?: string;
 }
 
