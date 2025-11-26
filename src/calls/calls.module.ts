@@ -3,9 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CallsController } from './calls.controller';
 import { CallsService } from './calls.service';
 import { Call, FormSection, FormField } from './entities';
+import { Form } from '../forms/entities/form.entity';
+import { Milestone } from '../milestones/entities/milestone.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Call, FormSection, FormField])],
+  imports: [TypeOrmModule.forFeature([Call, FormSection, FormField, Form, Milestone])],
   controllers: [CallsController],
   providers: [CallsService],
   exports: [CallsService],

@@ -4,9 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import { Call, FormSection, FormField } from './entities';
 import { CallStatus } from './entities/call.entity';
+import { Form } from '../forms/entities/form.entity';
+import { Milestone } from '../milestones/entities/milestone.entity';
 
 @Injectable()
 export class CallsService {
@@ -17,6 +19,10 @@ export class CallsService {
     private sectionRepo: Repository<FormSection>,
     @InjectRepository(FormField)
     private fieldRepo: Repository<FormField>,
+    @InjectRepository(Form)
+    private formRepo: Repository<Form>,
+    @InjectRepository(Milestone)
+    private milestoneRepo: Repository<Milestone>,
   ) {}
 
   async listCalls(params: {
@@ -140,6 +146,36 @@ export class CallsService {
 
     if (!call) throw new NotFoundException('Call not found');
 
+    // PRIORIDAD: Buscar formulario nuevo a través de milestones
+    const milestone = await this.milestoneRepo.findOne({
+      where: { callId, formId: Not(IsNull()) },
+      order: { orderIndex: 'ASC' },
+    });
+
+    if (milestone?.formId) {
+      const form = await this.formRepo.findOne({
+        where: { id: milestone.formId },
+      });
+
+      if (form) {
+        // El Form Builder guarda el schema en formato JSON stringificado
+        // Necesitamos parsearlo
+        const schema = typeof form === 'object' && 'schema' in form 
+          ? (form as any).schema 
+          : null;
+
+        if (schema && schema.sections) {
+          return {
+            id: call.id,
+            title: form.name || call.name,
+            year: call.year,
+            sections: schema.sections,
+          };
+        }
+      }
+    }
+
+    // FALLBACK: Formulario viejo (form_sections + form_fields)
     const sections = await this.sectionRepo.find({
       where: { callId },
       order: { order: 'ASC' },
