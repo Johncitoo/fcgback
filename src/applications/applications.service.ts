@@ -140,7 +140,6 @@ export class ApplicationsService {
         a.id,
         a.status,
         a.submitted_at,
-        a.notes,
         c.id as "callId",
         c.name as "callName",
         c.year as "callYear"
