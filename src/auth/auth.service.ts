@@ -194,6 +194,60 @@ export class AuthService {
     return { ok: true };
   }
 
+  // ===== Login normal para postulantes (email + password) =====
+
+  async loginApplicant(email: string, password: string, ip?: string, ua?: string) {
+    const user = await this.users.findByEmail(email);
+    if (!user) throw new UnauthorizedException('Credenciales inválidas');
+
+    // Verificar que sea postulante
+    if (user.role !== 'APPLICANT') {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    if (!user.isActive) {
+      throw new ForbiddenException('Usuario inactivo');
+    }
+
+    // Verificar contraseña
+    const ok = await argon2.verify(user.passwordHash, password);
+    if (!ok) throw new UnauthorizedException('Credenciales inválidas');
+
+    // Generar tokens
+    const accessToken = this.signAccessToken(user);
+
+    const ttlDays = Number(this.cfg.get('REFRESH_TOKEN_TTL_DAYS') ?? 15);
+    const pepper = this.cfg.get<string>('REFRESH_TOKEN_PEPPER') ?? '';
+    if (!pepper) throw new Error('REFRESH_TOKEN_PEPPER not set');
+
+    const { session, refreshToken } = await this.sessions.createSession({
+      userId: user.id,
+      userAgent: ua,
+      ip,
+      ttlDays,
+      pepper,
+    });
+
+    await this.users.setLastLogin(user.id);
+
+    // Auditoría
+    this.auditService
+      .logLogin(user.id, user.role, ip)
+      .catch(() => {}); // No bloqueante
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+      },
+      accessToken,
+      refreshToken,
+      refresh: { sessionId: session.id, expiresAt: session.expiresAt },
+    };
+  }
+
   // ===== Login con código de invitación (LEGACY - usar /onboarding/validate-invite) =====
 
   async validateInviteCode(code: string, email?: string, ip?: string, ua?: string) {

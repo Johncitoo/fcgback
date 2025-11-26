@@ -40,6 +40,18 @@ export class AuthController {
     return this.auth.validateInviteCode(dto.code, dto.email, ip, ua);
   }
 
+  // Login normal para postulantes (email + password)
+  @Post('login')
+  @HttpCode(200)
+  async loginApplicant(
+    @Body() dto: { email: string; password: string },
+    @Req() req: any,
+  ) {
+    const ip = req.ip;
+    const ua = req.headers?.['user-agent'];
+    return this.auth.loginApplicant(dto.email, dto.password, ip, ua);
+  }
+
   // ====== SOLO DEV / SEMILLA (protegido por env) ======
   @Post('dev/seed-staff')
   @HttpCode(200)
