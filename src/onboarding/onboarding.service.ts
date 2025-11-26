@@ -197,9 +197,10 @@ export class OnboardingService {
         user = userResult[0];
         isNewUser = true;
 
-        // Vincular invitación con applicant (pero NO marcar como usado aún)
+        // Vincular invitación con applicant y marcar como usado
+        // (el constraint requiere que both used_by_applicant y used_at sean NULL o ambos tengan valor)
         await queryRunner.manager.query(
-          'UPDATE invites SET used_by_applicant = $1 WHERE id = $2',
+          'UPDATE invites SET used_by_applicant = $1, used_at = NOW() WHERE id = $2',
           [applicantId, invite.id],
         );
 
