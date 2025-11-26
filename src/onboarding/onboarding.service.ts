@@ -114,6 +114,18 @@ export class OnboardingService {
       if (invite.expiresAt && invite.expiresAt < new Date()) {
         throw new BadRequestException('El código ha expirado');
       }
+      
+      // Si el email viene vacío o es temporal, intentar obtenerlo del meta del invite
+      let finalEmail = email;
+      if (!email || email === 'temp@placeholder.com' || email.includes('@pending.local')) {
+        const metaEmail = invite.meta?.testEmail || invite.meta?.email;
+        if (metaEmail) {
+          finalEmail = metaEmail;
+          this.logger.log(`Email obtenido del meta del invite: ${finalEmail}`);
+        } else if (!email) {
+          throw new BadRequestException('El código no tiene email asociado. Por favor proporciona tu email.');
+        }
+      }
 
       // Si ya tiene un applicant vinculado, permitir reingreso (código no quemado hasta completar)
       let applicantId: string;
@@ -138,9 +150,9 @@ export class OnboardingService {
         if (user.email.includes('@pending.local')) {
           await queryRunner.manager.query(
             'UPDATE users SET email = $1 WHERE id = $2',
-            [email, user.id],
+            [finalEmail, user.id],
           );
-          user.email = email;
+          user.email = finalEmail;
         }
 
         this.logger.log(`Usuario existente reutilizado: ${user.id}`);
@@ -166,7 +178,7 @@ export class OnboardingService {
           `INSERT INTO applicants (rut_number, rut_dv, first_name, last_name, email)
            VALUES ($1, $2, $3, $4, $5)
            RETURNING id`,
-          [tempRut, dv, 'Postulante', 'Pendiente', email],
+          [tempRut, dv, 'Postulante', 'Pendiente', finalEmail],
         );
 
         applicantId = applicantResult[0].id;
@@ -179,7 +191,7 @@ export class OnboardingService {
           `INSERT INTO users (email, full_name, password_hash, role, is_active, applicant_id)
            VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING *`,
-          [email, `Postulante ${code}`, passwordHash, 'APPLICANT', true, applicantId],
+          [finalEmail, `Postulante ${code}`, passwordHash, 'APPLICANT', true, applicantId],
         );
 
         user = userResult[0];
@@ -235,7 +247,7 @@ export class OnboardingService {
 
       // Enviar email con token (no bloqueante)
       this.emailService
-        .sendPasswordSetEmail(email, token, user.fullName)
+        .sendPasswordSetEmail(finalEmail, token, user.fullName)
         .catch((err) => this.logger.error(`Error enviando email: ${err}`));
 
       return { 

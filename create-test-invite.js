@@ -1,6 +1,6 @@
 // Script para crear código de invitación de prueba
 const { Client } = require('pg');
-const { createHmac } = require('crypto');
+const argon2 = require('argon2');
 
 const client = new Client({
   connectionString: 'postgresql://postgres:LVMTmEztSWRfFHuJoBLRkLUUiVAByPuv@tramway.proxy.rlwy.net:30026/railway'
@@ -11,13 +11,10 @@ function generateCode() {
   return 'TEST-' + Math.random().toString(36).substring(2, 10).toUpperCase();
 }
 
-// Hashear código (mismo método que backend)
-function hashInviteCode(rawCode) {
-  const INVITE_CODE_PEPPER = 'change-me'; // Default del backend
+// Hashear código usando argon2 (mismo método que backend)
+async function hashInviteCode(rawCode) {
   const normalized = rawCode.trim().toUpperCase();
-  return createHmac('sha256', INVITE_CODE_PEPPER)
-    .update(normalized)
-    .digest('hex');
+  return await argon2.hash(normalized);
 }
 
 async function createTestInvite() {
@@ -28,7 +25,7 @@ async function createTestInvite() {
     // ID de convocatoria activa
     const callId = '5e33c8ee-52a7-4736-89a4-043845ea7f1a';
     const code = generateCode();
-    const codeHash = hashInviteCode(code);
+    const codeHash = await hashInviteCode(code);
     
     // Fecha de expiración: 30 días desde ahora
     const expiresAt = new Date();
