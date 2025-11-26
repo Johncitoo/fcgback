@@ -211,15 +211,26 @@ export class OnboardingService {
         [applicantId, invite.id],
       );
 
-      // Crear application en DRAFT
-      const appResult = await queryRunner.manager.query(
-        `INSERT INTO applications (applicant_id, call_id, status)
-         VALUES ($1, $2, $3)
-         RETURNING id`,
-        [applicantId, invite.callId, 'DRAFT'],
+      // Crear o recuperar application para esta convocatoria
+      let applicationId: string;
+      const existingApp = await queryRunner.manager.query(
+        'SELECT id FROM applications WHERE applicant_id = $1 AND call_id = $2 LIMIT 1',
+        [applicantId, invite.callId],
       );
-      const applicationId = appResult[0].id;
-      this.logger.log(`Nueva application creada: ${applicationId}`);
+
+      if (existingApp && existingApp.length > 0) {
+        applicationId = existingApp[0].id;
+        this.logger.log(`Application existente recuperada: ${applicationId}`);
+      } else {
+        const appResult = await queryRunner.manager.query(
+          `INSERT INTO applications (applicant_id, call_id, status)
+           VALUES ($1, $2, $3)
+           RETURNING id`,
+          [applicantId, invite.callId, 'DRAFT'],
+        );
+        applicationId = appResult[0].id;
+        this.logger.log(`Nueva application creada: ${applicationId}`);
+      }
 
       // Generar token para establecer contraseña
       const token = randomBytes(32).toString('hex');
