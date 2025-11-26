@@ -196,9 +196,26 @@ export class AuthService {
 
   // ===== Login con código de invitación (LEGACY - usar /onboarding/validate-invite) =====
 
-  async validateInviteCode(code: string, email: string, ip?: string, ua?: string) {
+  async validateInviteCode(code: string, email?: string, ip?: string, ua?: string) {
+    // Si no viene email, buscar el invite primero para obtener email del meta
+    let finalEmail = email;
+    
+    if (!finalEmail) {
+      const invite = await this.onboarding.findInviteByCode(code);
+      if (!invite) {
+        throw new NotFoundException('Código de invitación no encontrado');
+      }
+      
+      // Intentar obtener email del meta
+      finalEmail = invite.meta?.testEmail || invite.meta?.email;
+      
+      if (!finalEmail) {
+        throw new BadRequestException('El código no tiene email asociado. Por favor proporciona tu email.');
+      }
+    }
+    
     // Validar el código y obtener/crear usuario
-    const { user } = await this.onboarding.validateInviteCode(code, email);
+    const { user } = await this.onboarding.validateInviteCode(code, finalEmail);
 
     // Generar tokens
     const accessToken = this.signAccessToken(user);

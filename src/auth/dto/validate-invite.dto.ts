@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsEmail } from 'class-validator';
+import { IsNotEmpty, IsString, IsEmail, IsOptional } from 'class-validator';
 
 export class ValidateInviteDto {
   @IsString()
@@ -6,8 +6,8 @@ export class ValidateInviteDto {
   code: string;
 
   @IsEmail()
-  @IsNotEmpty()
-  email: string;
+  @IsOptional() // Email es opcional - se puede obtener del invite
+  email?: string;
 }
 
 export class ValidateInviteResponseDto {
