@@ -145,12 +145,19 @@ export class OnboardingService {
       if (existingUserCheck && existingUserCheck.length > 0) {
         // Usuario ya existe - reutilizar
         const existingUser = existingUserCheck[0];
-        user = existingUser;
         applicantId = existingUser.applicant_id;
         
         if (!applicantId || !existingUser.applicant_exists) {
           throw new BadRequestException('Usuario existe pero no tiene applicant asociado. Contacta soporte.');
         }
+
+        // Crear objeto User desde el resultado de la query
+        user = {
+          id: existingUser.id,
+          email: finalEmail,
+          role: 'APPLICANT',
+          applicantId: applicantId,
+        } as User;
 
         this.logger.log(`Reutilizando usuario existente: ${user.id}, applicant: ${applicantId}`);
       } else {
