@@ -108,4 +108,26 @@ export class ApplicationsController {
       throw new BadRequestException('Applicant only');
     return this.apps.completeInvite(user.sub, id);
   }
+
+  // GET /api/applications/:id/answers - Obtener respuestas guardadas del formulario
+  @Get(':id/answers')
+  async getAnswers(@Req() req: any, @Param('id') id: string) {
+    const user = this.getUserFromAuth(req);
+    if (user.role !== 'APPLICANT')
+      throw new BadRequestException('Applicant only');
+    return this.apps.getAnswers(user.sub, id);
+  }
+
+  // PUT /api/applications/:id/answers - Guardar respuestas del formulario (borrador)
+  @Patch(':id/answers')
+  async saveAnswers(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() answers: any,
+  ) {
+    const user = this.getUserFromAuth(req);
+    if (user.role !== 'APPLICANT')
+      throw new BadRequestException('Applicant only');
+    return this.apps.saveAnswers(user.sub, id, answers);
+  }
 }

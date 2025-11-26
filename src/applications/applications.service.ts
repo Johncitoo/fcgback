@@ -191,7 +191,14 @@ export class ApplicationsService {
   async getById(userId: string, id: string) {
     const app = (
       await this.ds.query(
-        `SELECT a.*
+        `SELECT 
+          a.id,
+          a.applicant_id as "applicantId",
+          a.call_id as "callId",
+          a.status,
+          a.created_at as "createdAt",
+          a.updated_at as "updatedAt",
+          a.submitted_at as "submittedAt"
        FROM applications a
        JOIN users u ON u.applicant_id = a.applicant_id
        WHERE a.id = $1 AND u.id = $2
@@ -301,5 +308,56 @@ export class ApplicationsService {
     }
 
     return { ok: true };
+  }
+
+  /**
+   * GET /api/applications/:id/answers
+   * Devuelve las respuestas guardadas del formulario
+   */
+  async getAnswers(userId: string, applicationId: string) {
+    // Verificar ownership
+    const app = await this.getById(userId, applicationId);
+
+    // Por ahora, devolvemos las columnas JSON que ya están en applications
+    return {
+      academic: app.academic || {},
+      household: app.household || {},
+      participation: app.participation || {},
+      texts: app.texts || {},
+      builderExtra: app.builderExtra || {},
+    };
+  }
+
+  /**
+   * PATCH /api/applications/:id/answers
+   * Guarda las respuestas del formulario (borrador)
+   */
+  async saveAnswers(userId: string, applicationId: string, answers: any) {
+    // Verificar ownership
+    await this.getById(userId, applicationId);
+
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    const push = (col: string, val: any) => {
+      fields.push(`${col} = $${idx++}`);
+      values.push(val);
+    };
+
+    // Guardar cada sección como JSON
+    if (answers.academic !== undefined) push('academic', JSON.stringify(answers.academic));
+    if (answers.household !== undefined) push('household', JSON.stringify(answers.household));
+    if (answers.participation !== undefined) push('participation', JSON.stringify(answers.participation));
+    if (answers.texts !== undefined) push('texts', JSON.stringify(answers.texts));
+    if (answers.builderExtra !== undefined) push('builder_extra', JSON.stringify(answers.builderExtra));
+
+    if (!fields.length) return { ok: true, updated: false };
+
+    const sql = `UPDATE applications SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${idx}`;
+    values.push(applicationId);
+
+    await this.ds.query(sql, values);
+    return { ok: true, updated: true };
   }
 }
