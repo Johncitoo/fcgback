@@ -66,8 +66,8 @@ export class EmailService {
   }
 
   async sendPasswordSetEmail(email: string, token: string, applicantName?: string): Promise<boolean> {
-    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
-    const setPasswordUrl = `${baseUrl}/set-password?token=${token}`;
+    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
+    const setPasswordUrl = `${baseUrl}/#/set-password?token=${token}`;
 
     const subject = 'Establece tu contraseña - Fundación Carmen Goudie';
     
@@ -125,8 +125,8 @@ export class EmailService {
   }
 
   async sendInitialInviteEmail(email: string, code: string, callName?: string, fullName?: string): Promise<boolean> {
-    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
-    const applyUrl = `${baseUrl}/apply`;
+    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
+    const applyUrl = `${baseUrl}/#/login`;
     
     const subject = 'Invitación para postular - Fundación Carmen Goudie';
     
