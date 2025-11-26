@@ -65,11 +65,19 @@ export class OnboardingService {
     code: string,
     ttlDays?: number,
     institutionId?: string,
+    firstName?: string,
+    lastName?: string,
   ): Promise<Invite> {
     const codeHash = await hash(code.toUpperCase());
     
     const ttl = ttlDays || 30;
     const expiresAt = new Date(Date.now() + ttl * 24 * 60 * 60 * 1000);
+
+    // Guardar firstName y lastName en meta si se proporcionan
+    const meta = (firstName || lastName) ? {
+      firstName,
+      lastName,
+    } : null;
 
     const invite = this.inviteRepo.create({
       callId,
@@ -78,7 +86,7 @@ export class OnboardingService {
       institutionId: institutionId || null,
       usedByApplicant: null,
       usedAt: null,
-      meta: null,
+      meta,
       createdByUserId: null,
     });
 
@@ -467,6 +475,8 @@ export class OnboardingService {
     inviteId: string,
     email: string,
     plainCode: string,
+    firstName?: string,
+    lastName?: string,
   ): Promise<void> {
     const invite = await this.inviteRepo.findOne({
       where: { id: inviteId },
@@ -488,8 +498,9 @@ export class OnboardingService {
       this.logger.warn(`No se pudo obtener nombre de convocatoria: ${err}`);
     }
 
-    await this.emailService.sendInitialInviteEmail(email, plainCode, callName);
-    this.logger.log(`Email de invitación inicial enviado a: ${email}`);
+    const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'Postulante';
+    await this.emailService.sendInitialInviteEmail(email, plainCode, callName, fullName);
+    this.logger.log(`Email de invitación inicial enviado a: ${email} (${fullName})`);
   }
 
   /**

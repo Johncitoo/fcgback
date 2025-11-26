@@ -78,22 +78,29 @@ export class InvitesController {
     @Body()
     body: {
       callId: string;
-      code: string;
+      code?: string;
       ttlDays?: number;
       institutionId?: string;
       email?: string;
+      firstName?: string;
+      lastName?: string;
       sendEmail?: boolean;
     },
   ) {
-    if (!body.callId || !body.code) {
-      throw new BadRequestException('callId and code are required');
+    if (!body.callId) {
+      throw new BadRequestException('callId is required');
     }
+
+    // Si no se proporciona código, generar uno automáticamente
+    const code = body.code || this.generateInviteCode();
 
     const invite = await this.onboarding.devCreateInvite(
       body.callId,
-      body.code,
+      code,
       body.ttlDays,
       body.institutionId,
+      body.firstName,
+      body.lastName,
     );
 
     // Si se proporciona email y sendEmail=true, enviar invitación
@@ -101,11 +108,22 @@ export class InvitesController {
       await this.onboarding.sendInitialInvite(
         invite.id,
         body.email,
-        body.code,
+        code,
+        body.firstName,
+        body.lastName,
       );
     }
 
-    return invite;
+    return { ...invite, code, invitationCode: code };
+  }
+
+  private generateInviteCode(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = 'TEST-';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
   }
 
   // GET /api/invites/:id - Obtener detalles de una invitación

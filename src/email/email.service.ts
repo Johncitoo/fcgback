@@ -124,11 +124,13 @@ export class EmailService {
     });
   }
 
-  async sendInitialInviteEmail(email: string, code: string, callName?: string): Promise<boolean> {
+  async sendInitialInviteEmail(email: string, code: string, callName?: string, fullName?: string): Promise<boolean> {
     const baseUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
     const applyUrl = `${baseUrl}/apply`;
     
     const subject = 'Invitación para postular - Fundación Carmen Goudie';
+    
+    const greeting = fullName ? `¡Hola ${fullName}!` : '¡Hola!';
     
     const htmlContent = `
       <!DOCTYPE html>
@@ -143,7 +145,7 @@ export class EmailService {
         </div>
         
         <div style="background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb;">
-          <h2 style="color: #0369a1; margin-top: 0;">¡Has sido invitado a postular!</h2>
+          <h2 style="color: #0369a1; margin-top: 0;">${greeting}</h2>
           
           <p>Has recibido una invitación para postular a ${callName ? `<strong>${callName}</strong>` : 'una convocatoria'} de la Fundación Carmen Goudie.</p>
           
