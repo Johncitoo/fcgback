@@ -156,6 +156,11 @@ export class CallsService {
       fields: fields.filter((field) => field.sectionId === section.id),
     }));
 
-    return { ...call, sections: bySection };
+    return { 
+      id: call.id,
+      title: call.name, // Frontend espera 'title'
+      year: call.year,
+      sections: bySection 
+    };
   }
 }
