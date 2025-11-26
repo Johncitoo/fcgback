@@ -34,18 +34,7 @@ export class CallsService {
       .skip(offset);
 
     if (onlyActive) {
-      // Filtrar solo convocatorias activas según lógica híbrida
-      queryBuilder
-        .where('c.status = :status', { status: 'OPEN' })
-        .andWhere('c.isActive = :isActive', { isActive: true })
-        .andWhere(
-          '(c.startDate IS NULL OR c.startDate <= :now)',
-          { now: new Date() },
-        )
-        .andWhere(
-          '(c.autoClose = false OR c.endDate IS NULL OR c.endDate > :now)',
-          { now: new Date() },
-        );
+      queryBuilder.where('c.status = :status', { status: 'OPEN' });
     }
 
     const [data, total] = needCount
@@ -103,12 +92,6 @@ export class CallsService {
     if (body.rules !== undefined) call.rules = body.rules;
     if (body.formPublishedAt !== undefined)
       call.formPublishedAt = body.formPublishedAt;
-    
-    // Nuevos campos de control de activación
-    if (body.startDate !== undefined) call.startDate = body.startDate;
-    if (body.endDate !== undefined) call.endDate = body.endDate;
-    if (body.isActive !== undefined) call.isActive = body.isActive;
-    if (body.autoClose !== undefined) call.autoClose = body.autoClose;
 
     await this.callRepo.save(call);
 
