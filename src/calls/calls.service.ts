@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Call, FormSection, FormField } from './entities';
+import { CallStatus } from './entities/call.entity';
 
 @Injectable()
 export class CallsService {
@@ -90,6 +91,22 @@ export class CallsService {
 
     if (!call) {
       throw new NotFoundException('Call not found');
+    }
+
+    // Validación: Solo puede haber una convocatoria activa a la vez
+    if (body.isActive === true) {
+      const existingActive = await this.callRepo.findOne({
+        where: {
+          isActive: true,
+          status: CallStatus.OPEN,
+        },
+      });
+
+      if (existingActive && existingActive.id !== id) {
+        throw new BadRequestException(
+          `Solo puede haber una convocatoria activa a la vez. "${existingActive.name} ${existingActive.year}" ya está activa. Desactívala primero.`,
+        );
+      }
     }
 
     // Actualizar solo los campos presentes en body
