@@ -55,8 +55,24 @@ export class FormsService {
     return form;
   }
 
-  async update(id: string, data: Partial<Form>): Promise<Form> {
-    await this.formsRepo.update(id, data);
+  async update(id: string, data: any): Promise<Form> {
+    // Mapear igual que en create
+    const updateData: any = {};
+    
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.title !== undefined) updateData.name = data.title;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.isTemplate !== undefined) updateData.isTemplate = data.isTemplate;
+    if (data.parentFormId !== undefined) updateData.parentFormId = data.parentFormId;
+    
+    // Si viene sections, guardarlo en schema
+    if (data.sections && Array.isArray(data.sections)) {
+      updateData.schema = { sections: data.sections };
+    } else if (data.schema !== undefined) {
+      updateData.schema = data.schema;
+    }
+
+    await this.formsRepo.update(id, updateData);
     return this.findOne(id);
   }
 
