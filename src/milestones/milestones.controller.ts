@@ -63,4 +63,11 @@ export class MilestonesController {
   getMilestoneSubmission(@Param('progressId') progressId: string) {
     return this.milestonesService.getMilestoneSubmission(progressId);
   }
+
+  // Endpoint para sincronizar milestone_progress de una convocatoria
+  // Útil cuando se crean hitos nuevos después de que ya hay postulantes
+  @Post('sync-progress/:callId')
+  syncProgressForCall(@Param('callId') callId: string) {
+    return this.milestonesService.syncProgressForCall(callId);
+  }
 }

@@ -26,7 +26,29 @@ export class MilestonesService {
     dueDate?: Date;
   }): Promise<Milestone> {
     const milestone = this.milestonesRepo.create(data);
-    return this.milestonesRepo.save(milestone);
+    const savedMilestone = await this.milestonesRepo.save(milestone);
+
+    // 🔥 AUTO-INICIALIZAR: Crear milestone_progress para todas las postulaciones existentes de esta convocatoria
+    try {
+      await this.ds.query(
+        `INSERT INTO milestone_progress (application_id, milestone_id, status, created_at, updated_at)
+         SELECT 
+           a.id AS application_id,
+           $1 AS milestone_id,
+           'PENDING' AS status,
+           NOW() AS created_at,
+           NOW() AS updated_at
+         FROM applications a
+         WHERE a.call_id = $2
+         ON CONFLICT DO NOTHING`,
+        [savedMilestone.id, data.callId],
+      );
+    } catch (error) {
+      console.error('Error auto-inicializando milestone_progress:', error);
+      // No lanzamos error para no bloquear la creación del hito
+    }
+
+    return savedMilestone;
   }
 
   async findByCall(callId: string): Promise<Milestone[]> {
@@ -206,5 +228,35 @@ export class MilestonesService {
     );
 
     return submission?.[0] || null;
+  }
+
+  /**
+   * Sincroniza milestone_progress para todas las postulaciones de una convocatoria
+   * Crea los registros faltantes para postulantes que se agregaron antes de crear un hito
+   */
+  async syncProgressForCall(callId: string): Promise<{ created: number }> {
+    const result = await this.ds.query(
+      `INSERT INTO milestone_progress (application_id, milestone_id, status, created_at, updated_at)
+       SELECT 
+         a.id AS application_id,
+         m.id AS milestone_id,
+         'PENDING' AS status,
+         NOW() AS created_at,
+         NOW() AS updated_at
+       FROM applications a
+       CROSS JOIN milestones m
+       WHERE a.call_id = $1
+       AND m.call_id = $1
+       AND NOT EXISTS (
+         SELECT 1 
+         FROM milestone_progress mp 
+         WHERE mp.application_id = a.id 
+         AND mp.milestone_id = m.id
+       )
+       RETURNING *`,
+      [callId],
+    );
+
+    return { created: result.length };
   }
 }
