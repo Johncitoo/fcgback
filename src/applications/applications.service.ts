@@ -16,24 +16,33 @@ export class ApplicationsService {
   async listApplications(params: {
     limit: number;
     offset: number;
-    status?: string;
+    overallStatus?: string;
     callId?: string;
+    milestoneOrder?: number;
     needCount: boolean;
   }) {
-    const { limit, offset, status, callId, needCount } = params;
+    const { limit, offset, overallStatus, callId, milestoneOrder, needCount } = params;
 
     const conditions: string[] = [];
     const values: any[] = [];
     let idx = 1;
 
-    if (status) {
-      conditions.push(`a.status = $${idx++}`);
-      values.push(status);
-    }
-
     if (callId) {
       conditions.push(`a.call_id = $${idx++}`);
       values.push(callId);
+    }
+
+    if (milestoneOrder !== undefined) {
+      // Filtrar por hito actual
+      conditions.push(`EXISTS (
+        SELECT 1 FROM milestone_progress mp
+        JOIN milestones m ON m.id = mp.milestone_id
+        WHERE mp.application_id = a.id 
+          AND m.order_index = $${idx}
+          AND mp.status NOT IN ('COMPLETED', 'REJECTED')
+      )`);
+      values.push(milestoneOrder);
+      idx++;
     }
 
     const whereClause =
@@ -53,7 +62,38 @@ export class ApplicationsService {
         c.name as "callName",
         c.year as "callYear",
         u.email as "applicantEmail",
-        u.full_name as "applicantName"
+        u.full_name as "applicantName",
+        -- Hito actual (el primero que no está COMPLETED o REJECTED)
+        (
+          SELECT m.name 
+          FROM milestone_progress mp
+          JOIN milestones m ON m.id = mp.milestone_id
+          WHERE mp.application_id = a.id 
+            AND mp.status NOT IN ('COMPLETED', 'REJECTED')
+          ORDER BY m.order_index ASC
+          LIMIT 1
+        ) as "currentMilestoneName",
+        (
+          SELECT m.order_index
+          FROM milestone_progress mp
+          JOIN milestones m ON m.id = mp.milestone_id
+          WHERE mp.application_id = a.id 
+            AND mp.status NOT IN ('COMPLETED', 'REJECTED')
+          ORDER BY m.order_index ASC
+          LIMIT 1
+        ) as "currentMilestoneOrder",
+        -- Estado general: APPROVED si todos los hitos están aprobados, REJECTED si alguno está rechazado, IN_REVIEW si hay alguno en revisión
+        (
+          SELECT CASE 
+            WHEN COUNT(*) FILTER (WHERE mp.review_status = 'REJECTED' OR mp.status = 'REJECTED') > 0 THEN 'REJECTED'
+            WHEN COUNT(*) FILTER (WHERE mp.status = 'COMPLETED' AND mp.review_status IS NULL) > 0 THEN 'IN_REVIEW'
+            WHEN COUNT(*) FILTER (WHERE mp.review_status = 'NEEDS_CHANGES') > 0 THEN 'NEEDS_CHANGES'
+            WHEN COUNT(*) FILTER (WHERE mp.status = 'COMPLETED' AND mp.review_status = 'APPROVED') = COUNT(*) THEN 'APPROVED'
+            ELSE 'IN_PROGRESS'
+          END
+          FROM milestone_progress mp
+          WHERE mp.application_id = a.id
+        ) as "overallStatus"
       FROM applications a
       LEFT JOIN calls c ON c.id = a.call_id
       LEFT JOIN users u ON u.applicant_id = a.applicant_id
@@ -62,13 +102,16 @@ export class ApplicationsService {
       LIMIT $${idx++} OFFSET $${idx++}
     `;
 
-    const data = await this.ds.query(query, values);
+    let data = await this.ds.query(query, values);
+
+    // Filtrar por overallStatus en memoria si se proporcionó
+    if (overallStatus) {
+      data = data.filter((row: any) => row.overallStatus === overallStatus);
+    }
 
     let total: number | undefined;
     if (needCount) {
-      const countQuery = `SELECT COUNT(*) as count FROM applications a ${whereClause}`;
-      const countResult = await this.ds.query(countQuery, values.slice(0, -2));
-      total = parseInt(countResult[0].count, 10);
+      total = data.length; // Usamos el length después del filtro
     }
 
     return { data, total, limit, offset };
@@ -140,8 +183,6 @@ export class ApplicationsService {
         a.id,
         a.status,
         a.submitted_at,
-        a.decided_at,
-        a.notes,
         c.id as "callId",
         c.name as "callName",
         c.year as "callYear"
@@ -158,8 +199,6 @@ export class ApplicationsService {
         id: app.id,
         status: app.status,
         submitted_at: app.submitted_at,
-        decided_at: app.decided_at,
-        notes: app.notes,
         call: {
           id: app.callId,
           code: app.callName,
@@ -180,8 +219,6 @@ export class ApplicationsService {
       id: created[0].id,
       status: created[0].status,
       submitted_at: null,
-      decided_at: null,
-      notes: null,
       call: {
         id: activeCall.id,
         code: activeCall.name,
@@ -206,6 +243,37 @@ export class ApplicationsService {
        WHERE a.id = $1 AND u.id = $2
        LIMIT 1`,
         [id, userId],
+      )
+    )?.[0];
+    if (!app) throw new NotFoundException('Application not found');
+    return app;
+  }
+
+  async getByIdAdmin(id: string) {
+    const app = (
+      await this.ds.query(
+        `SELECT 
+          a.id,
+          a.applicant_id as "applicantId",
+          a.call_id as "callId",
+          a.institution_id as "institutionId",
+          a.status,
+          a.total_score as "score",
+          a.created_at as "createdAt",
+          a.updated_at as "updatedAt",
+          a.submitted_at as "submittedAt",
+          c.name as "callName",
+          c.year as "callYear",
+          u.email as "applicantEmail",
+          u.full_name as "applicantName",
+          i.name as "institutionName"
+       FROM applications a
+       LEFT JOIN calls c ON c.id = a.call_id
+       LEFT JOIN users u ON u.applicant_id = a.applicant_id
+       LEFT JOIN institutions i ON i.id = a.institution_id
+       WHERE a.id = $1
+       LIMIT 1`,
+        [id],
       )
     )?.[0];
     if (!app) throw new NotFoundException('Application not found');
@@ -318,16 +386,22 @@ export class ApplicationsService {
    */
   async getAnswers(userId: string, applicationId: string) {
     // Verificar ownership
-    const app = await this.getById(userId, applicationId);
+    await this.getById(userId, applicationId);
 
-    // Por ahora, devolvemos las columnas JSON que ya están en applications
-    return {
-      academic: app.academic || {},
-      household: app.household || {},
-      participation: app.participation || {},
-      texts: app.texts || {},
-      builderExtra: app.builderExtra || {},
-    };
+    // Obtener la última form_submission para esta application
+    const submission = (
+      await this.ds.query(
+        `SELECT answers 
+         FROM form_submissions 
+         WHERE application_id = $1 
+         ORDER BY submitted_at DESC NULLS LAST, created_at DESC
+         LIMIT 1`,
+        [applicationId],
+      )
+    )?.[0];
+
+    // Si hay submission, devolver sus answers, sino devolver objeto vacío
+    return submission?.answers || {};
   }
 
   /**
@@ -338,28 +412,51 @@ export class ApplicationsService {
     // Verificar ownership
     await this.getById(userId, applicationId);
 
-    const fields: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
+    // Buscar o crear form_submission para el Hito 1 (Postulación Inicial)
+    // Asumimos que el formulario inicial es el primero del proceso
+    const milestone = (
+      await this.ds.query(
+        `SELECT mp.id as milestone_progress_id, mp.milestone_id, m.form_id
+         FROM milestone_progress mp
+         JOIN milestones m ON m.id = mp.milestone_id
+         WHERE mp.application_id = $1 
+         AND m.order_index = 1
+         LIMIT 1`,
+        [applicationId],
+      )
+    )?.[0];
 
-    const push = (col: string, val: any) => {
-      fields.push(`${col} = $${idx++}`);
-      values.push(val);
-    };
+    if (!milestone?.form_id) {
+      throw new BadRequestException('No se encontró el formulario inicial');
+    }
 
-    // Guardar cada sección como JSON
-    if (answers.academic !== undefined) push('academic', JSON.stringify(answers.academic));
-    if (answers.household !== undefined) push('household', JSON.stringify(answers.household));
-    if (answers.participation !== undefined) push('participation', JSON.stringify(answers.participation));
-    if (answers.texts !== undefined) push('texts', JSON.stringify(answers.texts));
-    if (answers.builderExtra !== undefined) push('builder_extra', JSON.stringify(answers.builderExtra));
+    // Buscar form_submission existente
+    const existing = (
+      await this.ds.query(
+        `SELECT id FROM form_submissions 
+         WHERE application_id = $1 AND form_id = $2
+         LIMIT 1`,
+        [applicationId, milestone.form_id],
+      )
+    )?.[0];
 
-    if (!fields.length) return { ok: true, updated: false };
+    if (existing) {
+      // Actualizar submission existente
+      await this.ds.query(
+        `UPDATE form_submissions 
+         SET answers = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [JSON.stringify(answers), existing.id],
+      );
+    } else {
+      // Crear nueva submission
+      await this.ds.query(
+        `INSERT INTO form_submissions (application_id, form_id, milestone_id, answers)
+         VALUES ($1, $2, $3, $4)`,
+        [applicationId, milestone.form_id, milestone.milestone_id, JSON.stringify(answers)],
+      );
+    }
 
-    const sql = `UPDATE applications SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${idx}`;
-    values.push(applicationId);
-
-    await this.ds.query(sql, values);
     return { ok: true, updated: true };
   }
 }

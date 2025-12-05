@@ -28,10 +28,11 @@ export class OnboardingController {
   @Post('validate-invite')
   @HttpCode(200)
   async validateInvite(@Body() dto: ValidateInvitePublicDto) {
-    const result = await this.onboarding.validateInviteCode(dto.code, dto.email);
+    const result = await this.onboarding.validateInviteCode(dto.code, dto.email || '');
     
     return {
       success: true,
+      email: result.user.email, // Retornar el email para que el frontend lo use
       message: result.isNewUser 
         ? 'Código validado exitosamente. Hemos creado tu cuenta y enviado un email para establecer tu contraseña.'
         : 'Bienvenido de vuelta. Puedes continuar con tu postulación.',
@@ -74,5 +75,27 @@ export class OnboardingController {
       dto.ttlDays,
       dto.institutionId,
     );
+  }
+
+  // ==== DEV ONLY - Establecer contraseña sin token (para desarrollo) ====
+  @Post('dev/set-password')
+  @HttpCode(200)
+  async devSetPassword(
+    @Body() body: { email: string; password: string },
+    @Req() req: any,
+    @Ip() ip: string,
+  ) {
+    const ua = req?.headers?.['user-agent'] as string | undefined;
+    const user = await this.onboarding.devSetPasswordByEmail(
+      body.email,
+      body.password,
+      ip,
+      ua,
+    );
+    return { 
+      success: true, 
+      userId: user.id,
+      message: 'Contraseña establecida exitosamente. Ahora puedes iniciar sesión.',
+    };
   }
 }

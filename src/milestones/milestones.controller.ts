@@ -39,4 +39,28 @@ export class MilestonesController {
   initializeProgress(@Body() data: { applicationId: string; callId: string }) {
     return this.milestonesService.initializeProgress(data.applicationId, data.callId);
   }
+
+  // Endpoint para revisar/aprobar/rechazar un hito
+  @Patch('progress/:progressId/review')
+  reviewMilestone(
+    @Param('progressId') progressId: string,
+    @Body() data: { 
+      reviewStatus: 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
+      reviewNotes?: string;
+      reviewedBy: string;
+    }
+  ) {
+    return this.milestonesService.reviewMilestone(
+      progressId,
+      data.reviewStatus,
+      data.reviewedBy,
+      data.reviewNotes
+    );
+  }
+
+  // Endpoint para obtener las respuestas de un hito
+  @Get('progress/:progressId/submission')
+  getMilestoneSubmission(@Param('progressId') progressId: string) {
+    return this.milestonesService.getMilestoneSubmission(progressId);
+  }
 }

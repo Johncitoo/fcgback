@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class ValidateInvitePublicDto {
   @IsString()
@@ -7,6 +7,6 @@ export class ValidateInvitePublicDto {
   code: string;
 
   @IsEmail()
-  @IsNotEmpty()
-  email: string;
+  @IsOptional()
+  email?: string;
 }

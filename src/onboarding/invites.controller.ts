@@ -51,6 +51,11 @@ export class InvitesController {
         i.expires_at as "expiresAt",
         i.used_at as "usedAt",
         i.created_at as "createdAt",
+        i.meta->>'email' as "email",
+        i.meta->>'firstName' as "firstName",
+        i.meta->>'lastName' as "lastName",
+        CASE WHEN i.used_at IS NOT NULL THEN true ELSE false END as "used",
+        i.code_hash as "code_hash",
         c.name as "callName",
         c.year as "callYear"
       FROM invites i
@@ -101,6 +106,7 @@ export class InvitesController {
       body.institutionId,
       body.firstName,
       body.lastName,
+      body.email,
     );
 
     // Si se proporciona email y sendEmail=true, enviar invitación
@@ -138,6 +144,10 @@ export class InvitesController {
         i.expires_at as "expiresAt",
         i.used_at as "usedAt",
         i.created_at as "createdAt",
+        i.meta->>'email' as "email",
+        i.meta->>'firstName' as "firstName",
+        i.meta->>'lastName' as "lastName",
+        CASE WHEN i.used_at IS NOT NULL THEN true ELSE false END as "used",
         c.name as "callName",
         c.year as "callYear"
       FROM invites i

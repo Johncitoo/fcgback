@@ -255,4 +255,26 @@ export class FormService {
     void _body;
     return { updated: 0 };
   }
+
+  // ======================================================
+  // 4) GET /api/forms/:formId - Obtener formulario por ID
+  // ======================================================
+  async getFormById(formId: string) {
+    // Obtener información del formulario
+    const formRows = await this.q<{
+      id: string;
+      name: string;
+      description: string | null;
+      schema: unknown;
+    }>(
+      `SELECT id, name, description, schema FROM forms WHERE id = $1 LIMIT 1`,
+      [formId],
+    );
+    
+    if (formRows.length === 0) {
+      throw new NotFoundException(`Form ${formId} not found`);
+    }
+    
+    return formRows[0];
+  }
 }

@@ -187,15 +187,38 @@ export class UsersController {
       throw new BadRequestException('Email already exists');
     }
 
-    // Parsear RUT si viene
-    let rutNumber: number | null = null;
-    let rutDv: string | null = null;
-    if (body.rut) {
+    // Parsear RUT si viene, o generar uno temporal único
+    let rutNumber: number;
+    let rutDv: string;
+    
+    if (body.rut && body.rut.trim() !== '') {
       const parts = body.rut.replace(/\./g, '').split('-');
       if (parts.length === 2) {
         rutNumber = parseInt(parts[0], 10);
         rutDv = parts[1].toUpperCase();
+      } else {
+        // RUT inválido, generar uno temporal
+        rutNumber = Math.floor(Math.random() * 90000000) + 10000000;
+        rutDv = String(Math.floor(Math.random() * 10));
       }
+    } else {
+      // Generar RUT temporal único usando timestamp + random
+      const timestamp = Date.now().toString().slice(-8);
+      const random = Math.floor(Math.random() * 1000);
+      rutNumber = parseInt(timestamp + random.toString().padStart(3, '0').slice(-3));
+      rutDv = String(rutNumber % 11);
+    }
+
+    // Verificar que el RUT no exista (por si acaso)
+    const existingRut = await this.ds.query(
+      'SELECT id FROM applicants WHERE rut_number = $1 AND rut_dv = $2',
+      [rutNumber, rutDv],
+    );
+    
+    if (existingRut && existingRut.length > 0) {
+      // Si existe, agregar más aleatoriedad
+      rutNumber = rutNumber + Math.floor(Math.random() * 10000);
+      rutDv = String(rutNumber % 11);
     }
 
     // Insertar en applicants

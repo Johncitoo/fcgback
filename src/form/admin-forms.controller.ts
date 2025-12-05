@@ -76,6 +76,7 @@ export class AdminFormsController {
           required: f.required,
           active: f.active,
           options: f.options || [],
+          validation: f.validation || null,
         })),
     }));
 

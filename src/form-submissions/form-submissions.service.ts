@@ -23,8 +23,7 @@ export class FormSubmissionsService {
     applicationId: string;
     formId?: string;
     milestoneId?: string;
-    formData: Record<string, any>;
-    submittedBy?: string;
+    answers?: Record<string, any>;
   }): Promise<FormSubmission> {
     const submission = this.submissionsRepo.create(data);
     return this.submissionsRepo.save(submission);
@@ -32,21 +31,21 @@ export class FormSubmissionsService {
 
   async findByApplication(applicationId: string): Promise<FormSubmission[]> {
     return this.submissionsRepo.find({
-      where: { applicationId, deletedAt: null as any },
+      where: { applicationId },
       order: { createdAt: 'DESC' },
     });
   }
 
   async findByMilestone(milestoneId: string): Promise<FormSubmission[]> {
     return this.submissionsRepo.find({
-      where: { milestoneId, deletedAt: null as any },
+      where: { milestoneId },
       order: { createdAt: 'DESC' },
     });
   }
 
   async findOne(id: string): Promise<FormSubmission> {
     const submission = await this.submissionsRepo.findOne({
-      where: { id, deletedAt: null as any },
+      where: { id },
     });
     if (!submission) {
       throw new NotFoundException(`Submission ${id} not found`);
@@ -63,9 +62,7 @@ export class FormSubmissionsService {
     const submission = await this.findOne(id);
     
     await this.submissionsRepo.update(id, {
-      status: 'SUBMITTED',
       submittedAt: new Date(),
-      submittedBy: userId,
     });
 
     // Update milestone progress
@@ -78,8 +75,6 @@ export class FormSubmissionsService {
         {
           status: 'COMPLETED',
           completedAt: new Date(),
-          completedBy: userId,
-          formSubmissionId: id,
         }
       );
     }
@@ -151,6 +146,7 @@ export class FormSubmissionsService {
   }
 
   async softDelete(id: string): Promise<void> {
-    await this.submissionsRepo.update(id, { deletedAt: new Date() });
+    // Simply delete the record
+    await this.submissionsRepo.delete(id);
   }
 }

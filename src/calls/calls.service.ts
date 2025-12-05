@@ -86,6 +86,10 @@ export class CallsService {
       dates: body.dates || null,
       rules: body.rules || null,
       formPublishedAt: body.formPublishedAt || null,
+      isActive: body.isActive || false,
+      startDate: body.startDate || null,
+      endDate: body.endDate || null,
+      autoClose: body.autoClose !== undefined ? body.autoClose : true,
     });
 
     const saved = await this.callRepo.save(call);

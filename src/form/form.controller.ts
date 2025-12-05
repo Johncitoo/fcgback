@@ -25,3 +25,14 @@ export class FormController {
     return this.form.saveApplicantForm(applicationId, body);
   }
 }
+
+// Nuevo controlador para obtener formularios por ID
+@Controller('forms')
+export class FormsController {
+  constructor(private form: FormService) {}
+
+  @Get(':formId')
+  async getFormById(@Param('formId') formId: string) {
+    return this.form.getFormById(formId);
+  }
+}

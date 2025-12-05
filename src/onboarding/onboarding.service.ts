@@ -13,6 +13,7 @@ import { User, UserRole } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { EmailService } from '../email/email.service';
 import { AuditService } from '../common/audit.service';
+import { MilestonesService } from '../milestones/milestones.service';
 import { randomBytes } from 'crypto';
 import { hash, verify } from 'argon2';
 
@@ -25,9 +26,12 @@ export class OnboardingService {
     private readonly inviteRepo: Repository<Invite>,
     @InjectRepository(PasswordSetToken)
     private readonly tokenRepo: Repository<PasswordSetToken>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
     private readonly auditService: AuditService,
+    private readonly milestonesService: MilestonesService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -67,17 +71,18 @@ export class OnboardingService {
     institutionId?: string,
     firstName?: string,
     lastName?: string,
+    email?: string,
   ): Promise<Invite> {
     const codeHash = await hash(code.toUpperCase());
     
     const ttl = ttlDays || 30;
     const expiresAt = new Date(Date.now() + ttl * 24 * 60 * 60 * 1000);
 
-    // Guardar firstName y lastName en meta si se proporcionan
-    const meta = (firstName || lastName) ? {
-      firstName,
-      lastName,
-    } : null;
+    // Guardar firstName, lastName y email en meta si se proporcionan
+    const meta: any = {};
+    if (firstName) meta.firstName = firstName;
+    if (lastName) meta.lastName = lastName;
+    if (email) meta.email = email;
 
     const invite = this.inviteRepo.create({
       callId,
@@ -86,7 +91,7 @@ export class OnboardingService {
       institutionId: institutionId || null,
       usedByApplicant: null,
       usedAt: null,
-      meta,
+      meta: Object.keys(meta).length > 0 ? meta : null,
       createdByUserId: null,
     });
 
@@ -221,6 +226,7 @@ export class OnboardingService {
 
       // Crear o recuperar application para esta convocatoria
       let applicationId: string;
+      let isNewApplication = false;
       const existingApp = await queryRunner.manager.query(
         'SELECT id FROM applications WHERE applicant_id = $1 AND call_id = $2 LIMIT 1',
         [applicantId, invite.callId],
@@ -230,6 +236,7 @@ export class OnboardingService {
         applicationId = existingApp[0].id;
         this.logger.log(`Application existente recuperada: ${applicationId}`);
       } else {
+        isNewApplication = true;
         const appResult = await queryRunner.manager.query(
           `INSERT INTO applications (applicant_id, call_id, status)
            VALUES ($1, $2, $3)
@@ -238,6 +245,25 @@ export class OnboardingService {
         );
         applicationId = appResult[0].id;
         this.logger.log(`Nueva application creada: ${applicationId}`);
+      }
+
+      // Inicializar milestone_progress si es necesario (nueva app o app existente sin progreso)
+      try {
+        // Verificar si ya tiene milestone_progress
+        const existingProgress = await queryRunner.manager.query(
+          'SELECT COUNT(*) as count FROM milestone_progress WHERE application_id = $1',
+          [applicationId],
+        );
+        
+        if (existingProgress[0].count === '0' || existingProgress[0].count === 0) {
+          this.logger.log(`Inicializando milestone_progress para application: ${applicationId}`);
+          await this.milestonesService.initializeProgress(applicationId, invite.callId);
+          this.logger.log(`✅ Milestone progress inicializado correctamente`);
+        } else {
+          this.logger.log(`Application ${applicationId} ya tiene ${existingProgress[0].count} milestone_progress`);
+        }
+      } catch (err) {
+        this.logger.error(`Error inicializando milestone progress: ${err}`);
       }
 
       // Generar token para establecer contraseña
@@ -365,6 +391,38 @@ export class OnboardingService {
     const user = await this.usersService.findById(passwordToken.userId);
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Si es APPLICANT, asegurar que tenga milestone_progress inicializado
+    if (user.role === 'APPLICANT' && user.applicantId) {
+      try {
+        // Buscar la aplicación activa del postulante
+        const applications = await this.dataSource.query(
+          'SELECT id, call_id FROM applications WHERE applicant_id = $1 ORDER BY created_at DESC LIMIT 1',
+          [user.applicantId],
+        );
+
+        if (applications && applications.length > 0) {
+          const app = applications[0];
+          
+          // Verificar si ya tiene milestone_progress
+          const existingProgress = await this.dataSource.query(
+            'SELECT COUNT(*) as count FROM milestone_progress WHERE application_id = $1',
+            [app.id],
+          );
+
+          if (existingProgress[0].count === '0' || existingProgress[0].count === 0) {
+            this.logger.log(`Inicializando milestone_progress para usuario ${user.email}, app: ${app.id}`);
+            await this.milestonesService.initializeProgress(app.id, app.call_id);
+            this.logger.log(`✅ Milestone progress inicializado para ${user.email}`);
+          } else {
+            this.logger.log(`Usuario ${user.email} ya tiene ${existingProgress[0].count} milestone_progress`);
+          }
+        }
+      } catch (err) {
+        this.logger.error(`Error al inicializar milestone_progress para ${user.email}: ${err}`);
+        // No lanzar error, solo loggear
+      }
     }
 
     // Auditoría
@@ -501,6 +559,85 @@ export class OnboardingService {
     const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'Postulante';
     await this.emailService.sendInitialInviteEmail(email, plainCode, callName, fullName);
     this.logger.log(`Email de invitación inicial enviado a: ${email} (${fullName})`);
+  }
+
+  /**
+   * DEV ONLY - Establecer contraseña usando email directamente (sin token)
+   */
+  async devSetPasswordByEmail(
+    email: string,
+    password: string,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<User> {
+    // Buscar usuario por email
+    const user = await this.userRepo.findOne({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Validar longitud mínima de contraseña
+    if (password.length < 6) {
+      throw new BadRequestException('La contraseña debe tener al menos 6 caracteres');
+    }
+
+    // Hashear la nueva contraseña
+    const passwordHash = await hash(password);
+
+    // Actualizar la contraseña
+    user.passwordHash = passwordHash;
+    user.passwordUpdatedAt = new Date();
+    user.lastLoginAt = new Date(); // Marcar como que "inició sesión"
+    
+    await this.userRepo.save(user);
+
+    this.logger.log(`Contraseña establecida (DEV) para usuario: ${user.id}`);
+    
+    // Si es APPLICANT, asegurar que tenga milestone_progress inicializado
+    if (user.role === 'APPLICANT' && user.applicantId) {
+      try {
+        // Buscar la aplicación activa del postulante
+        const applications = await this.dataSource.query(
+          'SELECT id, call_id FROM applications WHERE applicant_id = $1 ORDER BY created_at DESC LIMIT 1',
+          [user.applicantId],
+        );
+
+        if (applications && applications.length > 0) {
+          const app = applications[0];
+          
+          // Verificar si ya tiene milestone_progress
+          const existingProgress = await this.dataSource.query(
+            'SELECT COUNT(*) as count FROM milestone_progress WHERE application_id = $1',
+            [app.id],
+          );
+
+          if (existingProgress[0].count === '0' || existingProgress[0].count === 0) {
+            this.logger.log(`[DEV] Inicializando milestone_progress para usuario ${user.email}, app: ${app.id}`);
+            await this.milestonesService.initializeProgress(app.id, app.call_id);
+            this.logger.log(`[DEV] ✅ Milestone progress inicializado para ${user.email}`);
+          } else {
+            this.logger.log(`[DEV] Usuario ${user.email} ya tiene ${existingProgress[0].count} milestone_progress`);
+          }
+        }
+      } catch (err) {
+        this.logger.error(`[DEV] Error al inicializar milestone_progress para ${user.email}: ${err}`);
+        // No lanzar error, solo loggear
+      }
+    }
+    
+    // Auditar
+    await this.auditService.log({
+      action: 'PASSWORD_SET_DEV',
+      entity: 'user',
+      entityId: user.id,
+      actorUserId: user.id,
+      meta: { email: user.email, ip, userAgent },
+    });
+
+    return user;
   }
 
   /**
