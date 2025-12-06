@@ -41,10 +41,10 @@ export class OnboardingService {
   async findInviteByCode(code: string): Promise<Invite | null> {
     const normalizedCode = code.trim().toUpperCase();
     
-    // Obtener todas las invitaciones no usadas
-    const invites = await this.inviteRepo.find({
-      where: { usedAt: null as any },
-    });
+    // ⚠️ MODO DEV: Obtener TODAS las invitaciones (incluso las usadas) para facilitar testing
+    // En producción, descomentar la línea de abajo y comentar la siguiente
+    // const invites = await this.inviteRepo.find({ where: { usedAt: null as any } });
+    const invites = await this.inviteRepo.find(); // ⚠️ DEV MODE: acepta códigos usados
     
     // Buscar la invitación cuyo hash coincida
     for (const invite of invites) {
@@ -124,14 +124,16 @@ export class OnboardingService {
       }
 
       // Verificar expiración
-      if (invite.expiresAt && invite.expiresAt < new Date()) {
-        throw new BadRequestException('El código ha expirado');
-      }
+      // ⚠️ COMENTADO PARA FACILITAR TESTING - DESCOMENTAR EN PRODUCCIÓN
+      // if (invite.expiresAt && invite.expiresAt < new Date()) {
+      //   throw new BadRequestException('El código ha expirado');
+      // }
 
+      // ⚠️ COMENTADO PARA FACILITAR TESTING - DESCOMENTAR EN PRODUCCIÓN
       // NUEVO: Verificar que el código NO haya sido usado
-      if (invite.usedAt || invite.usedByApplicant) {
-        throw new BadRequestException('Este código ya ha sido utilizado. Si necesitas acceso nuevamente, contacta con el administrador para obtener un nuevo código.');
-      }
+      // if (invite.usedAt || invite.usedByApplicant) {
+      //   throw new BadRequestException('Este código ya ha sido utilizado. Si necesitas acceso nuevamente, contacta con el administrador para obtener un nuevo código.');
+      // }
       
       // Si el email viene vacío o es temporal, intentar obtenerlo del meta del invite
       let finalEmail = email;
@@ -435,12 +437,14 @@ export class OnboardingService {
 
   /**
    * Marca el código como completamente usado después de enviar el formulario
+   * ⚠️ COMENTADO PARA FACILITAR TESTING - DESCOMENTAR EN PRODUCCIÓN
    */
   async markInviteAsCompleted(inviteId: string): Promise<void> {
-    await this.inviteRepo.update(inviteId, {
-      usedAt: new Date(),
-    });
-    this.logger.log(`Invitación marcada como completada: ${inviteId}`);
+    // ⚠️ COMENTADO PARA FACILITAR TESTING - Los códigos nunca se marcan como usados
+    // await this.inviteRepo.update(inviteId, {
+    //   usedAt: new Date(),
+    // });
+    this.logger.log(`⚠️ [DEV MODE] Invitación NO marcada como usada: ${inviteId} - facilitar testing`);
   }
 
   /**

@@ -122,16 +122,24 @@ export class MilestonesService {
   async initializeProgress(applicationId: string, callId: string): Promise<void> {
     const milestones = await this.findByCall(callId);
     
-    for (const milestone of milestones) {
+    // Ordenar por orderIndex para asegurar que el primero sea el de menor orden
+    const sortedMilestones = milestones.sort((a, b) => a.orderIndex - b.orderIndex);
+    
+    for (let i = 0; i < sortedMilestones.length; i++) {
+      const milestone = sortedMilestones[i];
       const exists = await this.progressRepo.findOne({
         where: { applicationId, milestoneId: milestone.id },
       });
 
       if (!exists) {
+        // El primer hito (orderIndex más bajo) debe estar en IN_PROGRESS
+        // Los demás en PENDING
+        const status = i === 0 ? 'IN_PROGRESS' : 'PENDING';
+        
         await this.progressRepo.save({
           applicationId,
           milestoneId: milestone.id,
-          status: 'PENDING',
+          status,
         });
       }
     }
@@ -157,11 +165,31 @@ export class MilestonesService {
     progress.reviewedBy = reviewedBy;
     progress.reviewedAt = new Date();
 
-    // Si se aprueba, marcar como completado
+    // Si se aprueba, marcar como completado Y desbloquear el siguiente hito
     if (reviewStatus === 'APPROVED') {
       progress.status = 'COMPLETED';
       if (!progress.completedAt) {
         progress.completedAt = new Date();
+      }
+
+      // Obtener el milestone para saber el orderIndex
+      const milestone = await this.milestonesRepo.findOne({
+        where: { id: progress.milestoneId },
+      });
+
+      if (milestone) {
+        // Activar el siguiente hito (orderIndex siguiente)
+        await this.ds.query(
+          `UPDATE milestone_progress mp
+           SET status = 'IN_PROGRESS'
+           FROM milestones m
+           WHERE mp.milestone_id = m.id
+           AND mp.application_id = $1
+           AND m.call_id = $2
+           AND m.order_index = $3
+           AND mp.status = 'PENDING'`,
+          [progress.applicationId, milestone.callId, milestone.orderIndex + 1],
+        );
       }
     }
 

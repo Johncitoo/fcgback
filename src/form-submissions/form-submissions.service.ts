@@ -65,8 +65,9 @@ export class FormSubmissionsService {
       submittedAt: new Date(),
     });
 
-    // Update milestone progress
+    // Update milestone progress AND unlock next milestone
     if (submission.milestoneId) {
+      // Marcar como completado
       await this.progressRepo.update(
         { 
           applicationId: submission.applicationId,
@@ -76,6 +77,20 @@ export class FormSubmissionsService {
           status: 'COMPLETED',
           completedAt: new Date(),
         }
+      );
+
+      // Desbloquear el siguiente hito
+      await this.dataSource.query(
+        `UPDATE milestone_progress mp
+         SET status = 'IN_PROGRESS'
+         FROM milestones m1, milestones m2
+         WHERE mp.milestone_id = m1.id
+         AND m2.id = $1
+         AND m1.call_id = m2.call_id
+         AND m1.order_index = m2.order_index + 1
+         AND mp.application_id = $2
+         AND mp.status = 'PENDING'`,
+        [submission.milestoneId, submission.applicationId]
       );
     }
 
