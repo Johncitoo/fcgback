@@ -178,6 +178,8 @@ export class StorageClientService {
     uploadedBy?: string;
   }): Promise<FileMetadata[]> {
     try {
+      this.logger.log(`List files called with filters: ${JSON.stringify(filters)}`);
+      
       const where: any = { active: true };
       
       if (filters?.category) where.category = filters.category;
@@ -185,14 +187,19 @@ export class StorageClientService {
       if (filters?.entityId) where.entityId = filters.entityId;
       if (filters?.uploadedBy) where.uploadedBy = filters.uploadedBy;
 
+      this.logger.log(`Query where: ${JSON.stringify(where)}`);
+
       const files = await this.fileMetadataRepo.find({
         where,
         order: { uploadedAt: 'DESC' }
       });
 
+      this.logger.log(`Found ${files.length} files`);
+      
       return files as any;
     } catch (error: any) {
       this.logger.error(`List files failed: ${error.message}`);
+      this.logger.error(`Stack: ${error.stack}`);
       throw error;
     }
   }
