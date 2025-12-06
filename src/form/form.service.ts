@@ -327,7 +327,7 @@ export class FormService {
           id: formId,
           name: `Formulario de convocatoria`,
           description: null,
-          schema: { fields: sections },
+          schema: { sections: sections },
         };
       }
     }
