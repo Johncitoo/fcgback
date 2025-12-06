@@ -47,11 +47,11 @@ class UploadFileDto {
 }
 
 @Controller('files')
-@UseGuards(JwtAuthGuard)
 export class StorageClientController {
   constructor(private readonly storageClient: StorageClientService) {}
 
   @Post('upload')
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
@@ -139,6 +139,7 @@ export class StorageClientController {
   }
 
   @Get('list')
+  @UseGuards(JwtAuthGuard)
   async listFiles(
     @Query('category') category?: FileCategory,
     @Query('entityType') entityType?: EntityType,
@@ -156,6 +157,7 @@ export class StorageClientController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   async deleteFile(@Param('id') id: string) {
     await this.storageClient.delete(id);
     return { success: true, message: 'File deleted' };
