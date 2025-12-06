@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import axios, { AxiosInstance } from 'axios';
 import FormData from 'form-data';
+import { FileMetadata as FileMetadataEntity } from './entities/file-metadata.entity';
 
 export enum FileCategory {
   PROFILE = 'PROFILE',
@@ -51,7 +54,11 @@ export class StorageClientService {
   private readonly client: AxiosInstance;
   private readonly apiKey: string;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    @InjectRepository(FileMetadataEntity)
+    private readonly fileMetadataRepo: Repository<FileMetadataEntity>
+  ) {
     let baseURL = this.config.get<string>('STORAGE_SERVICE_URL');
     this.apiKey = this.config.get<string>('STORAGE_SERVICE_API_KEY')!;
 
@@ -162,7 +169,7 @@ export class StorageClientService {
   }
 
   /**
-   * List files by filters
+   * List files by filters (query local DB)
    */
   async list(filters?: {
     category?: FileCategory;
@@ -171,10 +178,19 @@ export class StorageClientService {
     uploadedBy?: string;
   }): Promise<FileMetadata[]> {
     try {
-      const response = await this.client.get('/storage/list', {
-        params: filters,
+      const where: any = { active: true };
+      
+      if (filters?.category) where.category = filters.category;
+      if (filters?.entityType) where.entityType = filters.entityType;
+      if (filters?.entityId) where.entityId = filters.entityId;
+      if (filters?.uploadedBy) where.uploadedBy = filters.uploadedBy;
+
+      const files = await this.fileMetadataRepo.find({
+        where,
+        order: { uploadedAt: 'DESC' }
       });
-      return response.data.files;
+
+      return files as any;
     } catch (error: any) {
       this.logger.error(`List files failed: ${error.message}`);
       throw error;
