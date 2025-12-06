@@ -22,7 +22,7 @@ export class FormSubmission {
   @Column({ type: 'uuid', nullable: true, name: 'milestone_id' })
   milestoneId: string;
 
-  @Column({ type: 'jsonb', default: '{}', name: 'answers' })
+  @Column({ type: 'jsonb', default: '{}', name: 'form_data' })
   answers: Record<string, any>;
 
   @Column({ type: 'timestamptz', nullable: true, name: 'submitted_at' })
