@@ -260,7 +260,79 @@ export class FormService {
   // 4) GET /api/forms/:formId - Obtener formulario por ID
   // ======================================================
   async getFormById(formId: string) {
-    // Obtener información del formulario
+    // Primero intentar obtener el call_id desde el milestone
+    const milestoneRows = await this.q<{ call_id: string }>(
+      `SELECT call_id FROM milestones WHERE form_id = $1 LIMIT 1`,
+      [formId],
+    );
+    
+    let callId: string | null = null;
+    if (milestoneRows.length > 0) {
+      callId = milestoneRows[0].call_id;
+    }
+    
+    // Si tenemos callId, intentar cargar desde form_sections + form_fields (sistema nuevo)
+    if (callId) {
+      const sectionsRows = await this.q<{
+        id: string;
+        title: string;
+        order: number;
+        visible: boolean;
+      }>(
+        `SELECT id, title, "order", visible FROM form_sections WHERE call_id = $1 ORDER BY "order"`,
+        [callId],
+      );
+      
+      if (sectionsRows.length > 0) {
+        // Hay secciones en el sistema nuevo, construir el schema desde ahí
+        const sections: any[] = [];
+        
+        for (const section of sectionsRows) {
+          const fieldsRows = await this.q<{
+            id: string;
+            name: string;
+            label: string;
+            type: string;
+            required: boolean;
+            options: unknown;
+            validation: unknown;
+            help_text: string | null;
+            order: number;
+            active: boolean;
+          }>(
+            `SELECT id, name, label, type, required, options, validation, help_text, "order", active 
+             FROM form_fields 
+             WHERE call_id = $1 AND section_id = $2 
+             ORDER BY "order"`,
+            [callId, section.id],
+          );
+          
+          sections.push({
+            id: section.id,
+            title: section.title,
+            fields: fieldsRows.map(f => ({
+              id: f.id,
+              name: f.name,
+              label: f.label,
+              type: f.type,
+              required: f.required,
+              options: f.options || null,
+              helpText: f.help_text,
+              active: f.active,
+            })),
+          });
+        }
+        
+        return {
+          id: formId,
+          name: `Formulario de convocatoria`,
+          description: null,
+          schema: { fields: sections },
+        };
+      }
+    }
+    
+    // Fallback: intentar cargar desde forms.schema (sistema viejo)
     const formRows = await this.q<{
       id: string;
       name: string;
