@@ -184,4 +184,109 @@ export class InvitesController {
       code: result.plainCode,
     };
   }
+
+  // POST /api/invites/bulk-send - Envío masivo de invitaciones a postulantes sin invitar
+  @Post('bulk-send')
+  async bulkSend(
+    @Body()
+    body: {
+      callId: string;
+      sendToAll?: boolean; // Si true, envía a TODOS los postulantes sin invitar
+      applicantIds?: string[]; // O lista específica de IDs
+    },
+  ) {
+    if (!body.callId) {
+      throw new BadRequestException('callId is required');
+    }
+
+    // Obtener postulantes que no han sido invitados a esta convocatoria
+    let applicantIds = body.applicantIds || [];
+
+    if (body.sendToAll || applicantIds.length === 0) {
+      // Buscar todos los postulantes que no tienen invitación para esta convocatoria
+      const result = await this.ds.query(
+        `
+        SELECT DISTINCT a.id, u.email, a.first_name, a.last_name
+        FROM applicants a
+        INNER JOIN users u ON u.applicant_id = a.id
+        WHERE NOT EXISTS (
+          SELECT 1 FROM invites i 
+          WHERE i.call_id = $1 
+          AND (i.meta->>'email')::text = u.email
+        )
+        AND u.is_active = true
+        ORDER BY a.created_at DESC
+        `,
+        [body.callId],
+      );
+
+      applicantIds = result.map((r: any) => r.id);
+    }
+
+    if (applicantIds.length === 0) {
+      return {
+        success: true,
+        sent: 0,
+        failed: 0,
+        message: 'No hay postulantes sin invitar',
+      };
+    }
+
+    // Obtener datos completos de los postulantes
+    const applicants = await this.ds.query(
+      `
+      SELECT a.id, u.email, a.first_name as "firstName", a.last_name as "lastName"
+      FROM applicants a
+      INNER JOIN users u ON u.applicant_id = a.id
+      WHERE a.id = ANY($1)
+      AND u.is_active = true
+      `,
+      [applicantIds],
+    );
+
+    const results = {
+      sent: 0,
+      failed: 0,
+      errors: [] as string[],
+    };
+
+    // Enviar invitaciones una por una
+    for (const applicant of applicants) {
+      try {
+        const code = this.generateInviteCode();
+        
+        const invite = await this.onboarding.devCreateInvite(
+          body.callId,
+          code,
+          undefined,
+          undefined,
+          applicant.firstName,
+          applicant.lastName,
+          applicant.email,
+        );
+
+        await this.onboarding.sendInitialInvite(
+          invite.id,
+          applicant.email,
+          code,
+          applicant.firstName,
+          applicant.lastName,
+        );
+
+        results.sent++;
+      } catch (err: any) {
+        results.failed++;
+        results.errors.push(`${applicant.email}: ${err.message || 'Error desconocido'}`);
+      }
+    }
+
+    return {
+      success: true,
+      sent: results.sent,
+      failed: results.failed,
+      total: applicants.length,
+      errors: results.errors.length > 0 ? results.errors : undefined,
+      message: `${results.sent} invitaciones enviadas, ${results.failed} fallidas`,
+    };
+  }
 }
