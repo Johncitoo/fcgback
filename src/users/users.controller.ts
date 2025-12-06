@@ -338,27 +338,90 @@ export class UsersController {
       throw new BadRequestException('Applicant not found');
     }
 
-    const fields: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
+    // Actualizar tabla users
+    const userFields: string[] = [];
+    const userValues: any[] = [];
+    let userIdx = 1;
 
     if (body.fullName !== undefined) {
-      fields.push(`full_name = $${idx++}`);
-      values.push(body.fullName);
+      userFields.push(`full_name = $${userIdx++}`);
+      userValues.push(body.fullName);
     }
 
     if (body.isActive !== undefined) {
-      fields.push(`is_active = $${idx++}`);
-      values.push(body.isActive);
+      userFields.push(`is_active = $${userIdx++}`);
+      userValues.push(body.isActive);
     }
 
-    if (fields.length === 0) {
-      return { ok: true, updated: false };
+    if (userFields.length > 0) {
+      userValues.push(id);
+      const userSql = `UPDATE users SET ${userFields.join(', ')}, updated_at = NOW() WHERE id = $${userIdx}`;
+      await this.ds.query(userSql, userValues);
     }
 
-    values.push(id);
-    const sql = `UPDATE users SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${idx}`;
-    await this.ds.query(sql, values);
+    // Actualizar tabla applicants si hay applicant_id
+    if (user.applicantId) {
+      const appFields: string[] = [];
+      const appValues: any[] = [];
+      let appIdx = 1;
+
+      if (body.first_name !== undefined) {
+        appFields.push(`first_name = $${appIdx++}`);
+        appValues.push(body.first_name);
+      }
+
+      if (body.last_name !== undefined) {
+        appFields.push(`last_name = $${appIdx++}`);
+        appValues.push(body.last_name);
+      }
+
+      if (body.rut !== undefined && body.rut !== null) {
+        // Parsear RUT
+        const parts = body.rut.replace(/\./g, '').split('-');
+        if (parts.length === 2) {
+          appFields.push(`rut_number = $${appIdx++}`);
+          appValues.push(parseInt(parts[0], 10));
+          appFields.push(`rut_dv = $${appIdx++}`);
+          appValues.push(parts[1].toUpperCase());
+        }
+      }
+
+      if (body.phone !== undefined) {
+        appFields.push(`phone = $${appIdx++}`);
+        appValues.push(body.phone || null);
+      }
+
+      if (body.birth_date !== undefined) {
+        appFields.push(`birth_date = $${appIdx++}`);
+        appValues.push(body.birth_date || null);
+      }
+
+      if (body.address !== undefined) {
+        appFields.push(`address = $${appIdx++}`);
+        appValues.push(body.address || null);
+      }
+
+      if (body.commune !== undefined) {
+        appFields.push(`commune = $${appIdx++}`);
+        appValues.push(body.commune || null);
+      }
+
+      if (body.region !== undefined) {
+        appFields.push(`region = $${appIdx++}`);
+        appValues.push(body.region || null);
+      }
+
+      if (body.institution_id !== undefined) {
+        appFields.push(`institution_id = $${appIdx++}`);
+        appValues.push(body.institution_id || null);
+      }
+
+      if (appFields.length > 0) {
+        appValues.push(user.applicantId);
+        const appSql = `UPDATE applicants SET ${appFields.join(', ')}, updated_at = NOW() WHERE id = $${appIdx}`;
+        await this.ds.query(appSql, appValues);
+      }
+    }
 
     return { ok: true, updated: true };
   }

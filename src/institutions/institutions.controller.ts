@@ -54,6 +54,12 @@ export class InstitutionsController {
         i.province,
         i.region,
         i.type,
+        i.email,
+        i.phone,
+        i.address,
+        i.director_name as "directorName",
+        i.website,
+        i.notes,
         i.active,
         i.created_at as "createdAt",
         i.updated_at as "updatedAt"
@@ -86,6 +92,12 @@ export class InstitutionsController {
       province?: string;
       region?: string;
       type?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      director_name?: string;
+      website?: string;
+      notes?: string;
     },
   ) {
     if (!body.name) {
@@ -99,8 +111,11 @@ export class InstitutionsController {
     }
 
     const result = await this.ds.query(
-      `INSERT INTO institutions (name, code, commune, province, region, type)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO institutions (
+        name, code, commune, province, region, type,
+        email, phone, address, director_name, website, notes
+      )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         body.name,
@@ -109,6 +124,12 @@ export class InstitutionsController {
         body.province || null,
         body.region || null,
         type,
+        body.email || null,
+        body.phone || null,
+        body.address || null,
+        body.director_name || null,
+        body.website || null,
+        body.notes || null,
       ],
     );
 
@@ -173,6 +194,30 @@ export class InstitutionsController {
       }
       fields.push(`type = $${idx++}`);
       values.push(body.type);
+    }
+    if (body.email !== undefined) {
+      fields.push(`email = $${idx++}`);
+      values.push(body.email || null);
+    }
+    if (body.phone !== undefined) {
+      fields.push(`phone = $${idx++}`);
+      values.push(body.phone || null);
+    }
+    if (body.address !== undefined) {
+      fields.push(`address = $${idx++}`);
+      values.push(body.address || null);
+    }
+    if (body.director_name !== undefined) {
+      fields.push(`director_name = $${idx++}`);
+      values.push(body.director_name || null);
+    }
+    if (body.website !== undefined) {
+      fields.push(`website = $${idx++}`);
+      values.push(body.website || null);
+    }
+    if (body.notes !== undefined) {
+      fields.push(`notes = $${idx++}`);
+      values.push(body.notes || null);
     }
     if (body.active !== undefined) {
       fields.push(`active = $${idx++}`);
