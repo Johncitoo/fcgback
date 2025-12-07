@@ -124,16 +124,14 @@ export class OnboardingService {
       }
 
       // Verificar expiración
-      // ⚠️ COMENTADO PARA FACILITAR TESTING - DESCOMENTAR EN PRODUCCIÓN
-      // if (invite.expiresAt && invite.expiresAt < new Date()) {
-      //   throw new BadRequestException('El código ha expirado');
-      // }
+      if (invite.expiresAt && invite.expiresAt < new Date()) {
+        throw new BadRequestException('El código ha expirado');
+      }
 
-      // ⚠️ COMENTADO PARA FACILITAR TESTING - DESCOMENTAR EN PRODUCCIÓN
-      // NUEVO: Verificar que el código NO haya sido usado
-      // if (invite.usedAt || invite.usedByApplicant) {
-      //   throw new BadRequestException('Este código ya ha sido utilizado. Si necesitas acceso nuevamente, contacta con el administrador para obtener un nuevo código.');
-      // }
+      // Verificar que el código NO haya sido usado
+      if (invite.usedAt || invite.usedByApplicant) {
+        throw new BadRequestException('Este código ya ha sido utilizado. Si necesitas acceso nuevamente, contacta con el administrador para obtener un nuevo código.');
+      }
       
       // Si el email viene vacío o es temporal, intentar obtenerlo del meta del invite
       let finalEmail = email;
@@ -219,10 +217,10 @@ export class OnboardingService {
         this.logger.log(`Nuevo usuario creado: ${user.id} para applicant: ${applicantId}`);
       }
 
-      // Vincular invitación con applicant y marcar como usado
+      // Vincular invitación con applicant y marcar como redimido INMEDIATAMENTE
       // (el constraint requiere que both used_by_applicant y used_at sean NULL o ambos tengan valor)
       await queryRunner.manager.query(
-        'UPDATE invites SET used_by_applicant = $1, used_at = NOW() WHERE id = $2',
+        'UPDATE invites SET used_by_applicant = $1, used_at = NOW(), redeemed_at = NOW() WHERE id = $2',
         [applicantId, invite.id],
       );
 
@@ -268,10 +266,10 @@ export class OnboardingService {
         this.logger.error(`Error inicializando milestone progress: ${err}`);
       }
 
-      // Generar token para establecer contraseña
+      // Generar token para establecer contraseña (TTL: 10 minutos)
       const token = randomBytes(32).toString('hex');
       const tokenHash = await hash(token);
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
 
       await queryRunner.manager.query(
         `INSERT INTO password_set_tokens (user_id, token_hash, expires_at)

@@ -8,6 +8,7 @@ import {
   ValidationPipe,
   HttpCode,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { OnboardingService } from './onboarding.service';
 import { DevCreateInviteDto } from './dto/dev-create-invite.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
@@ -27,18 +28,21 @@ export class OnboardingController {
   // ==== ENDPOINT PÚBLICO - Validar código de invitación ====
   @Post('validate-invite')
   @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 intentos por minuto
   async validateInvite(@Body() dto: ValidateInvitePublicDto) {
     const result = await this.onboarding.validateInviteCode(dto.code, dto.email || '');
     
     return {
       success: true,
-      email: result.user.email, // Retornar el email para que el frontend lo use
+      email: result.user.email,
+      passwordToken: result.passwordToken, // Devolver token para setear contraseña inmediatamente
+      tokenExpiresIn: 600, // 10 minutos en segundos
       message: result.isNewUser 
-        ? 'Código validado exitosamente. Hemos creado tu cuenta y enviado un email para establecer tu contraseña.'
-        : 'Bienvenido de vuelta. Puedes continuar con tu postulación.',
+        ? 'Código validado exitosamente. Ahora crea tu contraseña para acceder.'
+        : 'Bienvenido de vuelta. Ahora crea tu contraseña para acceder.',
       applicationId: result.applicationId,
       userId: result.user.id,
-      // NO enviamos el passwordToken aquí por seguridad, se envía por email
+      userName: result.user.fullName,
     };
   }
 
