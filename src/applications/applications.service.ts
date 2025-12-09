@@ -459,4 +459,104 @@ export class ApplicationsService {
 
     return { ok: true, updated: true };
   }
+
+  // ============ MÉTODOS DE ESTADÍSTICAS ============
+
+  async getStatsOverview(callId: string) {
+    const result = await this.ds.query(
+      `SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN status = 'DRAFT' THEN 1 END) as draft,
+        COUNT(CASE WHEN status = 'SUBMITTED' THEN 1 END) as submitted,
+        COUNT(CASE WHEN status = 'IN_REVIEW' THEN 1 END) as in_review,
+        COUNT(CASE WHEN status = 'NEEDS_FIX' THEN 1 END) as needs_fix,
+        COUNT(CASE WHEN status = 'APPROVED' THEN 1 END) as approved,
+        COUNT(CASE WHEN status = 'REJECTED' THEN 1 END) as rejected
+       FROM applications
+       WHERE call_id = $1`,
+      [callId],
+    );
+    return result[0] || {};
+  }
+
+  async getGenderDistribution(callId: string) {
+    const result = await this.ds.query(
+      `SELECT 
+        COALESCE(household->>'gender', 'No especificado') as gender,
+        COUNT(*) as count
+       FROM applications
+       WHERE call_id = $1 AND status != 'DRAFT'
+       GROUP BY household->>'gender'
+       ORDER BY count DESC`,
+      [callId],
+    );
+    return result;
+  }
+
+  async getTopInstitutions(callId: string) {
+    const result = await this.ds.query(
+      `SELECT 
+        i.name as institution_name,
+        COUNT(a.id) as count
+       FROM applications a
+       JOIN institutions i ON i.id = a.institution_id
+       WHERE a.call_id = $1 AND a.status != 'DRAFT'
+       GROUP BY i.id, i.name
+       ORDER BY count DESC
+       LIMIT 5`,
+      [callId],
+    );
+    return result;
+  }
+
+  async getTopCommunes(callId: string) {
+    const result = await this.ds.query(
+      `SELECT 
+        COALESCE(ap.commune, 'No especificada') as commune,
+        COUNT(a.id) as count
+       FROM applications a
+       JOIN applicants ap ON ap.id = a.applicant_id
+       WHERE a.call_id = $1 AND a.status != 'DRAFT'
+       GROUP BY ap.commune
+       ORDER BY count DESC
+       LIMIT 5`,
+      [callId],
+    );
+    return result;
+  }
+
+  async getScoreDistribution(callId: string) {
+    const result = await this.ds.query(
+      `SELECT 
+        CASE 
+          WHEN total_score IS NULL THEN 'Sin puntaje'
+          WHEN total_score < 25 THEN '0-25'
+          WHEN total_score < 50 THEN '26-50'
+          WHEN total_score < 75 THEN '51-75'
+          ELSE '76-100'
+        END as score_range,
+        COUNT(*) as count
+       FROM applications
+       WHERE call_id = $1 AND status IN ('SUBMITTED', 'IN_REVIEW', 'APPROVED', 'REJECTED')
+       GROUP BY score_range
+       ORDER BY score_range`,
+      [callId],
+    );
+    return result;
+  }
+
+  async getSubmissionTimeline(callId: string) {
+    const result = await this.ds.query(
+      `SELECT 
+        DATE(submitted_at) as submission_date,
+        COUNT(*) as count
+       FROM applications
+       WHERE call_id = $1 AND submitted_at IS NOT NULL
+       GROUP BY DATE(submitted_at)
+       ORDER BY submission_date DESC
+       LIMIT 30`,
+      [callId],
+    );
+    return result;
+  }
 }
