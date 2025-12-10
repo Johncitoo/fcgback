@@ -13,6 +13,7 @@ import { OnboardingService } from './onboarding.service';
 import { DevCreateInviteDto } from './dto/dev-create-invite.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { ValidateInvitePublicDto } from './dto/validate-invite-public.dto';
+import { Public } from '../auth/public.decorator';
 
 @Controller('onboarding')
 @UsePipes(
@@ -26,6 +27,7 @@ export class OnboardingController {
   constructor(private readonly onboarding: OnboardingService) {}
 
   // ==== ENDPOINT PÚBLICO - Validar código de invitación ====
+  @Public()
   @Post('validate-invite')
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 intentos por minuto
@@ -47,6 +49,7 @@ export class OnboardingController {
   }
 
   // ==== ENDPOINT PÚBLICO - Establecer contraseña ====
+  @Public()
   @Post('set-password')
   @HttpCode(200)
   async setPassword(
@@ -69,6 +72,7 @@ export class OnboardingController {
   }
 
   // ==== DEV endpoints ====
+  @Public()
   @Post('dev/create-invite')
   async devCreateInvite(
     @Body() dto: DevCreateInviteDto,
@@ -82,6 +86,7 @@ export class OnboardingController {
   }
 
   // ==== DEV ONLY - Establecer contraseña sin token (para desarrollo) ====
+  @Public()
   @Post('dev/set-password')
   @HttpCode(200)
   async devSetPassword(

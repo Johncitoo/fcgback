@@ -537,7 +537,7 @@ export class ApplicationsService {
         END as score_range,
         COUNT(*) as count
        FROM applications
-       WHERE call_id = $1 AND status IN ('SUBMITTED', 'IN_REVIEW', 'APPROVED', 'REJECTED')
+       WHERE call_id = $1 AND status IN ('SUBMITTED', 'IN_REVIEW', 'SELECTED', 'NOT_SELECTED')
        GROUP BY score_range
        ORDER BY score_range`,
       [callId],

@@ -9,12 +9,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { CallsService } from './calls.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('calls')
 export class CallsController {
   constructor(private calls: CallsService) {}
 
   // GET /api/calls - Lista de convocatorias
+  @Roles('ADMIN', 'REVIEWER')
   @Get()
   async list(
     @Query('limit') limit?: string,
@@ -36,6 +38,7 @@ export class CallsController {
   }
 
   // GET /api/calls/:id - Obtener detalles de una convocatoria
+  @Roles('ADMIN', 'REVIEWER')
   @Get(':id')
   async getById(@Param('id') id: string) {
     return this.calls.getCallById(id);

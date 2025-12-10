@@ -1,7 +1,9 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
 import { FormSubmissionsService } from './form-submissions.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('form-submissions')
+@Roles('ADMIN', 'REVIEWER')
 export class FormSubmissionsController {
   constructor(private submissionsService: FormSubmissionsService) {}
 

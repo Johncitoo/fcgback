@@ -1,7 +1,9 @@
 import { Controller, Get, Put, Post, Query, Body, BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('admin/forms')
+@Roles('ADMIN', 'REVIEWER')
 export class AdminFormsController {
   constructor(private ds: DataSource) {}
 

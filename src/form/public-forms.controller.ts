@@ -1,7 +1,9 @@
 import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { Public } from '../auth/public.decorator';
 
 @Controller('public')
+@Public()
 export class PublicFormsController {
   constructor(private ds: DataSource) {}
 

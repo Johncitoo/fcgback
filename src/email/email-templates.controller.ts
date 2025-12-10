@@ -9,8 +9,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('email/templates')
+@Roles('ADMIN')
 export class EmailTemplatesController {
   constructor(private ds: DataSource) {}
 

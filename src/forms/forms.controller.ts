@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
 import { FormsService } from './forms.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('forms')
+@Roles('ADMIN', 'REVIEWER')
 export class FormsController {
   constructor(private formsService: FormsService) {}
 

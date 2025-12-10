@@ -10,12 +10,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('institutions')
 export class InstitutionsController {
   constructor(private ds: DataSource) {}
 
   // GET /api/institutions - Listar instituciones
+  @Roles('ADMIN', 'REVIEWER')
   @Get()
   async list(
     @Query('limit') limit?: string,
@@ -82,6 +84,7 @@ export class InstitutionsController {
   }
 
   // POST /api/institutions - Crear institución
+  @Roles('ADMIN')
   @Post()
   async create(
     @Body()
@@ -137,6 +140,7 @@ export class InstitutionsController {
   }
 
   // GET /api/institutions/:id - Obtener institución
+  @Roles('ADMIN', 'REVIEWER')
   @Get(':id')
   async getById(@Param('id') id: string) {
     const result = await this.ds.query(
@@ -152,6 +156,7 @@ export class InstitutionsController {
   }
 
   // PATCH /api/institutions/:id - Actualizar institución
+  @Roles('ADMIN')
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: any) {
     const existing = await this.ds.query(
@@ -241,6 +246,7 @@ export class InstitutionsController {
   }
 
   // DELETE /api/institutions/:id - Desactivar institución
+  @Roles('ADMIN')
   @Delete(':id')
   async delete(@Param('id') id: string) {
     const result = await this.ds.query(

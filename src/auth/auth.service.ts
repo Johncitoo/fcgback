@@ -12,6 +12,7 @@ import { UsersService } from '../users/users.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { AuditService } from '../common/audit.service';
+import { SecurityService } from '../common/security.service';
 import { User, UserRole } from '../users/entities/user.entity';
 
 export interface AccessPayload {
@@ -33,6 +34,7 @@ export class AuthService {
     private sessions: SessionsService,
     private onboarding: OnboardingService,
     private auditService: AuditService,
+    private securityService: SecurityService,
   ) {}
 
   // ===== Helpers comunes =====
@@ -98,13 +100,41 @@ export class AuthService {
   // ===== Flujos de autenticación Staff =====
 
   async loginStaff(email: string, password: string, ip?: string, ua?: string) {
+    // Verificar si la cuenta está bloqueada
+    if (this.securityService.isAccountLocked(email, ip || '0.0.0.0')) {
+      const remaining = this.securityService.getLockoutTimeRemaining(email, ip || '0.0.0.0');
+      throw new ForbiddenException(
+        `Account locked due to multiple failed login attempts. Try again in ${Math.ceil(remaining / 60)} minutes.`
+      );
+    }
+
     const user = await this.users.findByEmail(email);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    if (!user) {
+      await this.securityService.recordLoginAttempt(email, ip || '0.0.0.0', false, ua);
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     await this.assertStaff(user);
 
     const ok = await argon2.verify(user.passwordHash, password);
-    if (!ok) throw new UnauthorizedException('Invalid credentials');
+    if (!ok) {
+      await this.securityService.recordLoginAttempt(email, ip || '0.0.0.0', false, ua);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Login exitoso - limpiar intentos fallidos
+    await this.securityService.recordLoginAttempt(email, ip || '0.0.0.0', true, ua);
+    this.securityService.clearAttempts(email, ip || '0.0.0.0');
+
+    // Detectar actividad sospechosa
+    const suspiciousCheck = await this.securityService.detectSuspiciousActivity(
+      email,
+      ip || '0.0.0.0',
+      ua || 'unknown'
+    );
+    if (suspiciousCheck.suspicious) {
+      console.warn(`⚠️  Suspicious login detected: ${email} - ${suspiciousCheck.reason}`);
+    }
 
     const accessToken = this.signAccessToken(user);
 

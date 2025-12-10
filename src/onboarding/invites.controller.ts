@@ -9,8 +9,10 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { OnboardingService } from './onboarding.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('invites')
+@Roles('ADMIN', 'REVIEWER') // Todo el controlador requiere admin o revisor
 export class InvitesController {
   constructor(
     private ds: DataSource,

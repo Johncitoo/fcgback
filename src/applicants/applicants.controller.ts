@@ -8,8 +8,10 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('applicants')
+@Roles('ADMIN', 'REVIEWER')
 export class ApplicantsController {
   private readonly logger = new Logger(ApplicantsController.name);
 

@@ -64,9 +64,11 @@ import { AuditModule } from './audit/audit.module';
         const url = cfg.get<string>('DATABASE_URL');
         if (!url) throw new Error('DATABASE_URL not set');
 
+        // 🔒 SEGURIDAD: SSL habilitado en producción con validación de certificado
+        const nodeEnv = cfg.get<string>('NODE_ENV') ?? 'development';
         const ssl =
           (cfg.get<string>('DATABASE_SSL') ?? '').toLowerCase() === 'true'
-            ? { rejectUnauthorized: false }
+            ? { rejectUnauthorized: nodeEnv === 'production' } // ✅ true en prod, false en dev
             : false;
 
         return {

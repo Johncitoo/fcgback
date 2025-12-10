@@ -1,8 +1,10 @@
 import { Controller, Get, Param, Patch, Body } from '@nestjs/common';
 import { FormService } from './form.service';
 import { SaveApplicantFormDto } from './dto/save-applicant-form.dto';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('calls')
+@Roles('APPLICANT')
 export class FormController {
   constructor(private form: FormService) {}
 

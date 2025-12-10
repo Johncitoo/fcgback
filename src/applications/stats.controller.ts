@@ -1,7 +1,9 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('admin/stats')
+@Roles('ADMIN', 'REVIEWER')
 export class StatsController {
   constructor(private apps: ApplicationsService) {}
 

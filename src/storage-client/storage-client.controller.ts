@@ -24,6 +24,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { JwtPayload } from '../auth/current-user.decorator';
+import { FileValidator } from '../common/validators/file.validator';
 
 class UploadFileDto {
   @IsEnum(FileCategory)
@@ -61,6 +62,13 @@ export class StorageClientController {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
+
+    // Validar archivo según categoría
+    const validationOptions = {
+      category: this.getCategoryType(dto.category),
+      maxSize: this.getMaxSizeForCategory(dto.category),
+    };
+    FileValidator.validate(file, validationOptions);
 
     // Get user UUID from the authenticated user
     // For now, we'll use a placeholder since we need to map integer ID to UUID
@@ -154,6 +162,27 @@ export class StorageClientController {
     });
 
     return { files };
+  }
+
+  // Métodos helper para validación
+  private getCategoryType(category: FileCategory): 'image' | 'document' | 'video' | 'all' {
+    const categoryMap: Record<FileCategory, 'image' | 'document' | 'video' | 'all'> = {
+      'PROFILE_PHOTO': 'image',
+      'APPLICATION_DOCUMENT': 'document',
+      'MILESTONE_DOCUMENT': 'document',
+      'GENERAL': 'all',
+    };
+    return categoryMap[category] || 'all';
+  }
+
+  private getMaxSizeForCategory(category: FileCategory): number {
+    const sizeMap: Record<FileCategory, number> = {
+      'PROFILE_PHOTO': 5 * 1024 * 1024,         // 5 MB
+      'APPLICATION_DOCUMENT': 25 * 1024 * 1024,  // 25 MB
+      'MILESTONE_DOCUMENT': 50 * 1024 * 1024,    // 50 MB
+      'GENERAL': 10 * 1024 * 1024,               // 10 MB
+    };
+    return sizeMap[category] || 10 * 1024 * 1024;
   }
 
   @Delete(':id')

@@ -12,8 +12,10 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ApplicationsService } from './applications.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('applications')
+@Roles('ADMIN', 'REVIEWER') // Todo el controlador requiere admin o revisor
 export class ApplicationsController {
   constructor(
     private jwt: JwtService,

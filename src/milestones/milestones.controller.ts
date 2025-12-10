@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
 import { MilestonesService } from './milestones.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('milestones')
+@Roles('ADMIN', 'REVIEWER')
 export class MilestonesController {
   constructor(private milestonesService: MilestonesService) {}
 

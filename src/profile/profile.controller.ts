@@ -8,8 +8,10 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ProfileService } from './profile.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('profile') // <-- sin /api
+@Roles('APPLICANT')
 export class ProfileController {
   constructor(
     private jwt: JwtService,

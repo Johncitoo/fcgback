@@ -11,8 +11,10 @@ import {
 import { UsersService } from './users.service';
 import { DataSource } from 'typeorm';
 import * as argon2 from 'argon2';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('admin/users')
+@Roles('ADMIN') // Solo administradores pueden gestionar usuarios
 export class AdminUsersController {
   constructor(
     private users: UsersService,

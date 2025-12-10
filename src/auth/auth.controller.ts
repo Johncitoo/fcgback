@@ -1,15 +1,19 @@
 import { Body, Controller, HttpCode, Ip, Post, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginStaffDto } from './dto/login-staff.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { ValidateInviteDto } from './dto/validate-invite.dto';
+import { Public } from './public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   // Cambiar a login-staff (sin la barra)
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 intentos por minuto
   @Post('login-staff')
   @HttpCode(200)
   async loginStaff(@Body() dto: LoginStaffDto, @Req() req: any) {
@@ -18,6 +22,7 @@ export class AuthController {
     return this.auth.loginStaff(dto.email, dto.password, ip, ua);
   }
 
+  @Public()
   @Post('refresh')
   @HttpCode(200)
   refresh(@Body() dto: RefreshDto, @Ip() ip: string, @Req() req: any) {
@@ -25,6 +30,7 @@ export class AuthController {
     return this.auth.refresh(dto.refreshToken, ip, ua);
   }
 
+  @Public()
   @Post('logout')
   @HttpCode(200)
   logout(@Body() dto: LogoutDto) {
@@ -32,6 +38,8 @@ export class AuthController {
   }
 
   // Login con código de invitación (LEGACY - se recomienda usar /onboarding/validate-invite)
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 intentos por minuto
   @Post('enter-invite')
   @HttpCode(200)
   async enterInvite(@Body() dto: ValidateInviteDto, @Req() req: any) {
@@ -41,6 +49,8 @@ export class AuthController {
   }
 
   // Login normal para postulantes (email + password)
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 intentos por minuto
   @Post('login')
   @HttpCode(200)
   async loginApplicant(
@@ -53,6 +63,7 @@ export class AuthController {
   }
 
   // ====== SOLO DEV / SEMILLA (protegido por env) ======
+  @Public()
   @Post('dev/seed-staff')
   @HttpCode(200)
   devSeed(

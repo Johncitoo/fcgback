@@ -10,8 +10,10 @@ import { UsersService } from './users.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('users')
+@Roles('ADMIN', 'REVIEWER', 'APPLICANT')
 export class UserAuthController {
   constructor(
     private users: UsersService,

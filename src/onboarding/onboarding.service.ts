@@ -220,7 +220,7 @@ export class OnboardingService {
       // Vincular invitación con applicant y marcar como redimido INMEDIATAMENTE
       // (el constraint requiere que both used_by_applicant y used_at sean NULL o ambos tengan valor)
       await queryRunner.manager.query(
-        'UPDATE invites SET used_by_applicant = $1, used_at = NOW(), redeemed_at = NOW() WHERE id = $2',
+        'UPDATE invites SET used_by_applicant = $1, used_at = NOW() WHERE id = $2',
         [applicantId, invite.id],
       );
 

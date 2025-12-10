@@ -1,7 +1,9 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('email/logs')
+@Roles('ADMIN')
 export class EmailLogsController {
   constructor(private ds: DataSource) {}
 
