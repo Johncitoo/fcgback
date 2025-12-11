@@ -37,6 +37,7 @@ export class MilestonesController {
   }
 
   @Get('progress/:applicationId')
+  @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
   getProgress(@Param('applicationId') applicationId: string) {
     return this.milestonesService.getProgress(applicationId);
   }
@@ -62,6 +63,7 @@ export class MilestonesController {
 
   // Endpoint para obtener las respuestas de un hito
   @Get('progress/:progressId/submission')
+  @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
   getMilestoneSubmission(@Param('progressId') progressId: string) {
     return this.milestonesService.getMilestoneSubmission(progressId);
   }

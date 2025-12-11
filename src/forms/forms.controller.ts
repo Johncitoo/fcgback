@@ -21,6 +21,7 @@ export class FormsController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
   findOne(@Param('id') id: string) {
     return this.formsService.findOne(id);
   }
