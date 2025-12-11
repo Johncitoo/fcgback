@@ -24,8 +24,16 @@ export class FormSubmissionsService {
     formId?: string;
     milestoneId?: string;
     answers?: Record<string, any>;
+    responses?: Record<string, any>;
   }): Promise<FormSubmission> {
-    const submission = this.submissionsRepo.create(data);
+    // Normalizar: si viene 'answers', moverlo a 'responses'
+    const normalizedData = { ...data };
+    if (normalizedData.answers && !normalizedData.responses) {
+      normalizedData.responses = normalizedData.answers;
+      delete normalizedData.answers;
+    }
+    
+    const submission = this.submissionsRepo.create(normalizedData);
     return this.submissionsRepo.save(submission);
   }
 
@@ -53,8 +61,15 @@ export class FormSubmissionsService {
     return submission;
   }
 
-  async update(id: string, data: Partial<FormSubmission>): Promise<FormSubmission> {
-    await this.submissionsRepo.update(id, data);
+  async update(id: string, data: Partial<FormSubmission> & { answers?: any }): Promise<FormSubmission> {
+    // Normalizar: si viene 'answers', moverlo a 'responses'
+    const normalizedData: any = { ...data };
+    if (normalizedData.answers && !normalizedData.responses) {
+      normalizedData.responses = normalizedData.answers;
+      delete normalizedData.answers;
+    }
+    
+    await this.submissionsRepo.update(id, normalizedData);
     return this.findOne(id);
   }
 

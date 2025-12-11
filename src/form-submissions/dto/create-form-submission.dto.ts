@@ -16,6 +16,10 @@ export class CreateFormSubmissionDto {
   responses?: any;
 
   @IsOptional()
+  @IsObject()
+  answers?: any; // Alias para responses (compatibilidad con frontend)
+
+  @IsOptional()
   @IsString()
   status?: string;
 }

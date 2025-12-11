@@ -23,6 +23,7 @@ export class FormSubmissionsController {
   }
 
   @Get('milestone/:milestoneId')
+  @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
   findByMilestone(@Param('milestoneId') milestoneId: string) {
     return this.submissionsService.findByMilestone(milestoneId);
   }
