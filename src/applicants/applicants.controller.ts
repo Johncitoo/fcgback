@@ -52,6 +52,7 @@ export class ApplicantsController {
    * Retorna información del applicant actual basado en el token JWT
    */
   @Get('me')
+  @Roles('APPLICANT')
   async getMe(@Req() req: any) {
     try {
       this.logger.log('GET /applicants/me - Iniciando...');

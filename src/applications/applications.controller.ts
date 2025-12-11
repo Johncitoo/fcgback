@@ -75,6 +75,7 @@ export class ApplicationsController {
 
   // GET /api/applications/my-active - Obtener o crear la application del postulante para la convocatoria activa
   @Get('my-active')
+  @Roles('APPLICANT') // Sobrescribir: solo para APPLICANT
   async getMyActive(@Req() req: any) {
     const user = this.getUserFromAuth(req);
     if (user.typ !== 'access' || user.role !== 'APPLICANT') {
@@ -84,6 +85,7 @@ export class ApplicationsController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
   async getById(@Req() req: any, @Param('id') id: string) {
     try {
       const user = this.getUserFromAuth(req);
@@ -103,6 +105,7 @@ export class ApplicationsController {
   }
 
   @Patch(':id')
+  @Roles('APPLICANT')
   async patch(@Req() req: any, @Param('id') id: string, @Body() body: UpdateApplicationDto) {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT')
@@ -111,6 +114,7 @@ export class ApplicationsController {
   }
 
   @Post(':id/submit')
+  @Roles('APPLICANT')
   async submit(@Req() req: any, @Param('id') id: string) {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT')
@@ -120,6 +124,7 @@ export class ApplicationsController {
 
   // Marcar código de invitación como completado después de enviar el formulario
   @Post(':id/complete-invite')
+  @Roles('APPLICANT')
   async completeInvite(@Req() req: any, @Param('id') id: string) {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT')
@@ -129,6 +134,7 @@ export class ApplicationsController {
 
   // GET /api/applications/:id/answers - Obtener respuestas guardadas del formulario
   @Get(':id/answers')
+  @Roles('APPLICANT')
   async getAnswers(@Req() req: any, @Param('id') id: string) {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT')
@@ -138,6 +144,7 @@ export class ApplicationsController {
 
   // PUT /api/applications/:id/answers - Guardar respuestas del formulario (borrador)
   @Patch(':id/answers')
+  @Roles('APPLICANT')
   async saveAnswers(
     @Req() req: any,
     @Param('id') id: string,
