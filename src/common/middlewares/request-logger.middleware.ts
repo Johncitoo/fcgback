@@ -11,16 +11,17 @@ export class RequestLoggerMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction) {
     const suspiciousPatterns = [
-      // SQL Injection patterns
+      // SQL Injection patterns (solo en query params y body, no en URL)
       /(\bUNION\b|\bSELECT\b|\bDROP\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b)/i,
       // XSS patterns
       /<script|javascript:|onerror=|onload=/i,
       // Path traversal
       /\.\.[\/\\]/,
-      // Command injection
-      /[;&|`$]/,
+      // Command injection (sin $ para evitar falsos positivos con User-Agents)
+      /[;&|`]/,
     ];
 
+    // Solo revisar URL, query params y body (no headers como User-Agent)
     const url = req.url;
     const body = JSON.stringify(req.body);
     const query = JSON.stringify(req.query);
