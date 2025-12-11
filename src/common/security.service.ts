@@ -244,7 +244,7 @@ export class SecurityService {
       }
 
       // Múltiples IPs en corto tiempo
-      const uniqueIps = new Set(recentLogins.map((r: any) => r.ip_address));
+      const uniqueIps = new Set(recentLogins.map((r: any) => r.meta?.ip).filter(Boolean));
       if (uniqueIps.size > 5) {
         return {
           suspicious: true,
