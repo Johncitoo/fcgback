@@ -64,38 +64,12 @@ async function bootstrap() {
     level: 6, // Balance entre compresión y CPU
   }));
   
-  console.log('✓ FCG Backend iniciando - v1.0.2');
+  console.log('✓ FCG Backend iniciando - v1.0.2 (CORS ABIERTO PARA TESTEO)');
 
-  // ✅ SECURITY FIX: Validar FRONTEND_URL en producción (Pentesting Issue #1)
-  if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
-    throw new Error(
-      '❌ FRONTEND_URL must be set in production environment for CORS security'
-    );
-  }
-
-  // CORS configurado correctamente (NO abierto completamente)
-  const allowedOrigins = config.get<string>('CORS_ORIGINS')?.split(',') || [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    // Testing environments:
-    'https://fcg-production.up.railway.app',
-    'https://fundacioncarmesgoudie.vercel.app',
-    'https://fcgfront.vercel.app',
-    // Production (Namecheap) - AGREGAR DOMINIO REAL:
-    // 'https://fundacioncarmesgoudie.com',
-    // 'https://www.fundacioncarmesgoudie.com',
-  ];
-
-  // CORS configurado con whitelist de orígenes permitidos
+  // ⚠️ CORS ABIERTO TEMPORALMENTE PARA TESTING
+  // TODO: Volver a restringir antes de producción final en Namecheap
   app.enableCors({
-    origin: (origin, callback) => {
-      // Permitir requests sin origin (Postman, mobile apps, curl)
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS: Origin ${origin} not allowed`));
-      }
-    },
+    origin: true, // Permite CUALQUIER origen
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
@@ -131,7 +105,7 @@ async function bootstrap() {
   await app.listen(port);
   
   console.log(`🚀 Application is running on: http://localhost:${port}/api`);
-  console.log(`✅ CORS enabled for: ${allowedOrigins.join(', ')}`);
+  console.log(`⚠️  CORS: ABIERTO PARA TESTEO (permitiendo todos los orígenes)`);
   console.log(`🔒 Security: Helmet + HPP + Sanitization + Compression enabled`);
   console.log(`🛡️  Guards: JWT Auth + Roles + Rate Limiting globally enforced`);
   console.log(`🔐 Environment: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
