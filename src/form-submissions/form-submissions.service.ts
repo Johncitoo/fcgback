@@ -26,15 +26,25 @@ export class FormSubmissionsService {
     answers?: Record<string, any>;
     responses?: Record<string, any>;
   }): Promise<FormSubmission> {
-    // Normalizar: si viene 'answers', moverlo a 'responses'
-    const normalizedData = { ...data };
-    if (normalizedData.answers && !normalizedData.responses) {
-      normalizedData.responses = normalizedData.answers;
-      delete normalizedData.answers;
+    try {
+      // Normalizar: si viene 'answers', moverlo a 'responses'
+      const normalizedData = { ...data };
+      if (normalizedData.answers && !normalizedData.responses) {
+        normalizedData.responses = normalizedData.answers;
+        delete normalizedData.answers;
+      }
+      
+      this.logger.log(`Creating submission for app ${data.applicationId}, milestone ${data.milestoneId}`);
+      
+      const submission = this.submissionsRepo.create(normalizedData);
+      const saved = await this.submissionsRepo.save(submission);
+      
+      this.logger.log(`✅ Submission created: ${saved.id}`);
+      return saved;
+    } catch (error) {
+      this.logger.error(`Error creating submission: ${error.message}`, error.stack);
+      throw error;
     }
-    
-    const submission = this.submissionsRepo.create(normalizedData);
-    return this.submissionsRepo.save(submission);
   }
 
   async findByApplication(applicationId: string): Promise<FormSubmission[]> {
@@ -62,15 +72,26 @@ export class FormSubmissionsService {
   }
 
   async update(id: string, data: Partial<FormSubmission> & { answers?: any }): Promise<FormSubmission> {
-    // Normalizar: si viene 'answers', moverlo a 'responses'
-    const normalizedData: any = { ...data };
-    if (normalizedData.answers && !normalizedData.responses) {
-      normalizedData.responses = normalizedData.answers;
-      delete normalizedData.answers;
+    try {
+      // Normalizar: si viene 'answers', moverlo a 'responses'
+      const normalizedData: any = { ...data };
+      if (normalizedData.answers && !normalizedData.responses) {
+        normalizedData.responses = normalizedData.answers;
+        delete normalizedData.answers;
+      }
+      
+      // Verificar que la submission existe antes de actualizar
+      const existing = await this.submissionsRepo.findOne({ where: { id } });
+      if (!existing) {
+        throw new NotFoundException(`Submission ${id} not found`);
+      }
+      
+      await this.submissionsRepo.update(id, normalizedData);
+      return this.findOne(id);
+    } catch (error) {
+      this.logger.error(`Error updating submission ${id}: ${error.message}`, error.stack);
+      throw error;
     }
-    
-    await this.submissionsRepo.update(id, normalizedData);
-    return this.findOne(id);
   }
 
   async submit(id: string, userId: string): Promise<FormSubmission> {
