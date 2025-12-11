@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OnboardingService } from './onboarding.service';
 import { OnboardingController } from './onboarding.controller';
@@ -15,7 +15,7 @@ import { MilestonesModule } from '../milestones/milestones.module';
   imports: [
     TypeOrmModule.forFeature([Invite, PasswordSetToken, User]),
     UsersModule,
-    CallsModule,
+    forwardRef(() => CallsModule),
     EmailModule,
     MilestonesModule,
   ],
