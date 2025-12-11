@@ -144,13 +144,14 @@ export class SecurityService {
       console.warn(`🔒 Account locked: ${email} from IP ${ip} - ${failedCount} failed attempts`);
       
       await this.dataSource.query(
-        `INSERT INTO audit_logs (event_type, user_email, ip_address, details, created_at)
-         VALUES ($1, $2, $3, $4, NOW())`,
+        `INSERT INTO audit_logs (action, entity, meta, created_at)
+         VALUES ($1, $2, $3, NOW())`,
         [
           'ACCOUNT_LOCKED',
-          email,
-          ip,
+          'user',
           JSON.stringify({
+            email,
+            ip,
             failedAttempts: failedCount,
             lockDuration: this.LOCKOUT_DURATION_MINUTES,
           }),
@@ -166,15 +167,20 @@ export class SecurityService {
     userAgent?: string,
   ): Promise<void> {
     try {
+      // Estructura correcta de audit_logs en Railway:
+      // id, actor_user_id, action, entity, entity_id, meta, created_at
       await this.dataSource.query(
-        `INSERT INTO audit_logs (event_type, user_email, ip_address, user_agent, details, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        `INSERT INTO audit_logs (action, entity, meta, created_at)
+         VALUES ($1, $2, $3, NOW())`,
         [
           success ? 'LOGIN_SUCCESS' : 'LOGIN_FAILED',
-          email,
-          ip,
-          userAgent || 'unknown',
-          JSON.stringify({ timestamp: new Date().toISOString() }),
+          'user',
+          JSON.stringify({
+            email,
+            ip,
+            userAgent: userAgent || 'unknown',
+            timestamp: new Date().toISOString()
+          }),
         ]
       );
     } catch (error) {
