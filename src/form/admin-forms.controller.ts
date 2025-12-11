@@ -1,6 +1,7 @@
 import { Controller, Get, Put, Post, Query, Body, BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Roles } from '../auth/roles.decorator';
+import { SaveFormDto } from './dto/save-form.dto';
 
 @Controller('admin/forms')
 @Roles('ADMIN', 'REVIEWER')
@@ -90,7 +91,7 @@ export class AdminFormsController {
 
   // PUT /api/admin/forms?callId=UUID
   @Put()
-  async saveForm(@Query('callId') callId: string, @Body() body: any) {
+  async saveForm(@Query('callId') callId: string, @Body() body: SaveFormDto) {
     if (!callId) {
       throw new BadRequestException('callId is required');
     }
