@@ -7,14 +7,18 @@ import {
   Body,
   Patch,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import { CallsService } from './calls.service';
 import { Roles } from '../auth/roles.decorator';
 import { CreateCallDto } from './dto/create-call.dto';
 import { UpdateCallDto } from './dto/update-call.dto';
 import { ListCallsDto } from './dto/list-calls.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 
 @Controller('calls')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class CallsController {
   constructor(private calls: CallsService) {}
 
@@ -49,12 +53,14 @@ export class CallsController {
   }
 
   // POST /api/calls - Crear nueva convocatoria
+  @Roles('ADMIN')
   @Post()
   async create(@Body() body: CreateCallDto) {
     return this.calls.createCall(body);
   }
 
   // PATCH /api/calls/:id - Actualizar convocatoria
+  @Roles('ADMIN')
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateCallDto) {
     return this.calls.updateCall(id, body);
