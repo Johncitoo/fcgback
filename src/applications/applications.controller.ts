@@ -8,13 +8,17 @@ import {
   Post,
   Req,
   Query,
+  Delete,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { ApplicationsService } from './applications.service';
 import { Roles } from '../auth/roles.decorator';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { SaveAnswersDto } from './dto/save-answers.dto';
+import { cleanupDuplicateApplications } from './cleanup-duplicates';
 
 @Controller('applications')
 @Roles('ADMIN', 'REVIEWER') // Todo el controlador requiere admin o revisor
@@ -23,6 +27,7 @@ export class ApplicationsController {
     private jwt: JwtService,
     private cfg: ConfigService,
     private apps: ApplicationsService,
+    @InjectDataSource() private dataSource: DataSource,
   ) {}
 
   private getUserFromAuth(req: any) {
@@ -154,5 +159,19 @@ export class ApplicationsController {
     if (user.role !== 'APPLICANT')
       throw new BadRequestException('Applicant only');
     return this.apps.saveAnswers(user.sub, id, dto.answers);
+  }
+
+  /**
+   * Endpoint de administración para limpiar aplicaciones duplicadas
+   * Solo mantiene la aplicación con form_submissions
+   */
+  @Delete('cleanup-duplicates')
+  @Roles('ADMIN')
+  async cleanupDuplicates() {
+    const result = await cleanupDuplicateApplications(this.dataSource);
+    return {
+      message: 'Limpieza de aplicaciones duplicadas completada',
+      ...result,
+    };
   }
 }
