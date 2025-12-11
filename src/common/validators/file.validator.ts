@@ -51,9 +51,6 @@ const FILE_SIGNATURES: Record<string, Buffer[]> = {
   'image/jpeg': [
     Buffer.from([0xFF, 0xD8, 0xFF]),
   ],
-  'image/jpg': [
-    Buffer.from([0xFF, 0xD8, 0xFF]),  // JPG es lo mismo que JPEG
-  ],
   'image/png': [
     Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
   ],
@@ -62,9 +59,6 @@ const FILE_SIGNATURES: Record<string, Buffer[]> = {
   ],
   'image/gif': [
     Buffer.from([0x47, 0x49, 0x46, 0x38]),  // GIF8
-  ],
-  'image/webp': [
-    Buffer.from([0x52, 0x49, 0x46, 0x46]),  // RIFF (WebP)
   ],
 };
 
@@ -167,26 +161,12 @@ export class FileValidator {
     
     if (!signatures) {
       // Si no tenemos firma para este tipo, permitir
-      console.log(`[FileValidator] No signature found for ${mimeType}, allowing file`);
       return true;
     }
 
-    // Log los primeros bytes del archivo para debugging
-    const firstBytes = buffer.subarray(0, 16);
-    console.log(`[FileValidator] Validating ${mimeType}, first bytes:`, firstBytes);
-
     // Verificar si alguna firma coincide
-    const isValid = signatures.some(signature => {
-      const matches = buffer.subarray(0, signature.length).equals(signature);
-      console.log(`[FileValidator] Signature match for ${mimeType}:`, matches);
-      return matches;
-    });
-    
-    if (!isValid) {
-      console.error(`[FileValidator] Magic number validation failed for ${mimeType}`);
-    }
-    
-    return isValid;
+    return signatures.some(signature => {
+      return buffer.subarray(0, signature.length).equals(signature);
     });
   }
 
