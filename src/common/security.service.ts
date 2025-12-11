@@ -212,18 +212,20 @@ export class SecurityService {
     userAgent: string,
   ): Promise<{ suspicious: boolean; reason?: string }> {
     // Verificar cambio de IP repentino
+    // Estructura correcta: id, actor_user_id, action, entity, entity_id, meta, created_at
     const recentLogins = await this.dataSource.query(
-      `SELECT ip_address, user_agent, created_at
+      `SELECT meta, created_at
        FROM audit_logs
-       WHERE user_email = $1 AND event_type = 'LOGIN_SUCCESS'
+       WHERE meta->>'email' = $1 AND action = 'LOGIN_SUCCESS'
        ORDER BY created_at DESC
        LIMIT 10`,
       [email]
     );
 
     if (recentLogins.length > 0) {
-      const lastIp = recentLogins[0].ip_address;
-      const lastUA = recentLogins[0].user_agent;
+      const lastMeta = recentLogins[0].meta;
+      const lastIp = lastMeta?.ip;
+      const lastUA = lastMeta?.userAgent;
 
       // Cambio de IP
       if (lastIp && lastIp !== ip) {
