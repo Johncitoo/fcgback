@@ -13,11 +13,11 @@ export class CreateFormSubmissionDto {
 
   @IsOptional()
   @IsObject()
-  responses?: any;
+  answers?: any; // Datos del formulario (form_data en BD)
 
   @IsOptional()
   @IsObject()
-  answers?: any; // Alias para responses (compatibilidad con frontend)
+  responses?: any; // Alias de answers (compatibilidad)
 
   @IsOptional()
   @IsString()

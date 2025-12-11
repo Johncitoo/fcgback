@@ -27,11 +27,11 @@ export class FormSubmissionsService {
     responses?: Record<string, any>;
   }): Promise<FormSubmission> {
     try {
-      // Normalizar: si viene 'answers', moverlo a 'responses'
+      // Normalizar: 'responses' es un alias de 'answers' (compatibilidad)
       const normalizedData = { ...data };
-      if (normalizedData.answers && !normalizedData.responses) {
-        normalizedData.responses = normalizedData.answers;
-        delete normalizedData.answers;
+      if (normalizedData.responses && !normalizedData.answers) {
+        normalizedData.answers = normalizedData.responses;
+        delete normalizedData.responses;
       }
       
       this.logger.log(`Creating submission for app ${data.applicationId}, milestone ${data.milestoneId}`);
@@ -71,13 +71,13 @@ export class FormSubmissionsService {
     return submission;
   }
 
-  async update(id: string, data: Partial<FormSubmission> & { answers?: any }): Promise<FormSubmission> {
+  async update(id: string, data: Partial<FormSubmission> & { answers?: any; responses?: any }): Promise<FormSubmission> {
     try {
-      // Normalizar: si viene 'answers', moverlo a 'responses'
+      // Normalizar: 'responses' es un alias de 'answers' (compatibilidad)
       const normalizedData: any = { ...data };
-      if (normalizedData.answers && !normalizedData.responses) {
-        normalizedData.responses = normalizedData.answers;
-        delete normalizedData.answers;
+      if (normalizedData.responses && !normalizedData.answers) {
+        normalizedData.answers = normalizedData.responses;
+        delete normalizedData.responses;
       }
       
       // Verificar que la submission existe antes de actualizar
@@ -85,6 +85,8 @@ export class FormSubmissionsService {
       if (!existing) {
         throw new NotFoundException(`Submission ${id} not found`);
       }
+      
+      this.logger.log(`Updating submission ${id} with data keys: ${Object.keys(normalizedData).join(', ')}`);
       
       await this.submissionsRepo.update(id, normalizedData);
       return this.findOne(id);
