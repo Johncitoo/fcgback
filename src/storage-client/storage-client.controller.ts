@@ -169,7 +169,7 @@ export class StorageClientController {
     const categoryMap: Partial<Record<FileCategory, 'image' | 'document' | 'video' | 'all'>> = {
       'PROFILE': 'image',
       'DOCUMENT': 'document',
-      'FORM_FIELD': 'document',
+      'FORM_FIELD': 'all', // Permitir imágenes y documentos en campos de formulario
       'ATTACHMENT': 'all',
       'OTHER': 'all',
     };
