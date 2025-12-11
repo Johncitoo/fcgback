@@ -133,9 +133,10 @@ export class FormSubmissionsService {
     }
 
     // Enviar email para cambiar contraseña al completar formulario
-    this.sendPasswordSetEmailAfterSubmit(userId, submission.applicationId).catch(err => {
-      this.logger.error(`Error enviando email post-submit: ${err.message}`, err.stack);
-    });
+    // DESHABILITADO TEMPORALMENTE: Requiere tabla password_reset_tokens
+    // this.sendPasswordSetEmailAfterSubmit(userId, submission.applicationId).catch(err => {
+    //   this.logger.error(`Error enviando email post-submit: ${err.message}`, err.stack);
+    // });
 
     return this.findOne(id);
   }
