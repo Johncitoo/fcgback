@@ -17,11 +17,11 @@ export class CreateCallDto {
 
   @IsOptional()
   @IsDateString()
-  openDate?: string;
+  startDate?: string;
 
   @IsOptional()
   @IsDateString()
-  closeDate?: string;
+  endDate?: string;
 
   @IsOptional()
   @IsEnum(['DRAFT', 'OPEN', 'CLOSED'])
