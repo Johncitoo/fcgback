@@ -6,7 +6,6 @@ import { Reflector } from '@nestjs/core';
 import helmet from 'helmet';
 import hpp from 'hpp';
 import compression from 'compression';
-import mongoSanitize from 'express-mongo-sanitize';
 import { AppModule } from './app.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
@@ -44,14 +43,6 @@ async function bootstrap() {
   
   // Seguridad: HPP Protection (HTTP Parameter Pollution)
   app.use(hpp());
-
-  // Seguridad: Sanitización de datos (previene NoSQL injection aunque usemos PostgreSQL)
-  app.use(mongoSanitize({
-    replaceWith: '_',
-    onSanitize: ({ req, key }) => {
-      console.warn(`⚠️  Data sanitization triggered on ${req.path} for key: ${key}`);
-    },
-  }));
 
   // Performance: Compresión de respuestas (reduce tamaño de payloads)
   app.use(compression({
@@ -106,8 +97,9 @@ async function bootstrap() {
   
   console.log(`🚀 Application is running on: http://localhost:${port}/api`);
   console.log(`⚠️  CORS: ABIERTO PARA TESTEO (permitiendo todos los orígenes)`);
-  console.log(`🔒 Security: Helmet + HPP + Sanitization + Compression enabled`);
+  console.log(`🔒 Security: Helmet + HPP + Compression enabled`);
   console.log(`🛡️  Guards: JWT Auth + Roles + Rate Limiting globally enforced`);
   console.log(`🔐 Environment: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+  console.log(`✅ Input validation: class-validator en todos los DTOs`);
 }
 bootstrap();
