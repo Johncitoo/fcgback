@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Roles } from '../auth/roles.decorator';
+import { CreateInstitutionDto } from './dto/create-institution.dto';
+import { UpdateInstitutionDto } from './dto/update-institution.dto';
 
 @Controller('institutions')
 export class InstitutionsController {
@@ -86,23 +88,7 @@ export class InstitutionsController {
   // POST /api/institutions - Crear institución
   @Roles('ADMIN')
   @Post()
-  async create(
-    @Body()
-    body: {
-      name: string;
-      code?: string;
-      commune?: string;
-      province?: string;
-      region?: string;
-      type?: string;
-      email?: string;
-      phone?: string;
-      address?: string;
-      director_name?: string;
-      website?: string;
-      notes?: string;
-    },
-  ) {
+  async create(@Body() body: CreateInstitutionDto) {
     if (!body.name) {
       throw new BadRequestException('Name is required');
     }
@@ -158,7 +144,7 @@ export class InstitutionsController {
   // PATCH /api/institutions/:id - Actualizar institución
   @Roles('ADMIN')
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
+  async update(@Param('id') id: string, @Body() body: UpdateInstitutionDto) {
     const existing = await this.ds.query(
       'SELECT id FROM institutions WHERE id = $1',
       [id],

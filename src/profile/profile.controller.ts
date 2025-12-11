@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ProfileService } from './profile.service';
 import { Roles } from '../auth/roles.decorator';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('profile') // <-- sin /api
 @Roles('APPLICANT')
@@ -37,11 +38,11 @@ export class ProfileController {
   }
 
   @Post('applicant')
-  async ensureApplicant(@Req() req: any, @Body() body: any) {
+  async ensureApplicant(@Req() req: any, @Body() body: UpdateProfileDto) {
     const user = this.getUserFromAuth(req);
     if (user.typ !== 'access' || user.role !== 'APPLICANT') {
       throw new BadRequestException('Applicant access token required');
     }
-    return this.prof.ensureApplicant(user.sub, body);
+    return this.prof.ensureApplicant(user.sub, body.data || body);
   }
 }

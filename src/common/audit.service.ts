@@ -109,14 +109,86 @@ export class AuditService {
   ): Promise<void> {
     return this.log({
       actorUserId,
-      action: 'APPLICATION_STATUS_CHANGED',
+      action: 'APPLICATION_STATUS_CHANGE',
       entity: 'application',
       entityId: applicationId,
       meta: {
-        fromStatus,
-        toStatus,
+        from: fromStatus,
+        to: toStatus,
         timestamp: new Date().toISOString(),
       },
     });
+  }
+
+  async getAuditLogs(params: {
+    action?: string;
+    entity?: string;
+    actor?: string;
+    from?: string;
+    to?: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ data: any[]; total?: number }> {
+    const { action, entity, actor, from, to, limit, offset } = params;
+
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    if (action) {
+      conditions.push(`action = $${idx++}`);
+      values.push(action);
+    }
+
+    if (entity) {
+      conditions.push(`entity = $${idx++}`);
+      values.push(entity);
+    }
+
+    if (actor) {
+      conditions.push(`actor_user_id = $${idx++}`);
+      values.push(actor);
+    }
+
+    if (from) {
+      conditions.push(`created_at >= $${idx++}`);
+      values.push(from);
+    }
+
+    if (to) {
+      conditions.push(`created_at <= $${idx++}`);
+      values.push(to);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    values.push(limit, offset);
+
+    const query = `
+      SELECT 
+        id,
+        actor_user_id as "actorUserId",
+        action,
+        entity,
+        entity_id as "entityId",
+        meta,
+        created_at as "createdAt"
+      FROM audit_logs
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${idx++} OFFSET $${idx++}
+    `;
+
+    const data = await this.dataSource.query(query, values);
+
+    const countQuery = `SELECT COUNT(*) as count FROM audit_logs ${whereClause}`;
+    const countResult = await this.dataSource.query(
+      countQuery,
+      values.slice(0, values.length - 2),
+    );
+    const total = parseInt(countResult[0].count, 10);
+
+    return { data, total };
   }
 }

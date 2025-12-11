@@ -13,6 +13,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ApplicationsService } from './applications.service';
 import { Roles } from '../auth/roles.decorator';
+import { UpdateApplicationDto } from './dto/update-application.dto';
+import { SaveAnswersDto } from './dto/save-answers.dto';
 
 @Controller('applications')
 @Roles('ADMIN', 'REVIEWER') // Todo el controlador requiere admin o revisor
@@ -101,7 +103,7 @@ export class ApplicationsController {
   }
 
   @Patch(':id')
-  async patch(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+  async patch(@Req() req: any, @Param('id') id: string, @Body() body: UpdateApplicationDto) {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT')
       throw new BadRequestException('Applicant only');
@@ -139,11 +141,11 @@ export class ApplicationsController {
   async saveAnswers(
     @Req() req: any,
     @Param('id') id: string,
-    @Body() answers: any,
+    @Body() dto: SaveAnswersDto,
   ) {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT')
       throw new BadRequestException('Applicant only');
-    return this.apps.saveAnswers(user.sub, id, answers);
+    return this.apps.saveAnswers(user.sub, id, dto.answers);
   }
 }

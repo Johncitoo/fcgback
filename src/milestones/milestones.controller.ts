@@ -1,6 +1,10 @@
-import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
 import { MilestonesService } from './milestones.service';
 import { Roles } from '../auth/roles.decorator';
+import { CreateMilestoneDto } from './dto/create-milestone.dto';
+import { UpdateMilestoneDto } from './dto/update-milestone.dto';
+import { InitializeProgressDto } from './dto/initialize-progress.dto';
+import { ReviewMilestoneDto } from './dto/review-milestone.dto';
 
 @Controller('milestones')
 @Roles('ADMIN', 'REVIEWER')
@@ -8,7 +12,7 @@ export class MilestonesController {
   constructor(private milestonesService: MilestonesService) {}
 
   @Post()
-  create(@Body() data: any) {
+  create(@Body() data: CreateMilestoneDto) {
     return this.milestonesService.create(data);
   }
 
@@ -23,7 +27,7 @@ export class MilestonesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() data: any) {
+  update(@Param('id') id: string, @Body() data: UpdateMilestoneDto) {
     return this.milestonesService.update(id, data);
   }
 
@@ -38,7 +42,7 @@ export class MilestonesController {
   }
 
   @Post('progress/initialize')
-  initializeProgress(@Body() data: { applicationId: string; callId: string }) {
+  initializeProgress(@Body() data: InitializeProgressDto) {
     return this.milestonesService.initializeProgress(data.applicationId, data.callId);
   }
 
@@ -46,11 +50,7 @@ export class MilestonesController {
   @Patch('progress/:progressId/review')
   reviewMilestone(
     @Param('progressId') progressId: string,
-    @Body() data: { 
-      reviewStatus: 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
-      reviewNotes?: string;
-      reviewedBy: string;
-    }
+    @Body() data: ReviewMilestoneDto
   ) {
     return this.milestonesService.reviewMilestone(
       progressId,

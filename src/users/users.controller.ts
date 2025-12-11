@@ -15,6 +15,7 @@ import { UsersService } from './users.service';
 import { DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Controller('applicants')
 export class UsersController {
@@ -330,9 +331,9 @@ export class UsersController {
     return { ...result[0], applications };
   }
 
-  // PATCH /api/applicants/:id - Actualizar postulante
+  // PATCH /api/applicants/:id - Actualizar usuario/postulante
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
+  async update(@Param('id') id: string, @Body() body: UpdateUserDto) {
     const user = await this.users.findById(id);
     if (!user || user.role !== 'APPLICANT') {
       throw new BadRequestException('Applicant not found');

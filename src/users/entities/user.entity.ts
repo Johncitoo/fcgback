@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { UserSession } from '../entities/user-session.entity';
 
 export type UserRole = 'ADMIN' | 'REVIEWER' | 'APPLICANT';
@@ -21,6 +22,7 @@ export class User {
   email!: string;
 
   @Column({ type: 'text', name: 'password_hash' })
+  @Exclude()
   passwordHash!: string;
 
   @Column({

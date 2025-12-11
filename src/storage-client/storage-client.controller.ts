@@ -166,21 +166,23 @@ export class StorageClientController {
 
   // Métodos helper para validación
   private getCategoryType(category: FileCategory): 'image' | 'document' | 'video' | 'all' {
-    const categoryMap: Record<FileCategory, 'image' | 'document' | 'video' | 'all'> = {
-      'PROFILE_PHOTO': 'image',
-      'APPLICATION_DOCUMENT': 'document',
-      'MILESTONE_DOCUMENT': 'document',
-      'GENERAL': 'all',
+    const categoryMap: Partial<Record<FileCategory, 'image' | 'document' | 'video' | 'all'>> = {
+      'PROFILE': 'image',
+      'DOCUMENT': 'document',
+      'FORM_FIELD': 'document',
+      'ATTACHMENT': 'all',
+      'OTHER': 'all',
     };
     return categoryMap[category] || 'all';
   }
 
   private getMaxSizeForCategory(category: FileCategory): number {
-    const sizeMap: Record<FileCategory, number> = {
-      'PROFILE_PHOTO': 5 * 1024 * 1024,         // 5 MB
-      'APPLICATION_DOCUMENT': 25 * 1024 * 1024,  // 25 MB
-      'MILESTONE_DOCUMENT': 50 * 1024 * 1024,    // 50 MB
-      'GENERAL': 10 * 1024 * 1024,               // 10 MB
+    const sizeMap: Partial<Record<FileCategory, number>> = {
+      'PROFILE': 5 * 1024 * 1024,         // 5 MB
+      'DOCUMENT': 25 * 1024 * 1024,  // 25 MB
+      'FORM_FIELD': 50 * 1024 * 1024,    // 50 MB
+      'ATTACHMENT': 50 * 1024 * 1024,    // 50 MB
+      'OTHER': 10 * 1024 * 1024,               // 10 MB
     };
     return sizeMap[category] || 10 * 1024 * 1024;
   }

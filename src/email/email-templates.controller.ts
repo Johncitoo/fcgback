@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Roles } from '../auth/roles.decorator';
+import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
+import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
 
 @Controller('email/templates')
 @Roles('ADMIN')
@@ -55,21 +57,8 @@ export class EmailTemplatesController {
 
   // POST /api/email/templates - Crear template
   @Post()
-  async create(
-    @Body()
-    body: {
-      key: string;
-      name: string;
-      subjectTemplate: string;
-      bodyTemplate: string;
-    },
-  ) {
-    if (
-      !body.key ||
-      !body.name ||
-      !body.subjectTemplate ||
-      !body.bodyTemplate
-    ) {
+  async create(@Body() body: CreateEmailTemplateDto) {
+    if (!body.key || !body.name || !body.subjectTemplate || !body.bodyTemplate) {
       throw new BadRequestException(
         'key, name, subjectTemplate, and bodyTemplate are required',
       );
@@ -115,7 +104,7 @@ export class EmailTemplatesController {
 
   // PATCH /api/email/templates/:id - Actualizar template
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: any) {
+  async update(@Param('id') id: string, @Body() body: UpdateEmailTemplateDto) {
     const fields: string[] = [];
     const values: any[] = [];
     let idx = 1;

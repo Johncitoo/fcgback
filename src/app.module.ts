@@ -1,8 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { SecurityHeadersMiddleware } from './common/middlewares/security-headers.middleware';
+import { RequestLoggerMiddleware } from './common/middlewares/request-logger.middleware';
 
 import { CommonModule } from './common/common.module';
 import { UsersModule } from './users/users.module';
@@ -105,11 +107,17 @@ import { AuditModule } from './audit/audit.module';
   controllers: [AppController],
   providers: [
     AppService,
-    // Aplicar throttling globalmente
+    // Rate limiter global
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(SecurityHeadersMiddleware, RequestLoggerMiddleware)
+      .forRoutes('*');
+  }
+}
