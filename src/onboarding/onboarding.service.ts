@@ -132,18 +132,25 @@ export class OnboardingService {
       if (invite.usedAt || invite.usedByApplicant) {
         throw new BadRequestException('Este código ya ha sido utilizado. Si necesitas acceso nuevamente, contacta con el administrador para obtener un nuevo código.');
       }
-      
-      // Si el email viene vacío o es temporal, intentar obtenerlo del meta del invite
-      let finalEmail = email;
-      if (!email || email === 'temp@placeholder.com' || email.includes('@pending.local')) {
-        const metaEmail = invite.meta?.testEmail || invite.meta?.email;
-        if (metaEmail) {
-          finalEmail = metaEmail;
-          this.logger.log(`Email obtenido del meta del invite: ${finalEmail}`);
-        } else if (!email) {
-          throw new BadRequestException('El código no tiene email asociado. Por favor proporciona tu email.');
-        }
+
+      // VALIDACIÓN CRÍTICA: El email debe proporcionarse y debe coincidir con el del invite
+      if (!email || email.trim() === '') {
+        throw new BadRequestException('Debes proporcionar el email asociado a la invitación');
       }
+
+      // Obtener el email del invite
+      const inviteEmail = invite.meta?.testEmail || invite.meta?.email;
+      if (!inviteEmail) {
+        throw new BadRequestException('Este código no tiene un email asociado. Contacta al administrador.');
+      }
+
+      // Verificar que el email proporcionado coincida con el del invite
+      if (email.trim().toLowerCase() !== inviteEmail.toLowerCase()) {
+        throw new BadRequestException('El email proporcionado no coincide con el código de invitación. Verifica que sea el mismo email al que se envió la invitación.');
+      }
+
+      const finalEmail = inviteEmail; // Usar el email del invite (ya validado)
+      this.logger.log(`Email validado correctamente: ${finalEmail}`);
 
       // Verificar si ya existe usuario con este email (puede ser de código anterior)
       const existingUserCheck = await queryRunner.manager.query(
