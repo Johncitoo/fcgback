@@ -470,8 +470,11 @@ export class ApplicationsService {
         COUNT(CASE WHEN status = 'SUBMITTED' THEN 1 END) as submitted,
         COUNT(CASE WHEN status = 'IN_REVIEW' THEN 1 END) as in_review,
         COUNT(CASE WHEN status = 'NEEDS_FIX' THEN 1 END) as needs_fix,
-        COUNT(CASE WHEN status = 'APPROVED' THEN 1 END) as approved,
-        COUNT(CASE WHEN status = 'REJECTED' THEN 1 END) as rejected
+        COUNT(CASE WHEN status = 'PRESELECTED' THEN 1 END) as preselected,
+        COUNT(CASE WHEN status = 'FINALIST' THEN 1 END) as finalist,
+        COUNT(CASE WHEN status = 'SELECTED' THEN 1 END) as selected,
+        COUNT(CASE WHEN status = 'NOT_SELECTED' THEN 1 END) as not_selected,
+        COUNT(CASE WHEN status = 'NOT_ELIGIBLE' THEN 1 END) as not_eligible
        FROM applications
        WHERE call_id = $1`,
       [callId],

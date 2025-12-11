@@ -24,8 +24,8 @@ export class CreateCallDto {
   closeDate?: string;
 
   @IsOptional()
-  @IsEnum(['DRAFT', 'OPEN', 'CLOSED', 'EVALUATING', 'COMPLETED'])
-  status?: 'DRAFT' | 'OPEN' | 'CLOSED' | 'EVALUATING' | 'COMPLETED';
+  @IsEnum(['DRAFT', 'OPEN', 'CLOSED'])
+  status?: 'DRAFT' | 'OPEN' | 'CLOSED';
 
   @IsOptional()
   @IsUUID()

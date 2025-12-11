@@ -12,6 +12,7 @@ import { CallsService } from './calls.service';
 import { Roles } from '../auth/roles.decorator';
 import { CreateCallDto } from './dto/create-call.dto';
 import { UpdateCallDto } from './dto/update-call.dto';
+import { ListCallsDto } from './dto/list-calls.dto';
 
 @Controller('calls')
 export class CallsController {
@@ -20,16 +21,11 @@ export class CallsController {
   // GET /api/calls - Lista de convocatorias
   @Roles('ADMIN', 'REVIEWER')
   @Get()
-  async list(
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
-    @Query('onlyActive') onlyActive?: string,
-    @Query('count') count?: string,
-  ) {
-    const limitNum = limit ? parseInt(limit, 10) : 20;
-    const offsetNum = offset ? parseInt(offset, 10) : 0;
-    const needCount = count === '1' || count === 'true';
-    const activeOnly = onlyActive === 'true' || onlyActive === '1';
+  async list(@Query() query: ListCallsDto) {
+    const limitNum = query.limit ? parseInt(query.limit, 10) : 20;
+    const offsetNum = query.offset ? parseInt(query.offset, 10) : 0;
+    const needCount = query.count === '1' || query.count === 'true';
+    const activeOnly = query.onlyActive === 'true' || query.onlyActive === '1';
 
     return this.calls.listCalls({
       limit: limitNum,
