@@ -165,8 +165,9 @@ export class ApplicantsController {
       );
       this.logger.log(`✅ invites eliminadas: ${invitesResult[1]}`);
 
-      // 6. Eliminar sessions (si existe la tabla)
+      // 6. Eliminar sessions (si existe la tabla) - usar savepoint para no abortar la transacción
       let sessionsDeleted = 0;
+      await queryRunner.query('SAVEPOINT before_sessions');
       try {
         const sessionsResult = await queryRunner.query(
           `DELETE FROM sessions WHERE user_id = $1`,
@@ -174,7 +175,9 @@ export class ApplicantsController {
         );
         sessionsDeleted = sessionsResult[1];
         this.logger.log(`✅ sessions eliminadas: ${sessionsDeleted}`);
+        await queryRunner.query('RELEASE SAVEPOINT before_sessions');
       } catch (err: any) {
+        await queryRunner.query('ROLLBACK TO SAVEPOINT before_sessions');
         if (err.code === '42P01') {
           this.logger.warn(`⚠️ Tabla sessions no existe, saltando...`);
         } else {
