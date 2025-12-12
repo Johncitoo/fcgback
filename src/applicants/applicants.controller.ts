@@ -165,12 +165,20 @@ export class ApplicantsController {
       );
       this.logger.log(`✅ invites eliminadas: ${invitesResult[1]}`);
 
-      // 6. Eliminar sessions
-      const sessionsResult = await queryRunner.query(
-        `DELETE FROM sessions WHERE user_id = $1`,
-        [userId]
-      );
-      this.logger.log(`✅ sessions eliminadas: ${sessionsResult[1]}`);
+      // 6. Eliminar sessions (si existe la tabla)
+      try {
+        const sessionsResult = await queryRunner.query(
+          `DELETE FROM sessions WHERE user_id = $1`,
+          [userId]
+        );
+        this.logger.log(`✅ sessions eliminadas: ${sessionsResult[1]}`);
+      } catch (err: any) {
+        if (err.code === '42P01') {
+          this.logger.warn(`⚠️ Tabla sessions no existe, saltando...`);
+        } else {
+          throw err;
+        }
+      }
 
       // 7. Eliminar user
       await queryRunner.query(`DELETE FROM users WHERE id = $1`, [userId]);
