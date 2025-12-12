@@ -48,14 +48,25 @@ export class FormsService {
   }
 
   async findOne(id: string): Promise<Form> {
+    console.log('[FormsService] findOne buscando form:', id);
     const form = await this.formsRepo.findOne({ where: { id } });
     if (!form) {
       throw new NotFoundException(`Form ${id} not found`);
     }
+    console.log('[FormsService] findOne encontró form:', {
+      id: form.id,
+      hasSchema: !!form.schema,
+      schemaType: typeof form.schema,
+      sectionsInSchema: form.schema?.sections?.length || 0,
+      schemaContent: JSON.stringify(form.schema)
+    });
     return form;
   }
 
   async update(id: string, data: any): Promise<Form> {
+    console.log('[FormsService] UPDATE recibido para form:', id);
+    console.log('[FormsService] Data recibido:', JSON.stringify(data, null, 2));
+    
     // Mapear igual que en create
     const updateData: any = {};
     
@@ -67,13 +78,26 @@ export class FormsService {
     
     // Si viene sections, guardarlo en schema
     if (data.sections && Array.isArray(data.sections)) {
+      console.log('[FormsService] Guardando sections en schema:', data.sections.length);
       updateData.schema = { sections: data.sections };
     } else if (data.schema !== undefined) {
+      console.log('[FormsService] Guardando schema directamente');
       updateData.schema = data.schema;
     }
 
+    console.log('[FormsService] updateData que se guardará:', JSON.stringify(updateData, null, 2));
+    
     await this.formsRepo.update(id, updateData);
-    return this.findOne(id);
+    
+    console.log('[FormsService] Update ejecutado, obteniendo form actualizado...');
+    const updated = await this.findOne(id);
+    console.log('[FormsService] Form después de update:', {
+      id: updated.id,
+      hasSchema: !!updated.schema,
+      sectionsInSchema: updated.schema?.sections?.length || 0
+    });
+    
+    return updated;
   }
 
   async remove(id: string): Promise<void> {
