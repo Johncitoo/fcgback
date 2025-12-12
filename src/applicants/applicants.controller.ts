@@ -2,6 +2,7 @@ import {
   Controller, 
   Get, 
   Delete,
+  Param,
   Req, 
   UnauthorizedException,
   Logger 
@@ -109,8 +110,7 @@ export class ApplicantsController {
    */
   @Delete('delete-by-email/:email')
   @Roles('ADMIN')
-  async deleteApplicantByEmail(@Req() req: any) {
-    const email = req.params.email;
+  async deleteApplicantByEmail(@Param('email') email: string, @Req() req: any) {
     this.logger.log(`🗑️ Eliminando todos los datos del email: ${email}`);
 
     const queryRunner = this.dataSource.createQueryRunner();
