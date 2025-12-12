@@ -1,6 +1,7 @@
 import { 
   Controller, 
   Get, 
+  Delete,
   Req, 
   UnauthorizedException,
   Logger 
@@ -106,7 +107,7 @@ export class ApplicantsController {
    * Endpoint de administración para eliminar TODOS los datos de un postulante por email
    * Solo para testing/desarrollo
    */
-  @Get('delete-by-email/:email')
+  @Delete('delete-by-email/:email')
   @Roles('ADMIN')
   async deleteApplicantByEmail(@Req() req: any) {
     const email = req.params.email;
