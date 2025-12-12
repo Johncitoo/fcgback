@@ -30,6 +30,7 @@ import { FormsModule } from './forms/forms.module';
 import { MilestonesModule } from './milestones/milestones.module';
 import { FormSubmissionsModule } from './form-submissions/form-submissions.module';
 import { AuditModule } from './audit/audit.module';
+import { ApplicantsModule } from './applicants/applicants.module';
 
 @Module({
   imports: [
@@ -103,6 +104,7 @@ import { AuditModule } from './audit/audit.module';
     MilestonesModule,
     FormSubmissionsModule,
     AuditModule,
+    ApplicantsModule,
   ],
   controllers: [AppController],
   providers: [
