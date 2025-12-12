@@ -166,12 +166,14 @@ export class ApplicantsController {
       this.logger.log(`✅ invites eliminadas: ${invitesResult[1]}`);
 
       // 6. Eliminar sessions (si existe la tabla)
+      let sessionsDeleted = 0;
       try {
         const sessionsResult = await queryRunner.query(
           `DELETE FROM sessions WHERE user_id = $1`,
           [userId]
         );
-        this.logger.log(`✅ sessions eliminadas: ${sessionsResult[1]}`);
+        sessionsDeleted = sessionsResult[1];
+        this.logger.log(`✅ sessions eliminadas: ${sessionsDeleted}`);
       } catch (err: any) {
         if (err.code === '42P01') {
           this.logger.warn(`⚠️ Tabla sessions no existe, saltando...`);
@@ -200,7 +202,7 @@ export class ApplicantsController {
           milestoneProgress: progressResult[1],
           applications: appsResult[1],
           invites: invitesResult[1],
-          sessions: sessionsResult[1]
+          sessions: sessionsDeleted
         }
       };
     } catch (error: any) {
