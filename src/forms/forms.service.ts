@@ -87,17 +87,38 @@ export class FormsService {
 
     console.log('[FormsService] updateData que se guardará:', JSON.stringify(updateData, null, 2));
     
-    await this.formsRepo.update(id, updateData);
+    // CAMBIO: Usar save en lugar de update para JSONB
+    // TypeORM .update() puede no actualizar correctamente campos JSONB
+    const existing = await this.formsRepo.findOne({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`Form ${id} not found`);
+    }
     
-    console.log('[FormsService] Update ejecutado, obteniendo form actualizado...');
-    const updated = await this.findOne(id);
-    console.log('[FormsService] Form después de update:', {
-      id: updated.id,
-      hasSchema: !!updated.schema,
-      sectionsInSchema: updated.schema?.sections?.length || 0
+    // Merge los cambios en la entidad existente
+    const merged = this.formsRepo.merge(existing, updateData);
+    console.log('[FormsService] Merged entity antes de save:', {
+      id: merged.id,
+      hasSchema: !!merged.schema,
+      sectionsInSchema: merged.schema?.sections?.length || 0
     });
     
-    return updated;
+    // Usar save para persistir (funciona mejor con JSONB)
+    const saved = await this.formsRepo.save(merged);
+    console.log('[FormsService] Form guardado con save:', {
+      id: saved.id,
+      hasSchema: !!saved.schema,
+      sectionsInSchema: saved.schema?.sections?.length || 0
+    });
+    
+    // Verificar que se guardó correctamente
+    const verified = await this.findOne(id);
+    console.log('[FormsService] Form verificado después de save:', {
+      id: verified.id,
+      hasSchema: !!verified.schema,
+      sectionsInSchema: verified.schema?.sections?.length || 0
+    });
+    
+    return verified;
   }
 
   async remove(id: string): Promise<void> {
