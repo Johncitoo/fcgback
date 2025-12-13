@@ -49,18 +49,38 @@ export class FormsService {
 
   async findOne(id: string): Promise<Form> {
     console.log('[FormsService] findOne buscando form:', id);
-    const form = await this.formsRepo.findOne({ where: { id } });
-    if (!form) {
+    
+    // CRÍTICO: Usar query raw para evitar cache de TypeORM
+    const rawResult = await this.formsRepo.manager.query(
+      'SELECT * FROM forms WHERE id = $1',
+      [id]
+    );
+    
+    if (!rawResult || rawResult.length === 0) {
       throw new NotFoundException(`Form ${id} not found`);
     }
-    console.log('[FormsService] findOne encontró form:', {
+    
+    const form = rawResult[0];
+    
+    // Parsear schema si viene como string
+    if (typeof form.schema === 'string') {
+      try {
+        form.schema = JSON.parse(form.schema);
+      } catch (err) {
+        console.warn('[FormsService] No se pudo parsear schema:', err);
+      }
+    }
+    
+    console.log('[FormsService] findOne encontró form (raw query):', {
       id: form.id,
       hasSchema: !!form.schema,
       schemaType: typeof form.schema,
       sectionsInSchema: form.schema?.sections?.length || 0,
-      schemaContent: JSON.stringify(form.schema)
+      firstSectionId: form.schema?.sections?.[0]?.id,
+      lastSectionId: form.schema?.sections?.[form.schema?.sections?.length - 1]?.id
     });
-    return form;
+    
+    return form as Form;
   }
 
   async update(id: string, data: any): Promise<Form> {
