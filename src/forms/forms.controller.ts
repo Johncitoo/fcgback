@@ -1,5 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Header, Res } from '@nestjs/common';
-import { Response } from 'express';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Header } from '@nestjs/common';
 import { FormsService } from './forms.service';
 import { Roles } from '../auth/roles.decorator';
 import { CreateFormDto } from './dto/create-form.dto';
@@ -27,11 +26,11 @@ export class FormsController {
   @Header('Pragma', 'no-cache')
   @Header('Expires', '0')
   @Header('Surrogate-Control', 'no-store')
-  async findOne(@Param('id') id: string, @Res() res: Response) {
+  async findOne(@Param('id') id: string) {
     console.log(`[FormsController] ⚡ GET /forms/${id} - REQUEST RECEIVED`);
     const form = await this.formsService.findOne(id);
     console.log(`[FormsController] ⚡ GET /forms/${id} - RESPUESTA: ${form.schema?.sections?.length || 0} sections`);
-    return res.json(form);
+    return form;
   }
 
   @Patch(':id')
