@@ -102,23 +102,48 @@ export class FormsService {
       sectionsInSchema: merged.schema?.sections?.length || 0
     });
     
-    // Usar save para persistir (funciona mejor con JSONB)
-    const saved = await this.formsRepo.save(merged);
-    console.log('[FormsService] Form guardado con save:', {
-      id: saved.id,
-      hasSchema: !!saved.schema,
-      sectionsInSchema: saved.schema?.sections?.length || 0
-    });
+    // CRÍTICO: Usar queryRunner para forzar commit inmediato
+    const queryRunner = this.formsRepo.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
     
-    // Verificar que se guardó correctamente
-    const verified = await this.findOne(id);
-    console.log('[FormsService] Form verificado después de save:', {
-      id: verified.id,
-      hasSchema: !!verified.schema,
-      sectionsInSchema: verified.schema?.sections?.length || 0
-    });
-    
-    return verified;
+    try {
+      // Actualizar usando SQL directo para evitar problemas de serialización JSONB
+      await queryRunner.manager.query(
+        `UPDATE forms SET 
+          name = $1, 
+          description = $2, 
+          schema = $3::jsonb,
+          updated_at = NOW()
+        WHERE id = $4`,
+        [
+          updateData.name || existing.name,
+          updateData.description !== undefined ? updateData.description : existing.description,
+          JSON.stringify(updateData.schema || existing.schema),
+          id
+        ]
+      );
+      
+      // Commit explícito
+      await queryRunner.commitTransaction();
+      console.log('[FormsService] ✅ Transaction committed para form:', id);
+      
+      // Leer DESPUÉS del commit
+      const verified = await this.findOne(id);
+      console.log('[FormsService] Form verificado después de commit:', {
+        id: verified.id,
+        hasSchema: !!verified.schema,
+        sectionsInSchema: verified.schema?.sections?.length || 0
+      });
+      
+      return verified;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      console.error('[FormsService] ❌ Error en transacción:', error);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async remove(id: string): Promise<void> {
