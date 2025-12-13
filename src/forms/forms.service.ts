@@ -49,7 +49,7 @@ export class FormsService {
 
   async findOne(id: string): Promise<Form> {
     const timestamp = new Date().toISOString();
-    console.log(`[FormsService ${timestamp}] findOne buscando form:`, id);
+    console.log(`[FormsService ${timestamp}] 🔍 findOne buscando form:`, id);
     
     // CRÍTICO: Usar query raw para evitar cache de TypeORM
     const rawResult = await this.formsRepo.manager.query(
