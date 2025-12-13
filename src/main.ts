@@ -95,11 +95,15 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   await app.listen(port);
   
+  // DEPLOY TIMESTAMP para forzar rebuild
+  const buildTimestamp = new Date().toISOString();
+  console.log(`🏗️  BUILD TIMESTAMP: ${buildTimestamp}`);
   console.log(`🚀 Application is running on: http://localhost:${port}/api`);
   console.log(`⚠️  CORS: ABIERTO PARA TESTEO (permitiendo todos los orígenes)`);
   console.log(`🔒 Security: Helmet + HPP + Compression enabled`);
   console.log(`🛡️  Guards: JWT Auth + Roles + Rate Limiting globally enforced`);
   console.log(`🔐 Environment: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
   console.log(`✅ Input validation: class-validator en todos los DTOs`);
+  console.log(`🔍 DEBUG LOGGING: ENABLED para forms controller`);
 }
 bootstrap();
