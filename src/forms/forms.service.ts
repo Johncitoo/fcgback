@@ -48,7 +48,8 @@ export class FormsService {
   }
 
   async findOne(id: string): Promise<Form> {
-    console.log('[FormsService] findOne buscando form:', id);
+    const timestamp = new Date().toISOString();
+    console.log(`[FormsService ${timestamp}] findOne buscando form:`, id);
     
     // CRÍTICO: Usar query raw para evitar cache de TypeORM
     const rawResult = await this.formsRepo.manager.query(
@@ -71,21 +72,24 @@ export class FormsService {
       }
     }
     
-    console.log('[FormsService] findOne encontró form (raw query):', {
+    console.log(`[FormsService ${timestamp}] findOne RESULTADO:`, {
       id: form.id,
       hasSchema: !!form.schema,
       schemaType: typeof form.schema,
       sectionsInSchema: form.schema?.sections?.length || 0,
-      firstSectionId: form.schema?.sections?.[0]?.id,
-      lastSectionId: form.schema?.sections?.[form.schema?.sections?.length - 1]?.id
+      allSectionIds: form.schema?.sections?.map((s: any) => s.id) || [],
+      updated_at: form.updated_at
     });
     
     return form as Form;
   }
 
   async update(id: string, data: any): Promise<Form> {
-    console.log('[FormsService] UPDATE recibido para form:', id);
-    console.log('[FormsService] Data recibido:', JSON.stringify(data, null, 2));
+    const timestamp = new Date().toISOString();
+    console.log(`[FormsService ${timestamp}] ===== UPDATE INICIADO =====`);
+    console.log(`[FormsService ${timestamp}] UPDATE form ID:`, id);
+    console.log(`[FormsService ${timestamp}] Sections a guardar:`, data.sections?.length || 0);
+    console.log(`[FormsService ${timestamp}] IDs de sections:`, data.sections?.map((s: any) => s.id) || []);
     
     // Mapear igual que en create
     const updateData: any = {};
@@ -146,14 +150,16 @@ export class FormsService {
       
       // Commit explícito
       await queryRunner.commitTransaction();
-      console.log('[FormsService] ✅ Transaction committed para form:', id);
+      console.log(`[FormsService ${timestamp}] ✅ Transaction committed para form:`, id);
       
       // Leer DESPUÉS del commit
       const verified = await this.findOne(id);
-      console.log('[FormsService] Form verificado después de commit:', {
+      console.log(`[FormsService ${timestamp}] ===== UPDATE COMPLETADO =====`);
+      console.log(`[FormsService ${timestamp}] Form verificado después de commit:`, {
         id: verified.id,
         hasSchema: !!verified.schema,
-        sectionsInSchema: verified.schema?.sections?.length || 0
+        sectionsInSchema: verified.schema?.sections?.length || 0,
+        allSectionIds: verified.schema?.sections?.map((s: any) => s.id) || []
       });
       
       return verified;
