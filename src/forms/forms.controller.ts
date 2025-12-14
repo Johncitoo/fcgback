@@ -21,65 +21,8 @@ export class FormsController {
     return this.formsService.findAll(template);
   }
 
-  @Get(':id')
-  @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
-  @Header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
-  @Header('Pragma', 'no-cache')
-  @Header('Expires', '0')
-  @Header('Surrogate-Control', 'no-store')
-  async findOne(@Param('id') id: string) {
-    this.logger.log(`⚡ GET /forms/${id} - REQUEST RECEIVED`);
-    
-    // PRUEBA ULTRA-DIRECTA: Query SQL sin pasar por servicio
-    const rawResult = await this.formsService['formsRepo'].manager.query(
-      'SELECT * FROM forms WHERE id = $1',
-      [id]
-    );
-    
-    if (!rawResult || rawResult.length === 0) {
-      throw new Error('Form not found');
-    }
-    
-    const formFromDB = rawResult[0];
-    
-    this.logger.log(`⚡ DIRECTO DE DB sections: ${formFromDB.schema?.sections?.length || 0}`);
-    this.logger.log(`⚡ DIRECTO DE DB section IDs: ${formFromDB.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}`);
-    
-    const responseObject = {
-      id: formFromDB.id,
-      name: formFromDB.name,
-      description: formFromDB.description,
-      version: formFromDB.version,
-      isTemplate: formFromDB.is_template,
-      schema: formFromDB.schema,
-      createdAt: formFromDB.created_at,
-      updatedAt: formFromDB.updated_at
-    };
-    
-    this.logger.log(`⚡ RESPONSE OBJECT sections: ${responseObject.schema?.sections?.length || 0}`);
-    this.logger.log(`⚡ RESPONSE OBJECT JSON: ${JSON.stringify(responseObject.schema.sections.map((s: any) => s.id))}`);
-    
-    // Devolver EXACTAMENTE lo que viene de PostgreSQL
-    return responseObject;
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() data: UpdateFormDto) {
-    return this.formsService.update(id, data);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.formsService.remove(id);
-  }
-
-  @Post(':id/version')
-  createVersion(@Param('id') id: string, @Body() changes: UpdateFormDto) {
-    return this.formsService.createVersion(id, changes);
-  }
-
-  // ENDPOINT DE DIAGNÓSTICO - TEMPORAL
-  @Get(':id/debug-raw')
+  // ENDPOINT DE DIAGNÓSTICO - DEBE IR ANTES DE :id
+  @Get('debug/:id')
   @Roles('ADMIN')
   async debugRaw(@Param('id') id: string) {
     const rawResult = await this.formsService['formsRepo'].manager.query(
@@ -104,5 +47,55 @@ export class FormsController {
       hasTemporalIds: sections.some((s: any) => s.id.startsWith('tmp_')),
       fullSchema: form.schema
     };
+  }
+
+  @Get(':id')
+  @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
+  @Header('Pragma', 'no-cache')
+  @Header('Expires', '0')
+  @Header('Surrogate-Control', 'no-store')
+  async findOne(@Param('id') id: string) {
+    this.logger.log(`⚡ GET /forms/${id} - REQUEST RECEIVED`);
+    
+    // Usar EXACTAMENTE el mismo código que debug-raw (que funcionó)
+    const rawResult = await this.formsService['formsRepo'].manager.query(
+      'SELECT * FROM forms WHERE id = $1',
+      [id]
+    );
+    
+    if (!rawResult || rawResult.length === 0) {
+      throw new Error('Form not found');
+    }
+    
+    const form = rawResult[0];
+    
+    // Devolver en el mismo formato que debug-raw
+    return {
+      id: form.id,
+      name: form.name,
+      description: form.description,
+      version: form.version,
+      isTemplate: form.is_template,
+      parentFormId: form.parent_form_id,
+      schema: form.schema,
+      createdAt: form.created_at,
+      updatedAt: form.updated_at
+    };
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() data: UpdateFormDto) {
+    return this.formsService.update(id, data);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.formsService.remove(id);
+  }
+
+  @Post(':id/version')
+  createVersion(@Param('id') id: string, @Body() changes: UpdateFormDto) {
+    return this.formsService.createVersion(id, changes);
   }
 }
