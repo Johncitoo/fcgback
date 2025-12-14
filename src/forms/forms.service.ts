@@ -64,14 +64,21 @@ export class FormsService {
     
     const form = rawResult[0];
     
+    this.logger.log(`[${timestamp}] 🔍 RAW RESULT schema sections: ${form.schema?.sections?.length || 0}`);
+    this.logger.log(`[${timestamp}] 🔍 RAW RESULT section IDs: ${form.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}`);
+    
     // Parsear schema si viene como string
     if (typeof form.schema === 'string') {
       try {
         form.schema = JSON.parse(form.schema);
+        this.logger.log(`[${timestamp}] 🔍 AFTER PARSE sections: ${form.schema?.sections?.length || 0}`);
       } catch (err) {
         console.warn('[FormsService] No se pudo parsear schema:', err);
       }
     }
+    
+    this.logger.log(`[${timestamp}] 🔍 BEFORE RETURN sections: ${form.schema?.sections?.length || 0}`);
+    this.logger.log(`[${timestamp}] 🔍 BEFORE RETURN section IDs: ${form.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}`);
     
     this.logger.log(`[${timestamp}] findOne RESULTADO: id=${form.id}, sectionsInSchema=${form.schema?.sections?.length || 0}, allSectionIds=[${form.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}]`);
     
