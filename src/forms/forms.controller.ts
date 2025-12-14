@@ -30,7 +30,12 @@ export class FormsController {
   async findOne(@Param('id') id: string) {
     this.logger.log(`⚡ GET /forms/${id} - REQUEST RECEIVED`);
     const form = await this.formsService.findOne(id);
-    this.logger.log(`⚡ GET /forms/${id} - RESPUESTA: ${form.schema?.sections?.length || 0} sections`);
+    this.logger.log(`⚡ GET /forms/${id} - RESPUESTA DEL SERVICIO: ${form.schema?.sections?.length || 0} sections`);
+    this.logger.log(`⚡ GET /forms/${id} - IDs de secciones: ${form.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}`);
+    
+    // Log completo del objeto que se va a devolver
+    this.logger.log(`⚡ GET /forms/${id} - FORM COMPLETO ANTES DE RETURN: ${JSON.stringify(form.schema)}`);
+    
     return form;
   }
 
