@@ -33,10 +33,22 @@ export class FormsController {
     this.logger.log(`⚡ GET /forms/${id} - RESPUESTA DEL SERVICIO: ${form.schema?.sections?.length || 0} sections`);
     this.logger.log(`⚡ GET /forms/${id} - IDs de secciones: ${form.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}`);
     
-    // Log completo del objeto que se va a devolver
-    this.logger.log(`⚡ GET /forms/${id} - FORM COMPLETO ANTES DE RETURN: ${JSON.stringify(form.schema)}`);
+    // PRUEBA: Devolver objeto plano en lugar de entity
+    const plainForm = {
+      id: form.id,
+      name: form.name,
+      description: form.description,
+      version: form.version,
+      isTemplate: form.isTemplate,
+      parentFormId: form.parentFormId,
+      schema: form.schema,
+      createdAt: form.createdAt,
+      updatedAt: form.updatedAt
+    };
     
-    return form;
+    this.logger.log(`⚡ GET /forms/${id} - PLAIN OBJECT sections: ${plainForm.schema?.sections?.length || 0}`);
+    
+    return plainForm;
   }
 
   @Patch(':id')
