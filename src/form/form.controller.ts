@@ -28,9 +28,9 @@ export class FormController {
   }
 }
 
-// Nuevo controlador para obtener formularios por ID
-@Controller('forms')
-export class FormsController {
+// Nuevo controlador para obtener formularios por ID - RENOMBRADO para evitar conflicto
+@Controller('forms-legacy')
+export class FormsLegacyController {
   constructor(private form: FormService) {}
 
   @Get(':formId')

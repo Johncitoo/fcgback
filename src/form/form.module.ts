@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { FormController, FormsController } from './form.controller';
+import { FormController, FormsLegacyController } from './form.controller';
 import { AdminFormsController } from './admin-forms.controller';
 import { PublicFormsController } from './public-forms.controller';
 import { FormService } from './form.service';
@@ -7,7 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [TypeOrmModule.forFeature([])],
-  controllers: [FormController, FormsController, AdminFormsController, PublicFormsController],
+  controllers: [FormController, FormsLegacyController, AdminFormsController, PublicFormsController],
   providers: [FormService],
   exports: [FormService],
 })
