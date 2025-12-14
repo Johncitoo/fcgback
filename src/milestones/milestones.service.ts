@@ -67,7 +67,21 @@ export class MilestonesService {
   }
 
   async update(id: string, data: Partial<Milestone>): Promise<Milestone> {
-    await this.milestonesRepo.update(id, data);
+    // Separar whoCanFill del resto de datos porque TypeORM simple-array no funciona con query builder UPDATE
+    const { whoCanFill, ...updateData } = data;
+    
+    // Actualizar otros campos con TypeORM
+    await this.milestonesRepo.update(id, updateData);
+    
+    // Actualizar whoCanFill con SQL directo si fue proporcionado
+    if (whoCanFill !== undefined) {
+      const whoCanFillArray = Array.isArray(whoCanFill) ? whoCanFill : [whoCanFill];
+      await this.ds.query(
+        `UPDATE milestones SET who_can_fill = $1 WHERE id = $2`,
+        [whoCanFillArray, id]
+      );
+    }
+    
     return this.findOne(id);
   }
 

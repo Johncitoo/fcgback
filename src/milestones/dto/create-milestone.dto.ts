@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsOptional, IsInt, Min, IsBoolean, IsArray, IsDate, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsInt, Min, IsBoolean, IsArray, IsDate, MinLength, MaxLength, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateMilestoneDto {
@@ -36,4 +36,9 @@ export class CreateMilestoneDto {
   @Type(() => Date)
   @IsDate()
   dueDate?: Date;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ACTIVE', 'PENDING', 'CLOSED'])
+  status?: string;
 }
