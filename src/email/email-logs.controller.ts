@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import { Roles } from '../auth/roles.decorator';
 
 @Controller('email/logs')
-@Roles('ADMIN')
+@Roles('ADMIN', 'REVIEWER')
 export class EmailLogsController {
   constructor(private ds: DataSource) {}
 

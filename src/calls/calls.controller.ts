@@ -53,14 +53,14 @@ export class CallsController {
   }
 
   // POST /api/calls - Crear nueva convocatoria
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'REVIEWER')
   @Post()
   async create(@Body() body: CreateCallDto) {
     return this.calls.createCall(body);
   }
 
   // PATCH /api/calls/:id - Actualizar convocatoria
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'REVIEWER')
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateCallDto) {
     return this.calls.updateCall(id, body);

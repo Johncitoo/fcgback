@@ -3,7 +3,7 @@ import { AuditService } from '../common/audit.service';
 import { Roles } from '../auth/roles.decorator';
 
 @Controller('audit')
-@Roles('ADMIN')
+@Roles('ADMIN', 'REVIEWER')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 

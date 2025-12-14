@@ -86,7 +86,7 @@ export class InstitutionsController {
   }
 
   // POST /api/institutions - Crear institución
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'REVIEWER')
   @Post()
   async create(@Body() body: CreateInstitutionDto) {
     if (!body.name) {
@@ -142,7 +142,7 @@ export class InstitutionsController {
   }
 
   // PATCH /api/institutions/:id - Actualizar institución
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'REVIEWER')
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateInstitutionDto) {
     const existing = await this.ds.query(
@@ -232,7 +232,7 @@ export class InstitutionsController {
   }
 
   // DELETE /api/institutions/:id - Desactivar institución
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'REVIEWER')
   @Delete(':id')
   async delete(@Param('id') id: string) {
     const result = await this.ds.query(
