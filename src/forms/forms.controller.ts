@@ -29,26 +29,33 @@ export class FormsController {
   @Header('Surrogate-Control', 'no-store')
   async findOne(@Param('id') id: string) {
     this.logger.log(`⚡ GET /forms/${id} - REQUEST RECEIVED`);
-    const form = await this.formsService.findOne(id);
-    this.logger.log(`⚡ GET /forms/${id} - RESPUESTA DEL SERVICIO: ${form.schema?.sections?.length || 0} sections`);
-    this.logger.log(`⚡ GET /forms/${id} - IDs de secciones: ${form.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}`);
     
-    // PRUEBA: Devolver objeto plano en lugar de entity
-    const plainForm = {
-      id: form.id,
-      name: form.name,
-      description: form.description,
-      version: form.version,
-      isTemplate: form.isTemplate,
-      parentFormId: form.parentFormId,
-      schema: form.schema,
-      createdAt: form.createdAt,
-      updatedAt: form.updatedAt
+    // PRUEBA ULTRA-DIRECTA: Query SQL sin pasar por servicio
+    const rawResult = await this.formsService['formsRepo'].manager.query(
+      'SELECT * FROM forms WHERE id = $1',
+      [id]
+    );
+    
+    if (!rawResult || rawResult.length === 0) {
+      throw new Error('Form not found');
+    }
+    
+    const formFromDB = rawResult[0];
+    
+    this.logger.log(`⚡ DIRECTO DE DB sections: ${formFromDB.schema?.sections?.length || 0}`);
+    this.logger.log(`⚡ DIRECTO DE DB section IDs: ${formFromDB.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}`);
+    
+    // Devolver EXACTAMENTE lo que viene de PostgreSQL
+    return {
+      id: formFromDB.id,
+      name: formFromDB.name,
+      description: formFromDB.description,
+      version: formFromDB.version,
+      isTemplate: formFromDB.is_template,
+      schema: formFromDB.schema,
+      createdAt: formFromDB.created_at,
+      updatedAt: formFromDB.updated_at
     };
-    
-    this.logger.log(`⚡ GET /forms/${id} - PLAIN OBJECT sections: ${plainForm.schema?.sections?.length || 0}`);
-    
-    return plainForm;
   }
 
   @Patch(':id')
