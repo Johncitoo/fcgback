@@ -51,14 +51,7 @@ export class FormsController {
 
   @Get(':id')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
-  @Header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0')
-  @Header('Pragma', 'no-cache')
-  @Header('Expires', '0')
-  @Header('Surrogate-Control', 'no-store')
   async findOne(@Param('id') id: string) {
-    this.logger.log(`⚡ GET /forms/${id} - REQUEST RECEIVED`);
-    
-    // Usar EXACTAMENTE el mismo código que debug-raw (que funcionó)
     const rawResult = await this.formsService['formsRepo'].manager.query(
       'SELECT * FROM forms WHERE id = $1',
       [id]
@@ -70,7 +63,6 @@ export class FormsController {
     
     const form = rawResult[0];
     
-    // Devolver en el mismo formato que debug-raw
     return {
       id: form.id,
       name: form.name,
