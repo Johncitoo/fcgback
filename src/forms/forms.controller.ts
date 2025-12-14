@@ -77,4 +77,32 @@ export class FormsController {
   createVersion(@Param('id') id: string, @Body() changes: UpdateFormDto) {
     return this.formsService.createVersion(id, changes);
   }
+
+  // ENDPOINT DE DIAGNÓSTICO - TEMPORAL
+  @Get(':id/debug-raw')
+  @Roles('ADMIN')
+  async debugRaw(@Param('id') id: string) {
+    const rawResult = await this.formsService['formsRepo'].manager.query(
+      'SELECT id, name, schema FROM forms WHERE id = $1',
+      [id]
+    );
+    
+    if (!rawResult || rawResult.length === 0) {
+      return { error: 'Form not found' };
+    }
+    
+    const form = rawResult[0];
+    const sections = form.schema?.sections || [];
+    
+    return {
+      debug: 'RAW_FROM_POSTGRESQL',
+      formId: form.id,
+      formName: form.name,
+      totalSections: sections.length,
+      sectionIds: sections.map((s: any) => s.id),
+      sectionTitles: sections.map((s: any) => ({ id: s.id, title: s.title })),
+      hasTemporalIds: sections.some((s: any) => s.id.startsWith('tmp_')),
+      fullSchema: form.schema
+    };
+  }
 }
