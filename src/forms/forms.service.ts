@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Form } from './entities/form.entity';
 
 @Injectable()
 export class FormsService {
+  private readonly logger = new Logger(FormsService.name);
   constructor(
     @InjectRepository(Form)
     private formsRepo: Repository<Form>,
@@ -49,7 +50,7 @@ export class FormsService {
 
   async findOne(id: string): Promise<Form> {
     const timestamp = new Date().toISOString();
-    console.log(`[FormsService ${timestamp}] 🔍 findOne buscando form:`, id);
+    this.logger.log(`[${timestamp}] 🔍 findOne buscando form: ${id}`);
     
     // CRÍTICO: Usar query raw para evitar cache de TypeORM
     const rawResult = await this.formsRepo.manager.query(
@@ -72,14 +73,7 @@ export class FormsService {
       }
     }
     
-    console.log(`[FormsService ${timestamp}] findOne RESULTADO:`, {
-      id: form.id,
-      hasSchema: !!form.schema,
-      schemaType: typeof form.schema,
-      sectionsInSchema: form.schema?.sections?.length || 0,
-      allSectionIds: form.schema?.sections?.map((s: any) => s.id) || [],
-      updated_at: form.updated_at
-    });
+    this.logger.log(`[${timestamp}] findOne RESULTADO: id=${form.id}, sectionsInSchema=${form.schema?.sections?.length || 0}, allSectionIds=[${form.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}]`);
     
     return form as Form;
   }

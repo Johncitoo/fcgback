@@ -27,9 +27,9 @@ export class FormsController {
   @Header('Expires', '0')
   @Header('Surrogate-Control', 'no-store')
   async findOne(@Param('id') id: string) {
-    console.log(`[FormsController] ⚡ GET /forms/${id} - REQUEST RECEIVED`);
+    this.logger.log(`⚡ GET /forms/${id} - REQUEST RECEIVED`);
     const form = await this.formsService.findOne(id);
-    console.log(`[FormsController] ⚡ GET /forms/${id} - RESPUESTA: ${form.schema?.sections?.length || 0} sections`);
+    this.logger.log(`⚡ GET /forms/${id} - RESPUESTA: ${form.schema?.sections?.length || 0} sections`);
     return form;
   }
 
