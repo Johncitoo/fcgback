@@ -62,8 +62,19 @@ export class FormsController {
     }
     
     const form = rawResult[0];
+    const sections = form.schema?.sections || [];
     
+    // DEVOLVER EXACTAMENTE COMO /debug/:id
     return {
+      debug: 'FROM_GET_ID_ENDPOINT',
+      formId: form.id,
+      formName: form.name,
+      totalSections: sections.length,
+      sectionIds: sections.map((s: any) => s.id),
+      sectionTitles: sections.map((s: any) => ({ id: s.id, title: s.title })),
+      hasTemporalIds: sections.some((s: any) => s.id.startsWith('tmp_')),
+      fullSchema: form.schema,
+      // Campos adicionales para compatibilidad
       id: form.id,
       name: form.name,
       description: form.description,
