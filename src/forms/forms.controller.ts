@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Header } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Header, Logger } from '@nestjs/common';
 import { FormsService } from './forms.service';
 import { Roles } from '../auth/roles.decorator';
 import { CreateFormDto } from './dto/create-form.dto';
@@ -7,6 +7,7 @@ import { UpdateFormDto } from './dto/update-form.dto';
 @Controller('forms')
 @Roles('ADMIN', 'REVIEWER')
 export class FormsController {
+  private readonly logger = new Logger(FormsController.name);
   constructor(private formsService: FormsService) {}
 
   @Post()
