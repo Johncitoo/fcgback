@@ -45,8 +45,7 @@ export class FormsController {
     this.logger.log(`⚡ DIRECTO DE DB sections: ${formFromDB.schema?.sections?.length || 0}`);
     this.logger.log(`⚡ DIRECTO DE DB section IDs: ${formFromDB.schema?.sections?.map((s: any) => s.id).join(', ') || 'none'}`);
     
-    // Devolver EXACTAMENTE lo que viene de PostgreSQL
-    return {
+    const responseObject = {
       id: formFromDB.id,
       name: formFromDB.name,
       description: formFromDB.description,
@@ -56,6 +55,12 @@ export class FormsController {
       createdAt: formFromDB.created_at,
       updatedAt: formFromDB.updated_at
     };
+    
+    this.logger.log(`⚡ RESPONSE OBJECT sections: ${responseObject.schema?.sections?.length || 0}`);
+    this.logger.log(`⚡ RESPONSE OBJECT JSON: ${JSON.stringify(responseObject.schema.sections.map((s: any) => s.id))}`);
+    
+    // Devolver EXACTAMENTE lo que viene de PostgreSQL
+    return responseObject;
   }
 
   @Patch(':id')
