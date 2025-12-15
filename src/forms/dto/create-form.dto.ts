@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsObject, IsArray, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsObject, IsArray, IsUUID, MinLength, MaxLength } from 'class-validator';
 
 export class CreateFormDto {
   @IsOptional()
@@ -21,6 +21,10 @@ export class CreateFormDto {
   @IsOptional()
   @IsBoolean()
   isTemplate?: boolean;
+
+  @IsOptional()
+  @IsUUID()
+  parentFormId?: string;
 
   @IsOptional()
   @IsObject()
