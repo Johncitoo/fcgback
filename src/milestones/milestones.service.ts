@@ -26,32 +26,30 @@ export class MilestonesService {
     dueDate?: Date;
     status?: string;
   }): Promise<Milestone> {
-    // 🔧 Convertir whoCanFill array a formato PostgreSQL seguro
-    // TypeORM simple-array tiene bugs, así que usamos QueryBuilder con control explícito
-    const whoCanFillValue = Array.isArray(data.whoCanFill) && data.whoCanFill.length > 0
-      ? data.whoCanFill.join(',')  // TypeORM simple-array usa string separado por comas
-      : 'APPLICANT';  // Default seguro
+    // 🔧 FIX: Usar SQL directo para evitar problemas con TypeORM simple-array
+    // Convertir whoCanFill array a formato PostgreSQL array
+    const whoCanFillArray = Array.isArray(data.whoCanFill) 
+      ? `{${data.whoCanFill.join(',')}}` 
+      : `{${data.whoCanFill}}`;
     
-    // Usar QueryBuilder para máxima seguridad y control
-    const result = await this.milestonesRepo
-      .createQueryBuilder()
-      .insert()
-      .into(Milestone)
-      .values({
-        callId: data.callId,
-        formId: data.formId || null,
-        name: data.name,
-        description: data.description || null,
-        orderIndex: data.orderIndex,
-        required: data.required !== undefined ? data.required : true,
-        whoCanFill: () => `'${whoCanFillValue}'`,  // Escape manual para simple-array
-        dueDate: data.dueDate || null,
-        status: data.status || 'ACTIVE',
-      })
-      .returning('*')
-      .execute();
+    const result = await this.ds.query(
+      `INSERT INTO milestones (call_id, form_id, name, description, order_index, required, who_can_fill, due_date, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+       RETURNING *`,
+      [
+        data.callId,
+        data.formId || null,
+        data.name,
+        data.description || null,
+        data.orderIndex,
+        data.required !== undefined ? data.required : true,
+        whoCanFillArray,
+        data.dueDate || null,
+        data.status || 'ACTIVE'
+      ]
+    );
     
-    const savedMilestone = result.raw[0] as Milestone;
+    const savedMilestone = result[0];
 
     // 🔥 AUTO-INICIALIZAR: Crear milestone_progress para todas las postulaciones existentes de esta convocatoria
     try {
