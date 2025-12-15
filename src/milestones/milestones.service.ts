@@ -274,13 +274,16 @@ export class MilestonesService {
     const submission = await this.ds.query(
       `SELECT 
         fs.id,
-        fs.answers,
-        fs.status,
+        fs.form_data as "answers",
         fs.submitted_at as "submittedAt",
         fs.created_at as "createdAt",
         fs.updated_at as "updatedAt",
         f.name as "formName",
-        f.schema as "formSchema"
+        f.schema as "formSchema",
+        CASE 
+          WHEN fs.submitted_at IS NOT NULL THEN 'SUBMITTED'
+          ELSE 'DRAFT'
+        END as "status"
       FROM form_submissions fs
       LEFT JOIN forms f ON f.id = fs.form_id
       WHERE fs.application_id = $1 
