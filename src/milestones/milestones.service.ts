@@ -26,12 +26,10 @@ export class MilestonesService {
     dueDate?: Date;
     status?: string;
   }): Promise<Milestone> {
-    // 🔧 FIX: Usar SQL directo para evitar problemas con TypeORM simple-array
-    // Convertir whoCanFill array a formato PostgreSQL array
-    const whoCanFillArray = Array.isArray(data.whoCanFill) 
-      ? `{${data.whoCanFill.join(',')}}` 
-      : `{${data.whoCanFill}}`;
+    // Convertir whoCanFill a array si no lo es (mismo patrón que update)
+    const whoCanFillArray = Array.isArray(data.whoCanFill) ? data.whoCanFill : [data.whoCanFill || 'APPLICANT'];
     
+    // Usar SQL directo con parámetros (mismo patrón que update - probado y seguro)
     const result = await this.ds.query(
       `INSERT INTO milestones (call_id, form_id, name, description, order_index, required, who_can_fill, due_date, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
@@ -43,7 +41,7 @@ export class MilestonesService {
         data.description || null,
         data.orderIndex,
         data.required !== undefined ? data.required : true,
-        whoCanFillArray,
+        whoCanFillArray,  // PostgreSQL maneja el array automáticamente con $7
         data.dueDate || null,
         data.status || 'ACTIVE'
       ]
