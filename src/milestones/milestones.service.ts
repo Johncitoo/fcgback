@@ -26,16 +26,30 @@ export class MilestonesService {
     dueDate?: Date;
     status?: string;
   }): Promise<Milestone> {
-    // Convertir whoCanFill de array a string para simple-array de TypeORM
-    const whoCanFillStr = Array.isArray(data.whoCanFill) 
-      ? data.whoCanFill.join(',') 
-      : data.whoCanFill;
+    // 🔧 FIX: Usar SQL directo para evitar problemas con TypeORM simple-array
+    // Convertir whoCanFill array a formato PostgreSQL array
+    const whoCanFillArray = Array.isArray(data.whoCanFill) 
+      ? `{${data.whoCanFill.join(',')}}` 
+      : `{${data.whoCanFill}}`;
     
-    const milestone = this.milestonesRepo.create({
-      ...data,
-      whoCanFill: whoCanFillStr as any
-    });
-    const savedMilestone = await this.milestonesRepo.save(milestone);
+    const result = await this.ds.query(
+      `INSERT INTO milestones (call_id, form_id, name, description, order_index, required, who_can_fill, due_date, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+       RETURNING *`,
+      [
+        data.callId,
+        data.formId || null,
+        data.name,
+        data.description || null,
+        data.orderIndex,
+        data.required !== undefined ? data.required : true,
+        whoCanFillArray,
+        data.dueDate || null,
+        data.status || 'ACTIVE'
+      ]
+    );
+    
+    const savedMilestone = result[0];
 
     // 🔥 AUTO-INICIALIZAR: Crear milestone_progress para todas las postulaciones existentes de esta convocatoria
     try {
