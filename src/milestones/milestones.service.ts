@@ -24,8 +24,17 @@ export class MilestonesService {
     required?: boolean;
     whoCanFill?: string[];
     dueDate?: Date;
+    status?: string;
   }): Promise<Milestone> {
-    const milestone = this.milestonesRepo.create(data);
+    // Convertir whoCanFill de array a string para simple-array de TypeORM
+    const whoCanFillStr = Array.isArray(data.whoCanFill) 
+      ? data.whoCanFill.join(',') 
+      : data.whoCanFill;
+    
+    const milestone = this.milestonesRepo.create({
+      ...data,
+      whoCanFill: whoCanFillStr as any
+    });
     const savedMilestone = await this.milestonesRepo.save(milestone);
 
     // 🔥 AUTO-INICIALIZAR: Crear milestone_progress para todas las postulaciones existentes de esta convocatoria
