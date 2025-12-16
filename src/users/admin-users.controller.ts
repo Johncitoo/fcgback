@@ -13,6 +13,20 @@ import { DataSource } from 'typeorm';
 import * as argon2 from 'argon2';
 import { Roles } from '../auth/roles.decorator';
 
+/**
+ * Controller para administración de usuarios por parte de ADMIN.
+ * 
+ * CRUD completo de usuarios (staff y postulantes):
+ * - Crear usuarios con rol específico
+ * - Listar todos los usuarios del sistema
+ * - Actualizar datos y roles
+ * - Desactivar/eliminar usuarios (soft delete)
+ * 
+ * Genera contraseñas temporales para nuevos usuarios si no se proporciona.
+ * 
+ * @path /admin/users
+ * @roles ADMIN - Solo administradores pueden gestionar usuarios
+ */
 @Controller('admin/users')
 @Roles('ADMIN') // Solo administradores pueden gestionar usuarios
 export class AdminUsersController {

@@ -12,6 +12,15 @@ import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import { Roles } from '../auth/roles.decorator';
 
+/**
+ * Controller para operaciones de autenticación de usuarios.
+ * 
+ * Proporciona endpoints para cambio de contraseña de usuarios autenticados.
+ * Accesible por todos los roles autenticados (ADMIN, REVIEWER, APPLICANT).
+ * 
+ * @path /users
+ * @roles ADMIN, REVIEWER, APPLICANT
+ */
 @Controller('users')
 @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
 export class UserAuthController {
@@ -21,6 +30,25 @@ export class UserAuthController {
     private cfg: ConfigService,
   ) {}
 
+  /**
+   * Permite al usuario autenticado cambiar su contraseña.
+   * 
+   * Valida el token JWT, verifica requisitos de seguridad de la nueva contraseña,
+   * la hashea con Argon2 y actualiza en la BD.
+   * 
+   * @param req - Request con token JWT en header Authorization
+   * @param body - Nueva contraseña (mínimo 6 caracteres)
+   * @param body.newPassword - Nueva contraseña a establecer
+   * @returns Confirmación de cambio exitoso
+   * @throws {UnauthorizedException} Si el token es inválido o no está presente
+   * @throws {BadRequestException} Si la contraseña no cumple requisitos mínimos
+   * 
+   * @example
+   * POST /api/users/change-password
+   * Authorization: Bearer <token>
+   * Body: { "newPassword": "NewSecurePass123!" }
+   * Response: { "success": true, "message": "Contraseña actualizada exitosamente" }
+   */
   // POST /api/users/change-password
   @Post('change-password')
   async changePassword(

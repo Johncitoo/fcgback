@@ -47,6 +47,23 @@ class UploadFileDto {
   description?: string;
 }
 
+/**
+ * Controller para gestión de archivos mediante servicio de almacenamiento externo.
+ * 
+ * Proporciona endpoints para upload, download, view, thumbnail y metadata de archivos.
+ * Los archivos se almacenan en Railway (servicio externo) mientras los metadatos
+ * se guardan en la BD local.
+ * 
+ * Categorías de archivos:
+ * - PROFILE: Fotos de perfil (5 MB máx, solo imágenes)
+ * - DOCUMENT: Documentos oficiales (25 MB máx, PDF/Word/Excel)
+ * - FORM_FIELD: Respuestas de formularios (50 MB máx, cualquier tipo)
+ * - ATTACHMENT: Adjuntos generales (50 MB máx)
+ * - OTHER: Otros archivos (10 MB máx)
+ * 
+ * @path /files
+ * @auth Requiere JwtAuthGuard en todos los endpoints
+ */
 @Controller('files')
 export class StorageClientController {
   constructor(private readonly storageClient: StorageClientService) {}

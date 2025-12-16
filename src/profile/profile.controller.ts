@@ -11,6 +11,15 @@ import { ProfileService } from './profile.service';
 import { Roles } from '../auth/roles.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
+/**
+ * Controller para gestión de perfiles de postulantes.
+ * 
+ * Permite a los postulantes crear y actualizar su información personal
+ * que se almacena en la tabla applicants (RUT, nombre, dirección, etc.).
+ * 
+ * @roles APPLICANT - Solo postulantes pueden gestionar su perfil
+ * @path /profile (sin prefijo /api)
+ */
 @Controller('profile') // <-- sin /api
 @Roles('APPLICANT')
 export class ProfileController {

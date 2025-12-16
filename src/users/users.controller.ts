@@ -18,6 +18,22 @@ import { ConfigService } from '@nestjs/config';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Roles } from '../auth/roles.decorator';
 
+/**
+ * Controller para gestión de usuarios postulantes (applicants).
+ * 
+ * Proporciona endpoints CRUD para administrar postulantes:
+ * - Listar con filtros y paginación
+ * - Crear nuevos postulantes con perfil inicial
+ * - Actualizar datos de perfil
+ * - Obtener información individual
+ * - Eliminar (soft delete) postulantes
+ * 
+ * Incluye endpoint /me para que postulantes obtengan su propio perfil.
+ * Los demás endpoints requieren rol ADMIN o REVIEWER.
+ * 
+ * @path /applicants
+ * @roles ADMIN, REVIEWER (mayoría de endpoints), APPLICANT solo para /me
+ */
 @Controller('applicants')
 @Roles('ADMIN', 'REVIEWER')
 export class UsersController {

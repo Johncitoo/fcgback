@@ -5,6 +5,20 @@ import { CreateFormSubmissionDto } from './dto/create-form-submission.dto';
 import { UpdateFormSubmissionDto } from './dto/update-form-submission.dto';
 import { SubmitFormDto } from './dto/submit-form.dto';
 
+/**
+ * Controller para gestión de submissions de formularios (form_submissions).
+ * 
+ * Gestiona el ciclo de vida de respuestas de formularios: crear borrador,
+ * actualizar respuestas, enviar para revisión y eliminar.
+ * 
+ * Una form_submission representa:
+ * - Las respuestas de un postulante a un formulario específico
+ * - Estado: draft (borrador) o submitted (enviado)
+ * - Vinculación con application, form y milestone
+ * 
+ * @path /form-submissions
+ * @roles ADMIN, REVIEWER - La mayoría de endpoints requieren staff (salvo overrides específicos)
+ */
 @Controller('form-submissions')
 @Roles('ADMIN', 'REVIEWER')
 export class FormSubmissionsController {
