@@ -282,6 +282,23 @@ export class AnnouncementsController {
   }
 
   /**
+   * GET /api/announcements/applicants/:callId
+   * Obtiene lista de postulantes de una convocatoria
+   */
+  @Get('applicants/:callId')
+  async getApplicantsByCall(@Param('callId') callId: string) {
+    const applicants = await this.dataSource.query(
+      `SELECT DISTINCT a.id, a.email, a.first_name, a.last_name
+       FROM applicants a
+       INNER JOIN applications app ON a.id = app.applicant_id
+       WHERE app.call_id = $1 AND a.email IS NOT NULL
+       ORDER BY a.first_name, a.last_name`,
+      [callId]
+    );
+    return applicants;
+  }
+
+  /**
    * GET /api/announcements/milestones/:callId
    * Obtiene lista de hitos de una convocatoria
    */
