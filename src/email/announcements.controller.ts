@@ -6,18 +6,20 @@ import { DataSource } from 'typeorm';
 interface SendAnnouncementDto {
   subject: string;
   message: string;
-  recipientType: 'all' | 'specific' | 'milestone' | 'single';
+  recipientType: 'all' | 'specific' | 'milestone' | 'single' | 'institutions-all' | 'institution-single';
   callId?: string;
   milestoneId?: string;
   applicantIds?: string[];
   singleEmail?: string;
+  institutionId?: string;
 }
 
 interface RecipientPreviewDto {
-  recipientType: 'all' | 'specific' | 'milestone';
+  recipientType: 'all' | 'specific' | 'milestone' | 'institutions-all' | 'institution-single';
   callId?: string;
   milestoneId?: string;
   applicantIds?: string[];
+  institutionId?: string;
 }
 
 @Controller('announcements')
@@ -99,6 +101,34 @@ export class AnnouncementsController {
           recipients.push({ 
             email: singleApplicant[0].email, 
             name: `${singleApplicant[0].first_name} ${singleApplicant[0].last_name}` 
+          });
+        }
+        break;
+
+      case 'institutions-all':
+        const allInstitutions = await this.dataSource.query(
+          `SELECT DISTINCT i.id, i.email, i.name
+           FROM institutions i
+           WHERE i.email IS NOT NULL AND i.email != ''`
+        );
+        recipients.push(...allInstitutions.map(i => ({ 
+          email: i.email, 
+          name: i.name 
+        })));
+        break;
+
+      case 'institution-single':
+        if (!dto.institutionId) throw new Error('institutionId requerido');
+        const singleInstitution = await this.dataSource.query(
+          `SELECT email, name 
+           FROM institutions 
+           WHERE id = $1 AND email IS NOT NULL`,
+          [dto.institutionId]
+        );
+        if (singleInstitution.length > 0) {
+          recipients.push({ 
+            email: singleInstitution[0].email, 
+            name: singleInstitution[0].name 
           });
         }
         break;
@@ -211,6 +241,37 @@ export class AnnouncementsController {
           email: a.email, 
           name: `${a.first_name} ${a.last_name}` 
         })));
+        break;
+
+      case 'institutions-all':
+        const allInstitutions = await this.dataSource.query(
+          `SELECT id, email, name
+           FROM institutions
+           WHERE email IS NOT NULL AND email != ''
+           ORDER BY name`
+        );
+        recipients.push(...allInstitutions.map(i => ({ 
+          id: i.id,
+          email: i.email, 
+          name: i.name 
+        })));
+        break;
+
+      case 'institution-single':
+        if (!dto.institutionId) throw new Error('institutionId requerido');
+        const singleInstitution = await this.dataSource.query(
+          `SELECT id, email, name 
+           FROM institutions 
+           WHERE id = $1 AND email IS NOT NULL`,
+          [dto.institutionId]
+        );
+        if (singleInstitution.length > 0) {
+          recipients.push({ 
+            id: singleInstitution[0].id,
+            email: singleInstitution[0].email, 
+            name: singleInstitution[0].name 
+          });
+        }
         break;
     }
 
