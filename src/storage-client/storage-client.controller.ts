@@ -51,6 +51,31 @@ class UploadFileDto {
 export class StorageClientController {
   constructor(private readonly storageClient: StorageClientService) {}
 
+  /**
+   * Sube un archivo al servicio de almacenamiento.
+   * 
+   * Valida el tipo y tamaño del archivo según la categoría especificada,
+   * lo almacena en el servicio de storage y retorna las URLs de acceso.
+   * 
+   * @param {Express.Multer.File} file - Archivo a subir (campo multipart 'file')
+   * @param {UploadFileDto} dto - Datos de configuración del archivo (categoría, entidad asociada, descripción)
+   * @param {JwtPayload} user - Usuario autenticado que realiza la subida
+   * @returns {Promise<{success: boolean, file: any, urls: {view: string, download: string, thumbnail: string|null}}>} Metadata del archivo y URLs de acceso
+   * 
+   * @throws {BadRequestException} Si no se proporciona archivo
+   * @throws {BadRequestException} Si el archivo no cumple con las validaciones de tipo o tamaño
+   * 
+   * @example
+   * POST /api/files/upload
+   * Content-Type: multipart/form-data
+   * Authorization: Bearer <token>
+   * 
+   * Body:
+   * - file: [archivo]
+   * - category: DOCUMENT
+   * - entityType: APPLICATION
+   * - entityId: uuid-application
+   */
   @Post('upload')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
@@ -100,6 +125,23 @@ export class StorageClientController {
     };
   }
 
+  /**
+   * Descarga un archivo por su ID.
+   * 
+   * Obtiene el archivo del servicio de almacenamiento y lo envía al cliente
+   * con headers que fuerzan la descarga (Content-Disposition: attachment).
+   * 
+   * @param {string} id - ID único del archivo
+   * @param {Response} res - Objeto de respuesta Express
+   * @returns {Promise<void>} Stream del archivo con headers de descarga
+   * 
+   * @throws {NotFoundException} Si el archivo no existe
+   * @throws {UnauthorizedException} Si el usuario no tiene permisos
+   * 
+   * @example
+   * GET /api/files/abc123/download
+   * Authorization: Bearer <token>
+   */
   @Get(':id/download')
   @UseGuards(JwtAuthGuard)
   async downloadFile(@Param('id') id: string, @Res() res: Response) {
@@ -115,6 +157,24 @@ export class StorageClientController {
     res.status(HttpStatus.OK).send(buffer);
   }
 
+  /**
+   * Visualiza un archivo en el navegador por su ID.
+   * 
+   * Similar a downloadFile pero con Content-Disposition: inline,
+   * permitiendo que el navegador renderice el archivo (PDFs, imágenes, etc.)
+   * en lugar de descargarlo.
+   * 
+   * @param {string} id - ID único del archivo
+   * @param {Response} res - Objeto de respuesta Express
+   * @returns {Promise<void>} Stream del archivo con headers de visualización inline
+   * 
+   * @throws {NotFoundException} Si el archivo no existe
+   * @throws {UnauthorizedException} Si el usuario no tiene permisos
+   * 
+   * @example
+   * GET /api/files/abc123/view
+   * Authorization: Bearer <token>
+   */
   @Get(':id/view')
   @UseGuards(JwtAuthGuard)
   async viewFile(@Param('id') id: string, @Res() res: Response) {
@@ -130,6 +190,23 @@ export class StorageClientController {
     res.status(HttpStatus.OK).send(buffer);
   }
 
+  /**
+   * Obtiene la miniatura (thumbnail) de un archivo de imagen.
+   * 
+   * Retorna una versión reducida de la imagen optimizada para previsualizaciones.
+   * Solo disponible para archivos de tipo imagen.
+   * 
+   * @param {string} id - ID único del archivo
+   * @param {Response} res - Objeto de respuesta Express
+   * @returns {Promise<void>} Stream de la miniatura en formato JPEG
+   * 
+   * @throws {NotFoundException} Si el archivo o su thumbnail no existe
+   * @throws {UnauthorizedException} Si el usuario no tiene permisos
+   * 
+   * @example
+   * GET /api/files/abc123/thumbnail
+   * Authorization: Bearer <token>
+   */
   @Get(':id/thumbnail')
   @UseGuards(JwtAuthGuard)
   async getThumbnail(@Param('id') id: string, @Res() res: Response) {
@@ -144,12 +221,55 @@ export class StorageClientController {
     res.status(HttpStatus.OK).send(buffer);
   }
 
+  /**
+   * Obtiene los metadatos de un archivo sin descargarlo.
+   * 
+   * Retorna información como nombre original, tipo MIME, tamaño,
+   * fecha de subida, usuario que lo subió, etc.
+   * 
+   * @param {string} id - ID único del archivo
+   * @returns {Promise<FileMetadata>} Objeto con metadatos del archivo
+   * 
+   * @throws {NotFoundException} Si el archivo no existe
+   * @throws {UnauthorizedException} Si el usuario no tiene permisos
+   * 
+   * @example
+   * GET /api/files/abc123/metadata
+   * Authorization: Bearer <token>
+   * 
+   * Response:
+   * {
+   *   "id": "abc123",
+   *   "originalFilename": "documento.pdf",
+   *   "mimetype": "application/pdf",
+   *   "size": 1024000,
+   *   "uploadedAt": "2025-12-16T10:30:00Z"
+   * }
+   */
   @Get(':id/metadata')
   @UseGuards(JwtAuthGuard)
   async getMetadata(@Param('id') id: string) {
     return this.storageClient.getMetadata(id);
   }
 
+  /**
+   * Lista archivos con filtros opcionales.
+   * 
+   * Permite buscar archivos por categoría, tipo de entidad asociada,
+   * ID de entidad o usuario que los subió.
+   * 
+   * @param {FileCategory} [category] - Filtrar por categoría (PROFILE, DOCUMENT, FORM_FIELD, etc.)
+   * @param {EntityType} [entityType] - Filtrar por tipo de entidad (APPLICATION, MILESTONE, etc.)
+   * @param {string} [entityId] - Filtrar por ID de entidad específica
+   * @param {string} [uploadedBy] - Filtrar por ID de usuario que subió
+   * @returns {Promise<{files: FileMetadata[]}>} Array de metadatos de archivos
+   * 
+   * @throws {UnauthorizedException} Si el usuario no tiene permisos
+   * 
+   * @example
+   * GET /api/files/list?category=DOCUMENT&entityType=APPLICATION&entityId=uuid-123
+   * Authorization: Bearer <token>
+   */
   @Get('list')
   @UseGuards(JwtAuthGuard)
   async listFiles(
@@ -168,7 +288,17 @@ export class StorageClientController {
     return { files };
   }
 
-  // Métodos helper para validación
+  /**
+   * Mapea una categoría de archivo a un tipo de validación.
+   * 
+   * Determina qué tipos de archivo son permitidos según la categoría.
+   * Por ejemplo, PROFILE solo acepta imágenes, mientras que FORM_FIELD acepta cualquier tipo.
+   * 
+   * @param {FileCategory} category - Categoría del archivo
+   * @returns {'image' | 'document' | 'video' | 'all'} Tipo de validación a aplicar
+   * 
+   * @private
+   */
   private getCategoryType(category: FileCategory): 'image' | 'document' | 'video' | 'all' {
     const categoryMap: Partial<Record<FileCategory, 'image' | 'document' | 'video' | 'all'>> = {
       'PROFILE': 'image',
@@ -180,6 +310,21 @@ export class StorageClientController {
     return categoryMap[category] || 'all';
   }
 
+  /**
+   * Obtiene el tamaño máximo permitido para una categoría de archivo.
+   * 
+   * Define límites de tamaño en bytes según el tipo de archivo:
+   * - PROFILE: 5 MB
+   * - DOCUMENT: 25 MB
+   * - FORM_FIELD: 50 MB
+   * - ATTACHMENT: 50 MB
+   * - OTHER: 10 MB (default)
+   * 
+   * @param {FileCategory} category - Categoría del archivo
+   * @returns {number} Tamaño máximo en bytes
+   * 
+   * @private
+   */
   private getMaxSizeForCategory(category: FileCategory): number {
     const sizeMap: Partial<Record<FileCategory, number>> = {
       'PROFILE': 5 * 1024 * 1024,         // 5 MB
@@ -191,6 +336,23 @@ export class StorageClientController {
     return sizeMap[category] || 10 * 1024 * 1024;
   }
 
+  /**
+   * Elimina un archivo del sistema de almacenamiento.
+   * 
+   * Borra permanentemente el archivo y sus metadatos asociados.
+   * Esta operación no es reversible.
+   * 
+   * @param {string} id - ID único del archivo a eliminar
+   * @returns {Promise<{success: boolean, message: string}>} Confirmación de eliminación
+   * 
+   * @throws {NotFoundException} Si el archivo no existe
+   * @throws {UnauthorizedException} Si el usuario no tiene permisos
+   * @throws {ForbiddenException} Si el usuario no es propietario del archivo
+   * 
+   * @example
+   * DELETE /api/files/abc123
+   * Authorization: Bearer <token>
+   */
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   async deleteFile(@Param('id') id: string) {
