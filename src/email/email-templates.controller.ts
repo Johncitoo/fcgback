@@ -89,8 +89,8 @@ export class EmailTemplatesController {
         id,
         key,
         name,
-        subject_tpl as "subjectTemplate",
-        body_tpl as "bodyTemplate",
+        COALESCE(text_subject, subject_tpl) as "subjectTemplate",
+        COALESCE(text_content, body_tpl) as "bodyTemplate",
         is_editable as "isEditable",
         created_at as "createdAt"
       FROM email_templates
@@ -190,12 +190,12 @@ export class EmailTemplatesController {
     }
 
     if (body.subjectTemplate !== undefined) {
-      fields.push(`subject_tpl = $${idx++}`);
+      fields.push(`text_subject = $${idx++}`);
       values.push(body.subjectTemplate);
     }
 
     if (body.bodyTemplate !== undefined) {
-      fields.push(`body_tpl = $${idx++}`);
+      fields.push(`text_content = $${idx++}`);
       values.push(body.bodyTemplate);
     }
 
