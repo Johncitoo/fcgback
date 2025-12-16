@@ -91,17 +91,43 @@ export class AnnouncementsController {
 
       case 'single':
         if (!dto.singleEmail) throw new Error('singleEmail requerido');
-        const singleApplicant = await this.dataSource.query(
+        // Enviar directamente al email proporcionado, sin buscar en base de datos
+        // Intentar obtener nombre si existe en applicants o institutions
+        const checkApplicant = await this.dataSource.query(
           `SELECT email, first_name, last_name 
            FROM applicants 
-           WHERE email = $1`,
+           WHERE LOWER(email) = LOWER($1)
+           LIMIT 1`,
           [dto.singleEmail]
         );
-        if (singleApplicant.length > 0) {
+        
+        if (checkApplicant.length > 0) {
           recipients.push({ 
-            email: singleApplicant[0].email, 
-            name: `${singleApplicant[0].first_name} ${singleApplicant[0].last_name}` 
+            email: checkApplicant[0].email, 
+            name: `${checkApplicant[0].first_name} ${checkApplicant[0].last_name}` 
           });
+        } else {
+          // Si no está en applicants, buscar en institutions
+          const checkInstitution = await this.dataSource.query(
+            `SELECT email, name 
+             FROM institutions 
+             WHERE LOWER(email) = LOWER($1)
+             LIMIT 1`,
+            [dto.singleEmail]
+          );
+          
+          if (checkInstitution.length > 0) {
+            recipients.push({ 
+              email: checkInstitution[0].email, 
+              name: checkInstitution[0].name 
+            });
+          } else {
+            // Si no está en ninguna tabla, usar el email como nombre
+            recipients.push({ 
+              email: dto.singleEmail, 
+              name: dto.singleEmail 
+            });
+          }
         }
         break;
 
