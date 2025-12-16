@@ -1,11 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Milestone } from './entities/milestone.entity';
 import { MilestoneProgress } from '../milestone-progress/entities/milestone-progress.entity';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class MilestonesService {
+  private readonly logger = new Logger(MilestonesService.name);
+
   constructor(
     @InjectRepository(Milestone)
     private milestonesRepo: Repository<Milestone>,
@@ -13,6 +16,7 @@ export class MilestonesService {
     private progressRepo: Repository<MilestoneProgress>,
     @InjectDataSource()
     private ds: DataSource,
+    private emailService: EmailService,
   ) {}
 
   async create(data: {
@@ -225,6 +229,11 @@ export class MilestonesService {
            AND mp.status = 'PENDING'`,
           [progress.applicationId, milestone.callId, milestone.orderIndex + 1],
         );
+        
+        // Enviar email de aprobación
+        this.sendMilestoneApprovedEmail(progress.applicationId, milestone, milestone.orderIndex + 1).catch(err => {
+          this.logger.error(`Error enviando email de aprobación: ${err.message}`);
+        });
       }
     }
 
@@ -250,12 +259,29 @@ export class MilestonesService {
            AND mp.status NOT IN ('COMPLETED', 'REJECTED')`,
           [progress.applicationId, milestone.callId, milestone.orderIndex],
         );
+        
+        // Enviar email de rechazo (ÚLTIMO EMAIL - no más notificaciones)
+        this.sendMilestoneRejectedEmail(progress.applicationId, milestone).catch(err => {
+          this.logger.error(`Error enviando email de rechazo: ${err.message}`);
+        });
       }
     }
 
     // Si necesita cambios, cambiar el estado
     if (reviewStatus === 'NEEDS_CHANGES') {
       progress.status = 'NEEDS_CHANGES';
+      
+      // Obtener el milestone para enviar email
+      const milestone = await this.milestonesRepo.findOne({
+        where: { id: progress.milestoneId },
+      });
+      
+      if (milestone) {
+        // Enviar email solicitando correcciones
+        this.sendMilestoneNeedsChangesEmail(progress.applicationId, milestone, reviewNotes || '').catch(err => {
+          this.logger.error(`Error enviando email de correcciones: ${err.message}`);
+        });
+      }
     }
 
     return this.progressRepo.save(progress);
@@ -324,5 +350,130 @@ export class MilestonesService {
     );
 
     return { created: result.length };
+  }
+
+  // ========================================
+  // MÉTODOS PRIVADOS - ENVÍO DE EMAILS
+  // ========================================
+
+  /**
+   * Envía email de hito aprobado
+   */
+  private async sendMilestoneApprovedEmail(
+    applicationId: string,
+    currentMilestone: Milestone,
+    nextMilestoneOrder: number,
+  ): Promise<void> {
+    try {
+      // Obtener información del postulante, convocatoria y siguiente hito
+      const result = await this.ds.query(
+        `SELECT 
+          u.email,
+          u.full_name,
+          c.name as call_name,
+          m_next.name as next_milestone_name
+        FROM applications a
+        JOIN users u ON u.applicant_id = a.applicant_id
+        JOIN calls c ON c.id = a.call_id
+        LEFT JOIN milestones m_next ON m_next.call_id = c.id AND m_next.order_index = $3
+        WHERE a.id = $1
+        LIMIT 1`,
+        [applicationId, currentMilestone.id, nextMilestoneOrder]
+      );
+
+      if (!result || result.length === 0) return;
+
+      const data = result[0];
+
+      await this.emailService.sendMilestoneApprovedEmail(
+        data.email,
+        data.full_name || 'Postulante',
+        data.call_name || 'Convocatoria',
+        currentMilestone.name,
+        data.next_milestone_name || undefined,
+      );
+
+      this.logger.log(`✅ Email de aprobación enviado: ${currentMilestone.name} → ${data.email}`);
+    } catch (error) {
+      this.logger.error(`Error enviando email de aprobación: ${error.message}`);
+    }
+  }
+
+  /**
+   * Envía email de hito rechazado (ÚLTIMO EMAIL - lógica de negocio)
+   */
+  private async sendMilestoneRejectedEmail(
+    applicationId: string,
+    milestone: Milestone,
+  ): Promise<void> {
+    try {
+      const result = await this.ds.query(
+        `SELECT 
+          u.email,
+          u.full_name,
+          c.name as call_name
+        FROM applications a
+        JOIN users u ON u.applicant_id = a.applicant_id
+        JOIN calls c ON c.id = a.call_id
+        WHERE a.id = $1
+        LIMIT 1`,
+        [applicationId]
+      );
+
+      if (!result || result.length === 0) return;
+
+      const data = result[0];
+
+      await this.emailService.sendMilestoneRejectedEmail(
+        data.email,
+        data.full_name || 'Postulante',
+        data.call_name || 'Convocatoria',
+        milestone.name,
+      );
+
+      this.logger.log(`✅ Email de rechazo enviado (último): ${milestone.name} → ${data.email}`);
+    } catch (error) {
+      this.logger.error(`Error enviando email de rechazo: ${error.message}`);
+    }
+  }
+
+  /**
+   * Envía email solicitando correcciones
+   */
+  private async sendMilestoneNeedsChangesEmail(
+    applicationId: string,
+    milestone: Milestone,
+    reviewerComments: string,
+  ): Promise<void> {
+    try {
+      const result = await this.ds.query(
+        `SELECT 
+          u.email,
+          u.full_name,
+          c.name as call_name
+        FROM applications a
+        JOIN users u ON u.applicant_id = a.applicant_id
+        JOIN calls c ON c.id = a.call_id
+        WHERE a.id = $1
+        LIMIT 1`,
+        [applicationId]
+      );
+
+      if (!result || result.length === 0) return;
+
+      const data = result[0];
+
+      await this.emailService.sendMilestoneNeedsChangesEmail(
+        data.email,
+        data.full_name || 'Postulante',
+        data.call_name || 'Convocatoria',
+        milestone.name,
+        reviewerComments,
+      );
+
+      this.logger.log(`✅ Email de correcciones enviado: ${milestone.name} → ${data.email}`);
+    } catch (error) {
+      this.logger.error(`Error enviando email de correcciones: ${error.message}`);
+    }
   }
 }

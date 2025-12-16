@@ -4,9 +4,13 @@ import { MilestonesController } from './milestones.controller';
 import { MilestonesService } from './milestones.service';
 import { Milestone } from './entities/milestone.entity';
 import { MilestoneProgress } from '../milestone-progress/entities/milestone-progress.entity';
+import { EmailModule } from '../email/email.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Milestone, MilestoneProgress])],
+  imports: [
+    TypeOrmModule.forFeature([Milestone, MilestoneProgress]),
+    EmailModule,
+  ],
   controllers: [MilestonesController],
   providers: [MilestonesService],
   exports: [MilestonesService],

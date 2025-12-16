@@ -437,6 +437,10 @@ export class OnboardingService {
       .logPasswordSet(user.id)
       .catch((err) => this.logger.error(`Error en auditoría: ${err}`));
 
+    // Enviar email de bienvenida
+    this.emailService.sendWelcomeEmail(user.email, user.fullName || 'Usuario')
+      .catch((err) => this.logger.error(`Error enviando email de bienvenida: ${err.message}`));
+
     return user;
   }
 

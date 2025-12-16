@@ -4,6 +4,7 @@ import { EmailLogsController } from './email-logs.controller';
 import { EmailQuotaController } from './email-quota.controller';
 import { AnnouncementsController } from './announcements.controller';
 import { EmailService } from './email.service';
+import { TemplateRendererService } from './template-renderer.service';
 
 @Module({
   controllers: [
@@ -12,7 +13,7 @@ import { EmailService } from './email.service';
     EmailQuotaController,
     AnnouncementsController,
   ],
-  providers: [EmailService],
-  exports: [EmailService],
+  providers: [EmailService, TemplateRendererService],
+  exports: [EmailService, TemplateRendererService],
 })
 export class EmailModule {}

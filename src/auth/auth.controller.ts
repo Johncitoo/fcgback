@@ -62,6 +62,23 @@ export class AuthController {
     return this.auth.loginApplicant(dto.email, dto.password, ip, ua);
   }
 
+  // Solicitar recuperación de contraseña
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 intentos por minuto
+  @Post('forgot-password')
+  @HttpCode(200)
+  async forgotPassword(@Body() dto: { email: string }) {
+    return this.auth.forgotPassword(dto.email);
+  }
+
+  // Restablecer contraseña con token
+  @Public()
+  @Post('reset-password')
+  @HttpCode(200)
+  async resetPassword(@Body() dto: { token: string; newPassword: string }) {
+    return this.auth.resetPassword(dto.token, dto.newPassword);
+  }
+
   // ====== SOLO DEV / SEMILLA (protegido por env) ======
   @Public()
   @Post('dev/seed-staff')

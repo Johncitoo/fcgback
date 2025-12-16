@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { OnboardingModule } from '../onboarding/onboarding.module';
+import { EmailModule } from '../email/email.module';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { SecurityService } from '../common/security.service';
 
@@ -29,6 +30,7 @@ import { SecurityService } from '../common/security.service';
     UsersModule,
     SessionsModule,
     OnboardingModule,
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtAuthGuard, SecurityService],

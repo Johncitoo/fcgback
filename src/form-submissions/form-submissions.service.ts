@@ -132,13 +132,56 @@ export class FormSubmissionsService {
       );
     }
 
-    // Enviar email para cambiar contraseña al completar formulario
-    // DESHABILITADO TEMPORALMENTE: Requiere tabla password_reset_tokens
-    // this.sendPasswordSetEmailAfterSubmit(userId, submission.applicationId).catch(err => {
-    //   this.logger.error(`Error enviando email post-submit: ${err.message}`, err.stack);
-    // });
+    // Enviar email de confirmación de formulario enviado
+    this.sendFormSubmittedConfirmation(userId, submission.applicationId, submission.milestoneId).catch(err => {
+      this.logger.error(`Error enviando email de confirmación: ${err.message}`, err.stack);
+    });
 
     return this.findOne(id);
+  }
+
+  /**
+   * Envía email de confirmación cuando se envía un formulario
+   */
+  private async sendFormSubmittedConfirmation(userId: string, applicationId: string, milestoneId?: string): Promise<void> {
+    try {
+      // Obtener información del usuario, aplicación y convocatoria
+      const result = await this.dataSource.query(
+        `SELECT 
+          u.email,
+          u.full_name,
+          c.name as call_name,
+          m.name as milestone_name,
+          f.name as form_name
+        FROM users u
+        JOIN applications a ON a.applicant_id = (SELECT applicant_id FROM users WHERE id = u.id)
+        JOIN calls c ON c.id = a.call_id
+        LEFT JOIN milestones m ON m.id = $3
+        LEFT JOIN forms f ON f.id = m.form_id
+        WHERE u.id = $1 AND a.id = $2
+        LIMIT 1`,
+        [userId, applicationId, milestoneId]
+      );
+
+      if (!result || result.length === 0) {
+        this.logger.warn(`No se encontró información para enviar email de confirmación: user=${userId}, app=${applicationId}`);
+        return;
+      }
+
+      const data = result[0];
+
+      await this.emailService.sendFormSubmittedEmail(
+        data.email,
+        data.full_name || 'Postulante',
+        data.call_name || 'Convocatoria',
+        data.form_name || data.milestone_name || 'Formulario',
+      );
+
+      this.logger.log(`✅ Email de confirmación enviado a ${data.email}`);
+    } catch (error) {
+      this.logger.error(`Error en sendFormSubmittedConfirmation: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   /**

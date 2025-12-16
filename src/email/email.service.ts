@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { TemplateRendererService, TemplateVariables } from './template-renderer.service';
 
 export interface SendEmailOptions {
   to: string;
@@ -56,6 +57,7 @@ export class EmailService {
   constructor(
     private readonly config: ConfigService,
     private readonly dataSource: DataSource,
+    private readonly templateRenderer: TemplateRendererService,
   ) {
     // Account 1 - Transactional
     this.brevoApiKey1 = this.config.get<string>('BREVO_API_KEY_1') || this.config.get<string>('BREVO_API_KEY') || '';
@@ -443,6 +445,190 @@ export class EmailService {
         htmlContent,
       },
       EmailCategory.MASS
+    );
+  }
+
+  // ========================================
+  // MÉTODOS CON PLANTILLAS DE BD
+  // ========================================
+
+  /**
+   * Envía email usando plantilla de BD
+   * @param templateKey Clave de la plantilla (ej: 'PASSWORD_RESET')
+   * @param to Email destino
+   * @param variables Variables para reemplazar en la plantilla
+   * @param category Categoría del email (TRANSACTIONAL o MASS)
+   */
+  async sendFromTemplate(
+    templateKey: string,
+    to: string,
+    variables: TemplateVariables,
+    category: EmailCategory = EmailCategory.TRANSACTIONAL,
+  ): Promise<boolean> {
+    try {
+      // Obtener plantilla de BD
+      const result = await this.dataSource.query(
+        `SELECT subject_tpl, body_tpl FROM email_templates WHERE key = $1 LIMIT 1`,
+        [templateKey],
+      );
+
+      if (!result || result.length === 0) {
+        this.logger.error(`Plantilla no encontrada: ${templateKey}`);
+        return false;
+      }
+
+      const { subject_tpl, body_tpl } = result[0];
+
+      // Renderizar plantilla con variables
+      const subject = this.templateRenderer.render(subject_tpl, variables);
+      const htmlContent = this.templateRenderer.render(body_tpl, variables);
+
+      // Enviar email
+      return this.sendEmail({ to, subject, htmlContent }, category);
+    } catch (error) {
+      this.logger.error(`Error enviando email con plantilla ${templateKey}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Envía email de recuperación de contraseña usando plantilla BD
+   */
+  async sendPasswordResetEmail(email: string, token: string, applicantName: string): Promise<boolean> {
+    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
+    const resetLink = `${baseUrl}/#/reset-password?token=${token}`;
+
+    return this.sendFromTemplate(
+      'PASSWORD_RESET',
+      email,
+      {
+        applicant_name: applicantName,
+        reset_link: resetLink,
+      },
+      EmailCategory.TRANSACTIONAL,
+    );
+  }
+
+  /**
+   * Envía confirmación de formulario enviado usando plantilla BD
+   */
+  async sendFormSubmittedEmail(
+    email: string,
+    applicantName: string,
+    callName: string,
+    formName: string,
+  ): Promise<boolean> {
+    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
+    const dashboardLink = `${baseUrl}/#/dashboard`;
+    const submissionDate = new Date().toLocaleString('es-ES', {
+      dateStyle: 'long',
+      timeStyle: 'short',
+    });
+
+    return this.sendFromTemplate(
+      'FORM_SUBMITTED',
+      email,
+      {
+        applicant_name: applicantName,
+        call_name: callName,
+        form_name: formName,
+        submission_date: submissionDate,
+        dashboard_link: dashboardLink,
+      },
+      EmailCategory.TRANSACTIONAL,
+    );
+  }
+
+  /**
+   * Envía notificación de hito aprobado usando plantilla BD
+   */
+  async sendMilestoneApprovedEmail(
+    email: string,
+    applicantName: string,
+    callName: string,
+    milestoneName: string,
+    nextMilestoneName?: string,
+  ): Promise<boolean> {
+    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
+    const dashboardLink = `${baseUrl}/#/dashboard`;
+
+    return this.sendFromTemplate(
+      'MILESTONE_APPROVED',
+      email,
+      {
+        applicant_name: applicantName,
+        call_name: callName,
+        milestone_name: milestoneName,
+        next_milestone_name: nextMilestoneName || 'Próximo paso',
+        dashboard_link: dashboardLink,
+      },
+      EmailCategory.TRANSACTIONAL,
+    );
+  }
+
+  /**
+   * Envía notificación de hito rechazado (ÚLTIMO EMAIL) usando plantilla BD
+   */
+  async sendMilestoneRejectedEmail(
+    email: string,
+    applicantName: string,
+    callName: string,
+    milestoneName: string,
+  ): Promise<boolean> {
+    return this.sendFromTemplate(
+      'MILESTONE_REJECTED',
+      email,
+      {
+        applicant_name: applicantName,
+        call_name: callName,
+        milestone_name: milestoneName,
+      },
+      EmailCategory.TRANSACTIONAL,
+    );
+  }
+
+  /**
+   * Envía notificación de correcciones requeridas usando plantilla BD
+   */
+  async sendMilestoneNeedsChangesEmail(
+    email: string,
+    applicantName: string,
+    callName: string,
+    milestoneName: string,
+    reviewerComments: string,
+  ): Promise<boolean> {
+    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
+    const dashboardLink = `${baseUrl}/#/dashboard`;
+
+    return this.sendFromTemplate(
+      'MILESTONE_NEEDS_CHANGES',
+      email,
+      {
+        applicant_name: applicantName,
+        call_name: callName,
+        milestone_name: milestoneName,
+        reviewer_comments: reviewerComments,
+        dashboard_link: dashboardLink,
+      },
+      EmailCategory.TRANSACTIONAL,
+    );
+  }
+
+  /**
+   * Envía email de bienvenida usando plantilla BD
+   */
+  async sendWelcomeEmail(email: string, applicantName: string): Promise<boolean> {
+    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
+    const dashboardLink = `${baseUrl}/#/dashboard`;
+
+    return this.sendFromTemplate(
+      'WELCOME',
+      email,
+      {
+        applicant_name: applicantName,
+        dashboard_link: dashboardLink,
+      },
+      EmailCategory.TRANSACTIONAL,
     );
   }
 }

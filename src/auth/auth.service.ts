@@ -7,12 +7,15 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 import * as argon2 from 'argon2';
+import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { AuditService } from '../common/audit.service';
 import { SecurityService } from '../common/security.service';
+import { EmailService } from '../email/email.service';
 import { User, UserRole } from '../users/entities/user.entity';
 
 //ola
@@ -31,11 +34,13 @@ export class AuthService {
   constructor(
     private jwt: JwtService,
     private cfg: ConfigService,
+    private dataSource: DataSource,
     private users: UsersService,
     private sessions: SessionsService,
     private onboarding: OnboardingService,
     private auditService: AuditService,
     private securityService: SecurityService,
+    private emailService: EmailService,
   ) {}
 
   // ===== Helpers comunes =====
@@ -332,5 +337,111 @@ export class AuthService {
   ) {
     const hash = await argon2.hash(password, { type: argon2.argon2id });
     return this.users.createStaffIfAllowed(email, fullName, hash, role);
+  }
+
+  // ==== PASSWORD RESET ====
+
+  /**
+   * Solicita recuperación de contraseña
+   * Genera token y envía email
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    // Buscar usuario por email
+    const user = await this.dataSource.query(
+      `SELECT id, email, full_name, role, is_active FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+      [email.trim()],
+    );
+
+    // Por seguridad, siempre responder lo mismo (evitar enumeration attack)
+    const response = { message: 'Si el email existe, recibirás un enlace de recuperación' };
+
+    if (!user || user.length === 0) {
+      return response;
+    }
+
+    const userData = user[0];
+
+    // Verificar que la cuenta esté activa
+    if (!userData.is_active) {
+      return response;
+    }
+
+    // Generar token único
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Expiración: 24 horas
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    // Guardar en BD
+    await this.dataSource.query(
+      `INSERT INTO password_resets (user_id, token_hash, expires_at, created_at)
+       VALUES ($1, $2, $3, NOW())`,
+      [userData.id, tokenHash, expiresAt],
+    );
+
+    // Enviar email con plantilla
+    await this.emailService.sendPasswordResetEmail(
+      userData.email,
+      token,
+      userData.full_name || 'Usuario',
+    );
+
+    return response;
+  }
+
+  /**
+   * Restablece la contraseña usando el token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    if (!token || !newPassword) {
+      throw new BadRequestException('Token y contraseña son requeridos');
+    }
+
+    if (newPassword.length < 8) {
+      throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
+    }
+
+    // Hash del token para buscar en BD
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Buscar token válido (no usado y no expirado)
+    const result = await this.dataSource.query(
+      `SELECT pr.id, pr.user_id, u.email, u.full_name
+       FROM password_resets pr
+       JOIN users u ON u.id = pr.user_id
+       WHERE pr.token_hash = $1
+         AND pr.used_at IS NULL
+         AND pr.expires_at > NOW()
+       LIMIT 1`,
+      [tokenHash],
+    );
+
+    if (!result || result.length === 0) {
+      throw new BadRequestException('Token inválido o expirado');
+    }
+
+    const resetData = result[0];
+
+    // Hashear nueva contraseña
+    const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+
+    // Actualizar contraseña del usuario
+    await this.dataSource.query(
+      `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+      [passwordHash, resetData.user_id],
+    );
+
+    // Marcar token como usado
+    await this.dataSource.query(
+      `UPDATE password_resets SET used_at = NOW() WHERE id = $1`,
+      [resetData.id],
+    );
+
+    // Invalidar todas las sesiones del usuario por seguridad
+    await this.sessions.invalidateAllForUser(resetData.user_id);
+
+    return { message: 'Contraseña actualizada correctamente' };
   }
 }
