@@ -1,8 +1,8 @@
 import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class ReviewMilestoneDto {
-  @IsEnum(['APPROVED', 'REJECTED', 'NEEDS_CHANGES'])
-  reviewStatus!: 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
+  @IsEnum(['APPROVED', 'REJECTED'])
+  reviewStatus!: 'APPROVED' | 'REJECTED';
 
   @IsOptional()
   @IsString()
