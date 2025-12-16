@@ -305,10 +305,10 @@ export class AnnouncementsController {
   @Get('milestones/:callId')
   async getMilestonesByCall(@Param('callId') callId: string) {
     const milestones = await this.dataSource.query(
-      `SELECT id, title, description, who_can_fill as "whoCanFill"
+      `SELECT id, name, description, order_index, who_can_fill as "whoCanFill"
        FROM milestones 
        WHERE call_id = $1 
-       ORDER BY created_at`,
+       ORDER BY order_index ASC`,
       [callId]
     );
     return milestones;
