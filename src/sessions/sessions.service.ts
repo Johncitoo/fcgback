@@ -68,4 +68,12 @@ export class SessionsService {
   async revokeSession(sessionId: string) {
     await this.repo.update(sessionId, { revokedAt: new Date() });
   }
+
+  /** Invalida todas las sesiones activas de un usuario. */
+  async invalidateAllForUser(userId: string) {
+    await this.repo.update(
+      { userId, revokedAt: IsNull() },
+      { revokedAt: new Date() }
+    );
+  }
 }
