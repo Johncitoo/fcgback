@@ -48,6 +48,7 @@ export class CallsController {
 
   // GET /api/calls/:id/form - Obtener formulario de una convocatoria
   @Get(':id/form')
+  @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
   async getForm(@Param('id') id: string) {
     return this.calls.getForm(id);
   }
