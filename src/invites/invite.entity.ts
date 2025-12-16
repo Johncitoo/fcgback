@@ -8,6 +8,20 @@ import {
 } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 
+/**
+ * Entidad de invitación para el sistema de onboarding.
+ * 
+ * Gestiona códigos de invitación únicos que permiten a los postulantes
+ * acceder al sistema y completar su aplicación.
+ * 
+ * Campos clave:
+ * - codeHash: Hash del código de invitación (nunca se almacena en claro)
+ * - emailSent: Indica si se envió el email con el código
+ * - sentAt: Timestamp del envío del email
+ * - meta: Metadata JSON con firstName, lastName, email del postulante
+ * 
+ * El código se verifica usando argon2.verify() contra codeHash
+ */
 @Entity('invites')
 export class Invite {
   @PrimaryGeneratedColumn('uuid')
@@ -40,6 +54,18 @@ export class Invite {
 
   @Column({ name: 'created_by_user_id', type: 'uuid', nullable: true })
   createdByUserId: string | null;
+
+  /** Indica si se envió el email de invitación al postulante */
+  @Column({ name: 'email_sent', default: false })
+  emailSent: boolean;
+
+  /** Fecha y hora en que se envió el email de invitación */
+  @Column({ name: 'sent_at', type: 'timestamp', nullable: true })
+  sentAt: Date | null;
+
+  /** Número de intentos de envío (para tracking de reintentos) */
+  @Column({ name: 'sent_count', default: 0 })
+  sentCount: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

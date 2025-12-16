@@ -87,6 +87,9 @@ export class InvitesController {
         i.meta->>'lastName' as "lastName",
         CASE WHEN i.used_at IS NOT NULL THEN true ELSE false END as "used",
         i.code_hash as "code_hash",
+        i.email_sent as "emailSent",
+        i.sent_at as "sentAt",
+        i.sent_count as "sentCount",
         c.name as "callName",
         c.year as "callYear"
       FROM invites i
@@ -215,6 +218,9 @@ export class InvitesController {
         i.meta->>'firstName' as "firstName",
         i.meta->>'lastName' as "lastName",
         CASE WHEN i.used_at IS NOT NULL THEN true ELSE false END as "used",
+        i.email_sent as "emailSent",
+        i.sent_at as "sentAt",
+        i.sent_count as "sentCount",
         c.name as "callName",
         c.year as "callYear"
       FROM invites i
@@ -266,127 +272,328 @@ export class InvitesController {
   /**
    * POST /api/invites/bulk-send
    * 
-   * Envío masivo de invitaciones a postulantes sin invitar.
+   * Envío masivo de invitaciones con detección de envíos previos y límite diario.
+   * 
+   * Características principales:
+   * 1. Detección automática de invitaciones ya enviadas (email_sent = true)
+   * 2. Respeta límite diario de cuota de emails
+   * 3. Envío incremental: si se queda sin cuota, marca las enviadas y permite continuar otro día
+   * 4. Personalización: cada email incluye nombre del postulante y código único
    * 
    * Modos de operación:
-   * 1. sendToAll = true: Envía a TODOS los postulantes sin invitación previa en callId
-   * 2. applicantIds: Envía solo a IDs especificados
+   * 1. sendToAll = true: Procesa TODOS los postulantes con invitación NO enviada en callId
+   * 2. applicantIds: Procesa solo IDs especificados que no tengan email enviado
    * 
-   * Lógica:
-   * - Filtra postulantes que NO tienen invitación en esta convocatoria
-   * - Genera código único para cada uno
-   * - Crea invitación en BD
-   * - Envía email con código
-   * - Reporta exitosos y fallidos
+   * Límite diario:
+   * - maxEmails (opcional): Límite máximo de envíos en esta ejecución
+   * - Si se alcanza el límite, los pendientes quedan para el siguiente día
+   * - El sistema marca cada invitación con email_sent=true y sent_at al enviar exitosamente
+   * 
+   * Lógica de filtrado:
+   * - Busca invitaciones existentes donde email_sent = false
+   * - Si no existe invitación, la crea con email_sent = false
+   * - Envía emails hasta alcanzar maxEmails o procesar todos
+   * - Marca cada envío exitoso con email_sent = true, sent_at = NOW()
    * 
    * @param body - Objeto con:
    *   - callId (requerido): ID de la convocatoria
-   *   - sendToAll (opcional): Si true, envía a todos sin invitar
-   *   - applicantIds (opcional): Lista de IDs específicos
-   * @returns Objeto con sent, failed, total, errors (opcional), message
+   *   - sendToAll (opcional): Si true, procesa todos los pendientes de envío
+   *   - applicantIds (opcional): Lista de IDs específicos a procesar
+   *   - maxEmails (opcional): Límite máximo de emails a enviar (default: sin límite)
+   * @returns Objeto con:
+   *   - sent: Cantidad de emails enviados exitosamente
+   *   - failed: Cantidad de envíos fallidos
+   *   - pending: Cantidad de invitaciones pendientes de envío (por límite o errores)
+   *   - total: Total de invitaciones procesadas
+   *   - errors: Array de errores detallados (opcional)
+   *   - message: Mensaje descriptivo del resultado
    * @throws BadRequestException si falta callId
+   * 
+   * @example
+   * // Enviar a todos los pendientes, máximo 40 emails
+   * POST /api/invites/bulk-send
+   * { "callId": "uuid", "sendToAll": true, "maxEmails": 40 }
+   * 
+   * @example
+   * // Enviar a postulantes específicos
+   * POST /api/invites/bulk-send
+   * { "callId": "uuid", "applicantIds": ["id1", "id2", "id3"] }
    */
   @Post('bulk-send')
   async bulkSend(
     @Body()
     body: {
       callId: string;
-      sendToAll?: boolean; // Si true, envía a TODOS los postulantes sin invitar
-      applicantIds?: string[]; // O lista específica de IDs
+      sendToAll?: boolean;
+      applicantIds?: string[];
+      maxEmails?: number; // Límite máximo de emails a enviar
     },
   ) {
     if (!body.callId) {
       throw new BadRequestException('callId is required');
     }
 
-    // Obtener postulantes que no han sido invitados a esta convocatoria
-    let applicantIds = body.applicantIds || [];
+    const maxEmails = body.maxEmails && body.maxEmails > 0 ? body.maxEmails : null;
 
-    if (body.sendToAll || applicantIds.length === 0) {
-      // Buscar todos los postulantes que no tienen invitación para esta convocatoria
-      const result = await this.ds.query(
+    // PASO 1: Obtener invitaciones pendientes de envío (email_sent = false)
+    let pendingInvites: any[] = [];
+
+    if (body.sendToAll) {
+      // Buscar todas las invitaciones pendientes de envío para esta convocatoria
+      pendingInvites = await this.ds.query(
         `
-        SELECT DISTINCT a.id, u.email, a.first_name, a.last_name
-        FROM applicants a
-        INNER JOIN users u ON u.applicant_id = a.id
-        WHERE NOT EXISTS (
-          SELECT 1 FROM invites i 
-          WHERE i.call_id = $1 
-          AND (i.meta->>'email')::text = u.email
-        )
-        AND u.is_active = true
-        ORDER BY a.created_at DESC
+        SELECT 
+          i.id,
+          i.meta->>'email' as email,
+          i.meta->>'firstName' as "firstName",
+          i.meta->>'lastName' as "lastName"
+        FROM invites i
+        WHERE i.call_id = $1
+          AND i.email_sent = false
+          AND i.meta->>'email' IS NOT NULL
+        ORDER BY i.created_at ASC
+        ${maxEmails ? `LIMIT ${maxEmails}` : ''}
         `,
         [body.callId],
       );
-
-      applicantIds = result.map((r: any) => r.id);
+    } else if (body.applicantIds && body.applicantIds.length > 0) {
+      // Buscar invitaciones específicas pendientes de envío
+      pendingInvites = await this.ds.query(
+        `
+        SELECT 
+          i.id,
+          i.meta->>'email' as email,
+          i.meta->>'firstName' as "firstName",
+          i.meta->>'lastName' as "lastName"
+        FROM invites i
+        INNER JOIN applicants a ON (i.meta->>'email')::text = (SELECT email FROM users WHERE applicant_id = a.id LIMIT 1)
+        WHERE i.call_id = $1
+          AND i.email_sent = false
+          AND a.id = ANY($2)
+          AND i.meta->>'email' IS NOT NULL
+        ORDER BY i.created_at ASC
+        ${maxEmails ? `LIMIT ${maxEmails}` : ''}
+        `,
+        [body.callId, body.applicantIds],
+      );
     }
 
-    if (applicantIds.length === 0) {
+    // PASO 2: Si no hay invitaciones pendientes, buscar postulantes sin invitación
+    if (pendingInvites.length === 0) {
+      let applicantsWithoutInvite: any[] = [];
+
+      if (body.sendToAll) {
+        applicantsWithoutInvite = await this.ds.query(
+          `
+          SELECT DISTINCT 
+            a.id,
+            u.email,
+            a.first_name as "firstName",
+            a.last_name as "lastName"
+          FROM applicants a
+          INNER JOIN users u ON u.applicant_id = a.id
+          WHERE NOT EXISTS (
+            SELECT 1 FROM invites i 
+            WHERE i.call_id = $1 
+            AND (i.meta->>'email')::text = u.email
+          )
+          AND u.is_active = true
+          ORDER BY a.created_at DESC
+          ${maxEmails ? `LIMIT ${maxEmails}` : ''}
+          `,
+          [body.callId],
+        );
+      } else if (body.applicantIds && body.applicantIds.length > 0) {
+        applicantsWithoutInvite = await this.ds.query(
+          `
+          SELECT DISTINCT 
+            a.id,
+            u.email,
+            a.first_name as "firstName",
+            a.last_name as "lastName"
+          FROM applicants a
+          INNER JOIN users u ON u.applicant_id = a.id
+          WHERE a.id = ANY($1)
+            AND u.is_active = true
+            AND NOT EXISTS (
+              SELECT 1 FROM invites i 
+              WHERE i.call_id = $2 
+              AND (i.meta->>'email')::text = u.email
+            )
+          ORDER BY a.created_at DESC
+          ${maxEmails ? `LIMIT ${maxEmails}` : ''}
+          `,
+          [body.applicantIds, body.callId],
+        );
+      }
+
+      // Crear invitaciones para estos postulantes (sin enviar email aún)
+      for (const applicant of applicantsWithoutInvite) {
+        try {
+          const code = this.generateInviteCode();
+          const invite = await this.onboarding.devCreateInvite(
+            body.callId,
+            code,
+            undefined,
+            undefined,
+            applicant.firstName,
+            applicant.lastName,
+            applicant.email,
+          );
+
+          pendingInvites.push({
+            id: invite.id,
+            email: applicant.email,
+            firstName: applicant.firstName,
+            lastName: applicant.lastName,
+            code, // Guardar el código en claro temporalmente para envío
+          });
+        } catch (err: any) {
+          // Error al crear invitación, ignorar y continuar
+          console.error(`Error creando invitación para ${applicant.email}:`, err.message);
+        }
+      }
+    } else {
+      // Obtener códigos originales de las invitaciones pendientes
+      // PROBLEMA: No podemos recuperar el código original porque está hasheado
+      // SOLUCIÓN: Regenerar código para invitaciones pendientes que no se enviaron
+      for (let i = 0; i < pendingInvites.length; i++) {
+        const invite = pendingInvites[i];
+        const newCode = this.generateInviteCode();
+        
+        try {
+          // Actualizar el hash del código en la BD
+          const codeHash = await this.hashCode(newCode);
+          await this.ds.query(
+            `UPDATE invites SET code_hash = $1 WHERE id = $2`,
+            [codeHash, invite.id],
+          );
+          
+          pendingInvites[i].code = newCode;
+        } catch (err) {
+          console.error(`Error regenerando código para invitación ${invite.id}:`, err);
+        }
+      }
+    }
+
+    if (pendingInvites.length === 0) {
       return {
         success: true,
         sent: 0,
         failed: 0,
-        message: 'No hay postulantes sin invitar',
+        pending: 0,
+        total: 0,
+        message: 'No hay invitaciones pendientes de envío',
       };
     }
 
-    // Obtener datos completos de los postulantes
-    const applicants = await this.ds.query(
-      `
-      SELECT a.id, u.email, a.first_name as "firstName", a.last_name as "lastName"
-      FROM applicants a
-      INNER JOIN users u ON u.applicant_id = a.id
-      WHERE a.id = ANY($1)
-      AND u.is_active = true
-      `,
-      [applicantIds],
-    );
-
+    // PASO 3: Enviar emails
     const results = {
       sent: 0,
       failed: 0,
       errors: [] as string[],
     };
 
-    // Enviar invitaciones una por una
-    for (const applicant of applicants) {
-      try {
-        const code = this.generateInviteCode();
-        
-        const invite = await this.onboarding.devCreateInvite(
-          body.callId,
-          code,
-          undefined,
-          undefined,
-          applicant.firstName,
-          applicant.lastName,
-          applicant.email,
-        );
+    const toProcess = maxEmails ? pendingInvites.slice(0, maxEmails) : pendingInvites;
 
+    for (const invite of toProcess) {
+      try {
+        // Enviar email
         await this.onboarding.sendInitialInvite(
           invite.id,
-          applicant.email,
-          code,
-          applicant.firstName,
-          applicant.lastName,
+          invite.email,
+          invite.code,
+          invite.firstName,
+          invite.lastName,
+        );
+
+        // Marcar como enviado en la BD
+        await this.ds.query(
+          `
+          UPDATE invites 
+          SET email_sent = true, 
+              sent_at = NOW(),
+              sent_count = sent_count + 1
+          WHERE id = $1
+          `,
+          [invite.id],
         );
 
         results.sent++;
       } catch (err: any) {
         results.failed++;
-        results.errors.push(`${applicant.email}: ${err.message || 'Error desconocido'}`);
+        results.errors.push(`${invite.email}: ${err.message || 'Error desconocido'}`);
       }
     }
+
+    // PASO 4: Calcular pendientes
+    const totalInvites = await this.ds.query(
+      `SELECT COUNT(*) as count FROM invites WHERE call_id = $1 AND email_sent = false`,
+      [body.callId],
+    );
+    const pending = parseInt(totalInvites[0].count, 10);
 
     return {
       success: true,
       sent: results.sent,
       failed: results.failed,
-      total: applicants.length,
+      pending,
+      total: toProcess.length,
       errors: results.errors.length > 0 ? results.errors : undefined,
-      message: `${results.sent} invitaciones enviadas, ${results.failed} fallidas`,
+      message: `${results.sent} invitaciones enviadas, ${results.failed} fallidas${pending > 0 ? `, ${pending} pendientes` : ''}`,
     };
+  }
+
+  /**
+   * GET /api/invites/stats/:callId
+   * 
+   * Obtiene estadísticas de envío de invitaciones para una convocatoria.
+   * Útil para mostrar en el frontend cuántas invitaciones quedan pendientes.
+   * 
+   * @param callId - UUID de la convocatoria
+   * @returns Objeto con:
+   *   - total: Total de invitaciones creadas
+   *   - sent: Cantidad de invitaciones enviadas
+   *   - pending: Cantidad de invitaciones pendientes de envío
+   *   - used: Cantidad de invitaciones usadas por postulantes
+   *   - lastSentAt: Fecha del último envío (opcional)
+   * 
+   * @example
+   * GET /api/invites/stats/uuid-call-id
+   * // { total: 100, sent: 40, pending: 60, used: 35, lastSentAt: "2025-12-16T10:30:00Z" }
+   */
+  @Get('stats/:callId')
+  async getStats(@Param('callId') callId: string) {
+    const stats = await this.ds.query(
+      `
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN email_sent = true THEN 1 END) as sent,
+        COUNT(CASE WHEN email_sent = false THEN 1 END) as pending,
+        COUNT(CASE WHEN used_at IS NOT NULL THEN 1 END) as used,
+        MAX(sent_at) as "lastSentAt"
+      FROM invites
+      WHERE call_id = $1
+      `,
+      [callId],
+    );
+
+    const result = stats[0];
+    return {
+      total: parseInt(result.total, 10),
+      sent: parseInt(result.sent, 10),
+      pending: parseInt(result.pending, 10),
+      used: parseInt(result.used, 10),
+      lastSentAt: result.lastSentAt || null,
+    };
+  }
+
+  /**
+   * Hashea un código de invitación usando argon2.
+   * Método auxiliar para regenerar códigos pendientes.
+   */
+  private async hashCode(code: string): Promise<string> {
+    const argon2 = require('argon2');
+    return argon2.hash(code.toUpperCase());
   }
 }
