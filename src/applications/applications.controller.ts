@@ -291,8 +291,18 @@ export class ApplicationsController {
   }
 
   /**
-   * Endpoint de administración para limpiar aplicaciones duplicadas
-   * Solo mantiene la aplicación con form_submissions
+   * Limpia aplicaciones duplicadas del sistema.
+   * 
+   * Identifica aplicaciones duplicadas por postulante+convocatoria y mantiene solo
+   * la que tiene form_submissions asociadas. Útil para limpiar registros huérfanos
+   * creados por errores de concurrencia.
+   * 
+   * @returns Resumen de operación con cantidad eliminada
+   * @throws {ForbiddenException} Si no es ADMIN
+   * 
+   * @example
+   * DELETE /api/applications/cleanup-duplicates
+   * Response: { "message": "Limpieza completada", "deleted": 5, "kept": 45 }
    */
   @Delete('cleanup-duplicates')
   @Roles('ADMIN')

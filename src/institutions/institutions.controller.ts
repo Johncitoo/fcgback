@@ -14,6 +14,22 @@ import { Roles } from '../auth/roles.decorator';
 import { CreateInstitutionDto } from './dto/create-institution.dto';
 import { UpdateInstitutionDto } from './dto/update-institution.dto';
 
+/**
+ * Controller para gestión de instituciones educativas.
+ * 
+ * CRUD completo para liceos, colegios, institutos y otras instituciones.
+ * Usado para vincular postulantes con sus establecimientos educacionales.
+ * 
+ * Campos principales:
+ * - name: Nombre oficial de la institución
+ * - code: Código RBD u otro identificador
+ * - type: LICEO | COLEGIO | INSTITUTO | OTRO
+ * - Ubicación: commune, province, region
+ * - Contacto: email, phone, director_name
+ * - Estado: active (soft delete)
+ * 
+ * @roles ADMIN, REVIEWER - Solo staff puede gestionar instituciones
+ */
 @Controller('institutions')
 export class InstitutionsController {
   constructor(private ds: DataSource) {}

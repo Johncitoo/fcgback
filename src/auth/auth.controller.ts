@@ -7,6 +7,22 @@ import { LogoutDto } from './dto/logout.dto';
 import { ValidateInviteDto } from './dto/validate-invite.dto';
 import { Public } from './public.decorator';
 
+/**
+ * Controller para autenticación de usuarios (staff y postulantes).
+ * 
+ * Gestiona login, logout, renovación de tokens y recuperación de contraseñas.
+ * Implementa rate limiting en endpoints críticos para prevenir ataques de fuerza bruta.
+ * 
+ * Flujos principales:
+ * 1. Login staff: email/password → access + refresh tokens
+ * 2. Login applicant: email/password → access + refresh tokens
+ * 3. Refresh: refresh token → nuevo access token
+ * 4. Logout: refresh token → revocación en BD
+ * 5. Password reset: email → token → nueva contraseña
+ * 
+ * @public Mayoría de endpoints son públicos (@Public decorator)
+ * @throttle Rate limiting configurado por endpoint
+ */
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
