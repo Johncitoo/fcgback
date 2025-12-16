@@ -26,11 +26,23 @@ import { Public } from '../auth/public.decorator';
 export class OnboardingController {
   constructor(private readonly onboarding: OnboardingService) {}
 
-  // ==== ENDPOINT PÚBLICO - Validar código de invitación ====
+  /**
+   * Valida un código de invitación y genera token para establecer contraseña.
+   * Endpoint público con rate limiting (5 intentos por minuto).
+   * 
+   * @param dto - Código de invitación y email opcional
+   * @returns Información del usuario y token para establecer contraseña (válido 10 min)
+   * @throws {BadRequestException} Si el código es inválido o expiró
+   * 
+   * @example
+   * POST /api/onboarding/validate-invite
+   * Body: { "code": "ABC123", "email": "user@example.com" }
+   * Response: { "success": true, "passwordToken": "token123", "userId": "uuid" }
+   */
   @Public()
   @Post('validate-invite')
   @HttpCode(200)
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 intentos por minuto
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async validateInvite(@Body() dto: ValidateInvitePublicDto) {
     const result = await this.onboarding.validateInviteCode(dto.code, dto.email || '');
     
@@ -48,7 +60,20 @@ export class OnboardingController {
     };
   }
 
-  // ==== ENDPOINT PÚBLICO - Establecer contraseña ====
+  /**
+   * Establece la contraseña del usuario usando el token de invitación.
+   * Endpoint público. Token válido por 10 minutos.
+   * 
+   * @param dto - Token de invitación y nueva contraseña
+   * @param req - Request para obtener user agent
+   * @param ip - IP del cliente
+   * @returns Confirmación y userId
+   * @throws {BadRequestException} Si el token es inválido o expiró
+   * 
+   * @example
+   * POST /api/onboarding/set-password
+   * Body: { "token": "token123", "password": "SecurePass123!" }
+   */
   @Public()
   @Post('set-password')
   @HttpCode(200)
@@ -71,7 +96,17 @@ export class OnboardingController {
     };
   }
 
-  // ==== DEV endpoints ====
+  /**
+   * Crea un código de invitación para desarrollo.
+   * Endpoint público solo para desarrollo/testing.
+   * 
+   * @param dto - CallId, código personalizado, TTL en días e institutionId opcional
+   * @returns Código de invitación creado
+   * 
+   * @example
+   * POST /api/onboarding/dev/create-invite
+   * Body: { "callId": "uuid", "code": "TEST123", "ttlDays": 30 }
+   */
   @Public()
   @Post('dev/create-invite')
   async devCreateInvite(
@@ -85,7 +120,19 @@ export class OnboardingController {
     );
   }
 
-  // ==== DEV ONLY - Establecer contraseña sin token (para desarrollo) ====
+  /**
+   * Establece contraseña directamente por email sin token.
+   * Endpoint público solo para desarrollo/testing.
+   * 
+   * @param body - Email y nueva contraseña
+   * @param req - Request para obtener user agent
+   * @param ip - IP del cliente
+   * @returns Confirmación y userId
+   * 
+   * @example
+   * POST /api/onboarding/dev/set-password
+   * Body: { "email": "test@example.com", "password": "SecurePass123!" }
+   */
   @Public()
   @Post('dev/set-password')
   @HttpCode(200)

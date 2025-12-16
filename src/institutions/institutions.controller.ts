@@ -18,7 +18,18 @@ import { UpdateInstitutionDto } from './dto/update-institution.dto';
 export class InstitutionsController {
   constructor(private ds: DataSource) {}
 
-  // GET /api/institutions - Listar instituciones
+  /**
+   * Lista todas las instituciones educacionales con filtros y paginación.
+   * 
+   * @param limit - Número máximo de resultados (default: 100)
+   * @param offset - Desplazamiento para paginación (default: 0)
+   * @param q - Búsqueda por nombre o código (ILIKE)
+   * @param active - Filtro por instituciones activas ('true' o '1')
+   * @returns Lista paginada de instituciones con metadata
+   * 
+   * @example
+   * GET /api/institutions?limit=20&q=santiago&active=true
+   */
   @Roles('ADMIN', 'REVIEWER')
   @Get()
   async list(
@@ -85,7 +96,17 @@ export class InstitutionsController {
     return { data, total, limit: limitNum, offset: offsetNum };
   }
 
-  // POST /api/institutions - Crear institución
+  /**
+   * Crea una nueva institución educacional.
+   * 
+   * @param body - Datos de la institución (name requerido, type debe ser LICEO/COLEGIO/INSTITUTO/OTRO)
+   * @returns Institución creada con todos sus campos
+   * @throws {BadRequestException} Si falta el nombre o el tipo es inválido
+   * 
+   * @example
+   * POST /api/institutions
+   * Body: { "name": "Liceo A-1", "type": "LICEO", "commune": "Santiago" }
+   */
   @Roles('ADMIN', 'REVIEWER')
   @Post()
   async create(@Body() body: CreateInstitutionDto) {
@@ -125,7 +146,16 @@ export class InstitutionsController {
     return result[0];
   }
 
-  // GET /api/institutions/:id - Obtener institución
+  /**
+   * Obtiene los detalles completos de una institución específica.
+   * 
+   * @param id - ID de la institución
+   * @returns Institución con todos sus campos
+   * @throws {BadRequestException} Si la institución no existe
+   * 
+   * @example
+   * GET /api/institutions/uuid-123
+   */
   @Roles('ADMIN', 'REVIEWER')
   @Get(':id')
   async getById(@Param('id') id: string) {
@@ -141,7 +171,18 @@ export class InstitutionsController {
     return result[0];
   }
 
-  // PATCH /api/institutions/:id - Actualizar institución
+  /**
+   * Actualiza parcialmente los datos de una institución.
+   * 
+   * @param id - ID de la institución
+   * @param body - Campos a actualizar
+   * @returns Institución actualizada
+   * @throws {BadRequestException} Si la institución no existe o el tipo es inválido
+   * 
+   * @example
+   * PATCH /api/institutions/uuid-123
+   * Body: { "email": "contacto@liceo.cl", "active": true }
+   */
   @Roles('ADMIN', 'REVIEWER')
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateInstitutionDto) {
@@ -231,7 +272,17 @@ export class InstitutionsController {
     return result[0];
   }
 
-  // DELETE /api/institutions/:id - Desactivar institución
+  /**
+   * Desactiva una institución (soft delete).
+   * Marca active=false en lugar de eliminar el registro.
+   * 
+   * @param id - ID de la institución
+   * @returns Confirmación de desactivación
+   * @throws {BadRequestException} Si la institución no existe
+   * 
+   * @example
+   * DELETE /api/institutions/uuid-123
+   */
   @Roles('ADMIN', 'REVIEWER')
   @Delete(':id')
   async delete(@Param('id') id: string) {
