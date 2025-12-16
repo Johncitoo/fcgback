@@ -7,27 +7,31 @@ import {
   Patch,
   Delete,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { DataSource } from 'typeorm';
 import * as argon2 from 'argon2';
 import { Roles } from '../auth/roles.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 
 /**
  * Controller para administración de usuarios por parte de ADMIN.
  * 
- * CRUD completo de usuarios (staff y postulantes):
- * - Crear usuarios con rol específico
+ * CRUD completo de usuarios (staff ADMIN/REVIEWER únicamente):
+ * - Crear usuarios ADMIN o REVIEWER con contraseña temporal
  * - Listar todos los usuarios del sistema
  * - Actualizar datos y roles
  * - Desactivar/eliminar usuarios (soft delete)
  * 
- * Genera contraseñas temporales para nuevos usuarios si no se proporciona.
+ * Genera contraseñas temporales seguras para nuevos usuarios.
  * 
  * @path /admin/users
  * @roles ADMIN - Solo administradores pueden gestionar usuarios
  */
 @Controller('admin/users')
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN') // Solo administradores pueden gestionar usuarios
 export class AdminUsersController {
   constructor(
@@ -35,20 +39,25 @@ export class AdminUsersController {
     private ds: DataSource,
   ) {}
 
-  // POST /api/admin/users - Crear nuevo usuario (ADMIN/REVIEWER)
+  // POST /api/admin/users - Crear nuevo usuario (ADMIN/REVIEWER únicamente)
   @Post()
   async create(
     @Body()
     body: {
       email: string;
       fullName: string;
-      role: 'ADMIN' | 'REVIEWER' | 'APPLICANT';
+      role: 'ADMIN' | 'REVIEWER';
       password?: string;
       isActive?: boolean;
     },
   ) {
     if (!body.email || !body.fullName || !body.role) {
       throw new BadRequestException('Email, fullName and role are required');
+    }
+
+    // CRÍTICO: Solo permitir crear ADMIN o REVIEWER, nunca APPLICANT
+    if (body.role !== 'ADMIN' && body.role !== 'REVIEWER') {
+      throw new BadRequestException('Only ADMIN and REVIEWER roles can be created through this endpoint');
     }
 
     const existing = await this.users.findByEmail(body.email);
