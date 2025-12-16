@@ -80,7 +80,7 @@ export class FormsService {
    */
   async findOne(id: string): Promise<Form> {
     const timestamp = new Date().toISOString();
-    console.log(`[FormsService ${timestamp}] 🔍 findOne buscando form:`, id);
+    console.log(`[FormsService ${timestamp}] findOne buscando form:`, id);
     
     // CRÍTICO: Usar query raw para evitar cache de TypeORM
     const rawResult = await this.formsRepo.manager.query(
@@ -192,7 +192,7 @@ export class FormsService {
       
       // Commit explícito
       await queryRunner.commitTransaction();
-      console.log(`[FormsService ${timestamp}] ✅ Transaction committed para form:`, id);
+      console.log(`[FormsService ${timestamp}] Transaction committed para form:`, id);
       
       // Leer DESPUÉS del commit
       const verified = await this.findOne(id);
@@ -207,7 +207,7 @@ export class FormsService {
       return verified;
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      console.error('[FormsService] ❌ Error en transacción:', error);
+      console.error('[FormsService] Error en transacción:', error);
       throw error;
     } finally {
       await queryRunner.release();

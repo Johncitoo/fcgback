@@ -181,7 +181,7 @@ export class AuthService {
       ua || 'unknown'
     );
     if (suspiciousCheck.suspicious) {
-      console.warn(`⚠️  Suspicious login detected: ${email} - ${suspiciousCheck.reason}`);
+      console.warn(`Suspicious login detected: ${email} - ${suspiciousCheck.reason}`);
     }
 
     const accessToken = this.signAccessToken(user);

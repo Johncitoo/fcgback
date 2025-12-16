@@ -297,7 +297,7 @@ export class OnboardingService {
         if (existingProgress[0].count === '0' || existingProgress[0].count === 0) {
           this.logger.log(`Inicializando milestone_progress para application: ${applicationId}`);
           await this.milestonesService.initializeProgress(applicationId, invite.callId);
-          this.logger.log(`✅ Milestone progress inicializado correctamente`);
+          this.logger.log(`Milestone progress inicializado correctamente`);
         } else {
           this.logger.log(`Application ${applicationId} ya tiene ${existingProgress[0].count} milestone_progress`);
         }
@@ -453,7 +453,7 @@ export class OnboardingService {
           if (existingProgress[0].count === '0' || existingProgress[0].count === 0) {
             this.logger.log(`Inicializando milestone_progress para usuario ${user.email}, app: ${app.id}`);
             await this.milestonesService.initializeProgress(app.id, app.call_id);
-            this.logger.log(`✅ Milestone progress inicializado para ${user.email}`);
+            this.logger.log(`Milestone progress inicializado para ${user.email}`);
           } else {
             this.logger.log(`Usuario ${user.email} ya tiene ${existingProgress[0].count} milestone_progress`);
           }
@@ -662,7 +662,7 @@ export class OnboardingService {
           if (existingProgress[0].count === '0' || existingProgress[0].count === 0) {
             this.logger.log(`[DEV] Inicializando milestone_progress para usuario ${user.email}, app: ${app.id}`);
             await this.milestonesService.initializeProgress(app.id, app.call_id);
-            this.logger.log(`[DEV] ✅ Milestone progress inicializado para ${user.email}`);
+            this.logger.log(`[DEV] Milestone progress inicializado para ${user.email}`);
           } else {
             this.logger.log(`[DEV] Usuario ${user.email} ya tiene ${existingProgress[0].count} milestone_progress`);
           }

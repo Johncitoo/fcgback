@@ -434,7 +434,7 @@ export class MilestonesService {
         data.next_milestone_name || undefined,
       );
 
-      this.logger.log(`✅ Email de aprobación enviado: ${currentMilestone.name} → ${data.email}`);
+      this.logger.log(`Email de aprobación enviado: ${currentMilestone.name} → ${data.email}`);
     } catch (error) {
       this.logger.error(`Error enviando email de aprobación: ${error.message}`);
     }
@@ -472,7 +472,7 @@ export class MilestonesService {
         milestone.name,
       );
 
-      this.logger.log(`✅ Email de rechazo enviado (último): ${milestone.name} → ${data.email}`);
+      this.logger.log(`Email de rechazo enviado (último): ${milestone.name} → ${data.email}`);
     } catch (error) {
       this.logger.error(`Error enviando email de rechazo: ${error.message}`);
     }

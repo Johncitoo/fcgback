@@ -22,13 +22,13 @@ export async function cleanupDuplicateApplications(dataSource: DataSource) {
       HAVING COUNT(*) > 1
     `);
 
-    console.log(`\n📊 Aplicaciones duplicadas encontradas: ${duplicates.length}\n`);
+    console.log(`\nAplicaciones duplicadas encontradas: ${duplicates.length}\n`);
 
     for (const dup of duplicates) {
       const appIds = dup.app_ids;
       const submissionCounts = dup.submission_counts;
 
-      console.log(`\n🔍 Procesando duplicado:`);
+      console.log(`\nProcesando duplicado:`);
       console.log(`   Applicant: ${dup.applicant_id}`);
       console.log(`   Call: ${dup.call_id}`);
       console.log(`   Applications: ${appIds.join(', ')}`);
@@ -48,8 +48,8 @@ export async function cleanupDuplicateApplications(dataSource: DataSource) {
       const keepAppId = appIds[keepIndex];
       const deleteAppIds = appIds.filter((_: any, i: number) => i !== keepIndex);
 
-      console.log(`   ✅ Mantener: ${keepAppId} (${submissionCounts[keepIndex]} submissions)`);
-      console.log(`   🗑️  Eliminar: ${deleteAppIds.join(', ')}`);
+      console.log(`   Mantener: ${keepAppId} (${submissionCounts[keepIndex]} submissions)`);
+      console.log(`   Eliminar: ${deleteAppIds.join(', ')}`);
 
       // Eliminar milestone_progress de las apps a eliminar
       for (const appId of deleteAppIds) {
@@ -67,7 +67,7 @@ export async function cleanupDuplicateApplications(dataSource: DataSource) {
         );
       }
 
-      console.log(`   ✅ Aplicaciones duplicadas eliminadas\n`);
+      console.log(`   Aplicaciones duplicadas eliminadas\n`);
     }
 
     await queryRunner.commitTransaction();
@@ -79,7 +79,7 @@ export async function cleanupDuplicateApplications(dataSource: DataSource) {
     };
   } catch (error) {
     await queryRunner.rollbackTransaction();
-    console.error('❌ Error durante la limpieza:', error);
+    console.error('Error durante la limpieza:', error);
     throw error;
   } finally {
     await queryRunner.release();

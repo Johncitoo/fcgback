@@ -141,7 +141,7 @@ export class SecurityService {
       this.lockedAccounts.set(key, lockUntil);
 
       // Log evento de bloqueo
-      console.warn(`🔒 Account locked: ${email} from IP ${ip} - ${failedCount} failed attempts`);
+      console.warn(`Account locked: ${email} from IP ${ip} - ${failedCount} failed attempts`);
       
       await this.dataSource.query(
         `INSERT INTO audit_logs (action, entity, meta, created_at)
