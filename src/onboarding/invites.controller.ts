@@ -239,6 +239,85 @@ export class InvitesController {
   }
 
   /**
+   * POST /api/invites/bulk
+   * 
+   * Crea invitaciones en lote para múltiples emails.
+   * NO envía emails automáticamente, solo crea los registros.
+   * 
+   * @param body - Objeto con:
+   *   - callId (requerido): ID de la convocatoria
+   *   - emails (requerido): Array de emails
+   * @returns Objeto con created, duplicates, invalid
+   * @throws BadRequestException si falta callId o emails
+   */
+  @Post('bulk')
+  async bulkCreate(
+    @Body()
+    body: {
+      callId: string;
+      emails: string[];
+    },
+  ) {
+    if (!body.callId) {
+      throw new BadRequestException('callId is required');
+    }
+    if (!body.emails || !Array.isArray(body.emails) || body.emails.length === 0) {
+      throw new BadRequestException('emails array is required');
+    }
+
+    let created = 0;
+    let duplicates = 0;
+    let invalid = 0;
+
+    for (const email of body.emails) {
+      const trimmedEmail = email.trim().toLowerCase();
+      
+      // Validar formato de email
+      if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        invalid++;
+        continue;
+      }
+
+      try {
+        // Verificar si ya existe invitación para este email y convocatoria
+        const existing = await this.ds.query(
+          `SELECT id FROM invites WHERE call_id = $1 AND LOWER(email) = $2 LIMIT 1`,
+          [body.callId, trimmedEmail],
+        );
+
+        if (existing.length > 0) {
+          duplicates++;
+          continue;
+        }
+
+        // Crear invitación (sin enviar email)
+        const code = this.generateInviteCode();
+        await this.onboarding.devCreateInvite(
+          body.callId,
+          code,
+          undefined, // ttlDays
+          undefined, // institutionId
+          undefined, // firstName
+          undefined, // lastName
+          trimmedEmail,
+        );
+
+        created++;
+      } catch (err) {
+        console.error(`Error creando invitación para ${trimmedEmail}:`, err);
+        invalid++;
+      }
+    }
+
+    return {
+      created,
+      duplicates,
+      invalid,
+      total: body.emails.length,
+    };
+  }
+
+  /**
    * POST /api/invites/:id/regenerate
    * 
    * Regenera el código de una invitación existente.
