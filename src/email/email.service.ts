@@ -496,7 +496,7 @@ export class EmailService {
    */
   async sendPasswordResetEmail(email: string, token: string, applicantName: string): Promise<boolean> {
     const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
-    const resetLink = `${baseUrl}/#/reset-password?token=${token}`;
+    const resetLink = `${baseUrl}/auth/reset-password?token=${token}`;
 
     return this.sendFromTemplate(
       'PASSWORD_RESET',
