@@ -10,6 +10,23 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
+/**
+ * Guard para validar tokens JWT en requests.
+ * 
+ * Protege todos los endpoints por defecto, excepto los marcados con @Public().
+ * 
+ * Flujo de validación:
+ * 1. Verifica si el endpoint tiene decorador @Public() → permite acceso
+ * 2. Extrae token del header Authorization (Bearer <token>)
+ * 3. Valida el token con JwtService y AUTH_JWT_SECRET
+ * 4. Si es válido, inyecta payload en req.user y permite acceso
+ * 5. Si es inválido o no existe, lanza UnauthorizedException
+ * 
+ * El payload decodificado incluye: sub (userId), email, role, iat, exp
+ * 
+ * @implements {CanActivate}
+ * @throws {UnauthorizedException} Si no hay token o el token es inválido/expirado
+ */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
