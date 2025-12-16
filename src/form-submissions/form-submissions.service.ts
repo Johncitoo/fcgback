@@ -6,6 +6,27 @@ import { MilestoneProgress } from '../milestone-progress/entities/milestone-prog
 import { EmailService } from '../email/email.service';
 import { randomBytes } from 'crypto';
 
+/**
+ * Servicio de gestión de submissions de formularios.
+ * 
+ * Maneja el ciclo de vida completo de form_submissions:
+ * - Crear submissions (borrador)
+ * - Listar por application o milestone
+ * - Actualizar respuestas
+ * - Enviar (marcar submittedAt)
+ * - Actualizar milestone_progress al enviar
+ * - Desbloquear siguiente hito automáticamente
+ * - Enviar emails de confirmación
+ * - Generar tokens para establecer contraseña post-submit
+ * 
+ * Normalización:
+ * - Acepta 'responses' como alias de 'answers' (compatibilidad)
+ * - Parsea respuestas en formato flexible
+ * 
+ * Integraciones:
+ * - EmailService para confirmaciones
+ * - MilestoneProgress para tracking de progreso
+ */
 @Injectable()
 export class FormSubmissionsService {
   private readonly logger = new Logger(FormSubmissionsService.name);
@@ -19,6 +40,20 @@ export class FormSubmissionsService {
     private readonly emailService: EmailService,
   ) {}
 
+  /**
+   * Crea una nueva submission de formulario (borrador).
+   * 
+   * Normaliza 'responses' a 'answers' automáticamente.
+   * La submission se crea sin submittedAt (borrador).
+   * 
+   * @param data - Datos de la submission:
+   *   - applicationId: ID de la application (requerido)
+   *   - formId: ID del formulario (opcional)
+   *   - milestoneId: ID del hito (opcional)
+   *   - answers: Respuestas del formulario (opcional)
+   *   - responses: Alias de answers (opcional)
+   * @returns Submission creada
+   */
   async create(data: {
     applicationId: string;
     formId?: string;
@@ -47,6 +82,13 @@ export class FormSubmissionsService {
     }
   }
 
+  /**
+   * Lista todas las submissions de una application.
+   * Ordenadas por fecha de creación descendente (más recientes primero).
+   * 
+   * @param applicationId - UUID de la application
+   * @returns Array de submissions
+   */
   async findByApplication(applicationId: string): Promise<FormSubmission[]> {
     return this.submissionsRepo.find({
       where: { applicationId },
@@ -54,6 +96,13 @@ export class FormSubmissionsService {
     });
   }
 
+  /**
+   * Lista todas las submissions de un hito específico.
+   * Ordenadas por fecha de creación descendente.
+   * 
+   * @param milestoneId - UUID del hito
+   * @returns Array de submissions
+   */
   async findByMilestone(milestoneId: string): Promise<FormSubmission[]> {
     return this.submissionsRepo.find({
       where: { milestoneId },
@@ -61,6 +110,13 @@ export class FormSubmissionsService {
     });
   }
 
+  /**
+   * Obtiene una submission por ID.
+   * 
+   * @param id - UUID de la submission
+   * @returns Submission
+   * @throws NotFoundException si no existe
+   */
   async findOne(id: string): Promise<FormSubmission> {
     const submission = await this.submissionsRepo.findOne({
       where: { id },
@@ -71,6 +127,17 @@ export class FormSubmissionsService {
     return submission;
   }
 
+  /**
+   * Actualiza una submission existente.
+   * 
+   * Normaliza 'responses' a 'answers' automáticamente.
+   * Usado para guardar borradores con nuevas respuestas.
+   * 
+   * @param id - UUID de la submission
+   * @param data - Campos a actualizar (puede incluir answers o responses)
+   * @returns Submission actualizada
+   * @throws NotFoundException si no existe
+   */
   async update(id: string, data: Partial<FormSubmission> & { answers?: any; responses?: any }): Promise<FormSubmission> {
     try {
       // Normalizar: 'responses' es un alias de 'answers' (compatibilidad)
@@ -96,6 +163,20 @@ export class FormSubmissionsService {
     }
   }
 
+  /**
+   * Marca una submission como enviada (submit).
+   * 
+   * Flujo completo:
+   * 1. Marca submittedAt con timestamp actual
+   * 2. Si tiene milestoneId:
+   *    - Actualiza milestone_progress a COMPLETED
+   *    - Desbloquea siguiente hito (order_index + 1) a IN_PROGRESS
+   * 3. Envía email de confirmación al usuario
+   * 
+   * @param id - UUID de la submission
+   * @param userId - UUID del usuario (para email de confirmación)
+   * @returns Submission actualizada con submittedAt
+   */
   async submit(id: string, userId: string): Promise<FormSubmission> {
     const submission = await this.findOne(id);
     
@@ -141,7 +222,14 @@ export class FormSubmissionsService {
   }
 
   /**
-   * Envía email de confirmación cuando se envía un formulario
+   * Envía email de confirmación cuando se envía un formulario.
+   * 
+   * Busca información del usuario, convocatoria y hito para personalizar el email.
+   * Usa plantilla FORM_SUBMITTED de EmailService.
+   * 
+   * @param userId - UUID del usuario
+   * @param applicationId - UUID de la application
+   * @param milestoneId - UUID del hito (opcional)
    */
   private async sendFormSubmittedConfirmation(userId: string, applicationId: string, milestoneId?: string): Promise<void> {
     try {
@@ -185,8 +273,19 @@ export class FormSubmissionsService {
   }
 
   /**
-   * Envía email con token para cambiar contraseña cuando el postulante completa el formulario.
-   * Esto permite al usuario acceder posteriormente para revisar su progreso.
+   * Envía email con token para establecer contraseña después de enviar formulario.
+   * 
+   * Flujo:
+   * 1. Verifica si el usuario ya estableció su contraseña
+   * 2. Si no la ha establecido, genera token de 48h
+   * 3. Inserta token en password_reset_tokens
+   * 4. Envía email con link para establecer contraseña
+   * 
+   * Permite al postulante acceder posteriormente para revisar su progreso.
+   * Solo se envía si el usuario tiene contraseña temporal (no ha usado token de reset).
+   * 
+   * @param userId - UUID del usuario
+   * @param applicationId - UUID de la application (no usado actualmente)
    */
   private async sendPasswordSetEmailAfterSubmit(userId: string, applicationId: string): Promise<void> {
     try {
@@ -242,6 +341,14 @@ export class FormSubmissionsService {
     }
   }
 
+  /**
+   * Elimina una submission.
+   * 
+   * NOTA: A pesar del nombre, es hard delete (no soft delete).
+   * Elimina el registro de form_submissions permanentemente.
+   * 
+   * @param id - UUID de la submission a eliminar
+   */
   async softDelete(id: string): Promise<void> {
     // Simply delete the record
     await this.submissionsRepo.delete(id);

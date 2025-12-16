@@ -37,6 +37,30 @@ type FieldRow = {
   visibility: 'PUBLIC' | 'INTERNAL';
 };
 
+/**
+ * Servicio para acceso de postulantes a formularios de convocatorias.
+ * 
+ * Sistema basado en form_sections y form_fields (más nuevo que forms.schema).
+ * Cada convocatoria (call) tiene sus propias secciones y campos.
+ * 
+ * Funcionalidades principales:
+ * 1. getForm: Obtiene formulario de una convocatoria (admin/reviewer)
+ * 2. getActiveApplicantForm: Obtiene formulario activo del postulante con:
+ *    - Auto-creación de application DRAFT si no existe
+ *    - Secciones y campos de la convocatoria OPEN
+ *    - Respuestas guardadas (form_responses)
+ *    - Documentos subidos (documents con is_current=true)
+ * 3. saveApplicantForm: Guarda borrador (stub actual)
+ * 4. getFormById: Obtiene formulario por ID con fallback a sistema viejo
+ * 
+ * Tipos de visibilidad:
+ * - PUBLIC: Visible para postulantes
+ * - INTERNAL: Solo visible para admin/revisor
+ * 
+ * Helper centralizado:
+ * - q<T>(): Wraps DataSource.query con type safety
+ * - toScalar(): Convierte unknown a ResponseScalar (string | number | boolean | null)
+ */
 @Injectable()
 export class FormService {
   constructor(private readonly ds: DataSource) {}
@@ -130,9 +154,26 @@ export class FormService {
     return { call, sections, fields, requirements };
   }
 
-  // ==================================================================
-  // 2) APPLICANT - getActiveApplicantForm (with sections and fields)
-  // ==================================================================
+  /**
+   * GET /api/calls/applicant/:applicantId/form/active
+   * 
+   * Obtiene el formulario activo del postulante con estado completo.
+   * 
+   * Flujo:
+   * 1. Busca convocatoria OPEN más reciente
+   * 2. Busca o crea application DRAFT para el postulante
+   * 3. Obtiene secciones de form_sections
+   * 4. Obtiene campos PUBLIC y activos de form_fields
+   * 5. Carga respuestas guardadas de form_responses
+   * 6. Carga documentos is_current de documents
+   * 
+   * Auto-creación:
+   * Si no existe application, crea una con status DRAFT automáticamente.
+   * 
+   * @param applicantId - UUID del postulante
+   * @returns ApplicantFormPayload con call, application, sections, fields, responses, documentsByField
+   * @throws NotFoundException si no hay convocatoria OPEN
+   */
   async getActiveApplicantForm(
     applicantId: string,
   ): Promise<ApplicantFormPayload> {
@@ -246,9 +287,18 @@ export class FormService {
     return { call, application, sections, fields, responses, documentsByField };
   }
 
-  // ======================================================
-  // 3) Guardar borrador (stub para compilar)
-  // ======================================================
+  /**
+   * PATCH /api/calls/applicant/application/:applicationId/save
+   * 
+   * Guarda borrador del formulario de una application.
+   * 
+   * NOTA: Actualmente es un stub (no implementado completamente).
+   * Debería guardar respuestas en form_responses.
+   * 
+   * @param applicationId - UUID de la application
+   * @param _body - DTO con respuestas del formulario
+   * @returns Objeto con updated: 0 (placeholder)
+   */
   async saveApplicantForm(applicationId: string, _body: SaveApplicantFormDto) {
     await this.ds.query('SELECT 1'); // dummy await
     void applicationId;
@@ -256,9 +306,23 @@ export class FormService {
     return { updated: 0 };
   }
 
-  // ======================================================
-  // 4) GET /api/forms/:formId - Obtener formulario por ID
-  // ======================================================
+  /**
+   * GET /api/forms-legacy/:formId
+   * 
+   * Obtiene un formulario por su ID con lógica de fallback.
+   * 
+   * Flujo:
+   * 1. Busca milestones que usen este formId para obtener callId
+   * 2. Si tiene callId, intenta cargar desde form_sections + form_fields (sistema nuevo)
+   * 3. Si no hay secciones, hace fallback a forms.schema (sistema viejo)
+   * 
+   * Permite compatibilidad entre sistema viejo (forms.schema JSONB)
+   * y sistema nuevo (form_sections + form_fields).
+   * 
+   * @param formId - UUID del formulario
+   * @returns Formulario con id, name, description, schema
+   * @throws NotFoundException si no existe en ninguno de los dos sistemas
+   */
   async getFormById(formId: string) {
     // Primero intentar obtener el call_id desde el milestone
     const milestoneRows = await this.q<{ call_id: string }>(

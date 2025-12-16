@@ -3,6 +3,25 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Form } from './entities/form.entity';
 
+/**
+ * Servicio para gestión de formularios dinámicos (Form Builder).
+ * 
+ * Sistema moderno de formularios basado en esquema JSON almacenado en forms.schema.
+ * Cada formulario tiene sections (array) con fields (array anidado).
+ * 
+ * Características:
+ * - CRUD completo de formularios
+ * - Versionado de formularios (parentFormId + version)
+ * - Plantillas reutilizables (isTemplate flag)
+ * - Query raw para evitar cache de TypeORM en reads críticos
+ * - Transacciones explícitas en updates para garantizar consistencia JSONB
+ * - Parsing automático de schema si viene como string
+ * 
+ * Normalización:
+ * - Acepta 'title' como alias de 'name'
+ * - Acepta 'sections' array directo o dentro de 'schema'
+ * - Logging extensivo para debugging de sincronización
+ */
 @Injectable()
 export class FormsService {
   constructor(
@@ -214,10 +233,25 @@ export class FormsService {
     }
   }
 
+  /**
+   * Elimina un formulario.
+   * 
+   * @param id - ID del formulario
+   */
   async remove(id: string): Promise<void> {
     await this.formsRepo.delete(id);
   }
 
+  /**
+   * Crea una nueva versión de un formulario existente.
+   * 
+   * Mantiene parentFormId apuntando al original e incrementa version.
+   * Útil para iteración de formularios manteniendo historial.
+   * 
+   * @param formId - ID del formulario base
+   * @param changes - Cambios a aplicar en la nueva versión
+   * @returns Nueva versión del formulario con version++
+   */
   async createVersion(formId: string, changes: Partial<Form>): Promise<Form> {
     const original = await this.findOne(formId);
     const newVersion = this.formsRepo.create({
