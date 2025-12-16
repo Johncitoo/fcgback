@@ -4,6 +4,21 @@ import { Roles } from '../auth/roles.decorator';
 import { CreateFormDto } from './dto/create-form.dto';
 import { UpdateFormDto } from './dto/update-form.dto';
 
+/**
+ * Controlador para gestión de formularios en el Form Builder.
+ * 
+ * Proporciona CRUD completo para formularios:
+ * - Crear formularios con esquema JSON (sections + fields)
+ * - Listar con filtro por plantillas
+ * - Obtener formulario por ID (sin caché)
+ * - Actualizar parcialmente
+ * - Eliminar formulario
+ * - Crear versiones de formularios
+ * 
+ * Sistema moderno de formularios dinámicos basado en esquema JSON.
+ * 
+ * Seguridad: ADMIN y REVIEWER (GET by ID permite APPLICANT)
+ */
 @Controller('forms')
 @Roles('ADMIN', 'REVIEWER')
 export class FormsController {

@@ -2,12 +2,37 @@ import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Public } from '../auth/public.decorator';
 
+/**
+ * Controlador para acceso público a formularios de convocatorias.
+ * 
+ * Expone formularios sin autenticación para:
+ * - Vista previa pública de la convocatoria activa
+ * - Vista de formulario de convocatoria específica
+ * 
+ * Solo muestra secciones y campos visibles (visible = true, active = true).
+ * 
+ * Seguridad: Público (sin autenticación)
+ */
 @Controller('public')
 @Public()
 export class PublicFormsController {
   constructor(private ds: DataSource) {}
 
-  // GET /api/public/form - Vista pública del formulario de la convocatoria activa
+  /**
+   * GET /api/public/form
+   * 
+   * Obtiene el formulario de la convocatoria activa (status = 'OPEN').
+   * Solo retorna secciones visibles y campos activos.
+   * 
+   * Flujo:
+   * 1. Busca convocatoria con status = 'OPEN'
+   * 2. Obtiene secciones visibles ordenadas
+   * 3. Obtiene campos activos de esas secciones
+   * 4. Agrupa campos por sección
+   * 
+   * @returns Objeto con call (id, name, year, status) y sections (array con fields)
+   * @throws NotFoundException si no hay convocatoria activa
+   */
   @Get('form')
   async getPublicForm() {
     // Buscar convocatoria activa (status = OPEN)
@@ -91,7 +116,17 @@ export class PublicFormsController {
     };
   }
 
-  // GET /api/public/form/:callId - Vista pública de una convocatoria específica (opcional)
+  /**
+   * GET /api/public/form/:callId
+   * 
+   * Obtiene el formulario de una convocatoria específica.
+   * Permite vista pública de formularios de convocatorias pasadas o futuras.
+   * Solo retorna secciones visibles y campos activos.
+   * 
+   * @param callId - UUID de la convocatoria
+   * @returns Objeto con call (id, name, year, status) y sections (array con fields)
+   * @throws NotFoundException si no existe la convocatoria
+   */
   @Get('form/:callId')
   async getPublicFormByCall(@Param('callId') callId: string) {
     // Verificar que la convocatoria exista

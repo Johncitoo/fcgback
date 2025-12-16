@@ -3,12 +3,38 @@ import { DataSource } from 'typeorm';
 import { Roles } from '../auth/roles.decorator';
 import { SaveFormDto } from './dto/save-form.dto';
 
+/**
+ * Controlador para administración de formularios de convocatorias.
+ * 
+ * Proporciona endpoints para:
+ * - Obtener estructura completa de formulario de una convocatoria (secciones + campos)
+ * - Guardar formulario completo (DELETE + INSERT de secciones y campos)
+ * - Clonar formulario entre convocatorias
+ * 
+ * Sistema de formularios basado en form_sections y form_fields.
+ * Cada convocatoria tiene su propio conjunto de secciones y campos.
+ * 
+ * Operaciones destructivas: PUT elimina y recrea todo el formulario.
+ * 
+ * Seguridad: ADMIN y REVIEWER
+ */
 @Controller('admin/forms')
 @Roles('ADMIN', 'REVIEWER')
 export class AdminFormsController {
   constructor(private ds: DataSource) {}
 
-  // GET /api/admin/forms?callId=UUID
+  /**
+   * GET /api/admin/forms?callId=UUID
+   * 
+   * Obtiene la estructura completa del formulario de una convocatoria.
+   * Incluye todas las secciones y campos (visibles y ocultos, activos e inactivos).
+   * 
+   * Usado por el Form Builder en modo edición.
+   * 
+   * @param callId - UUID de la convocatoria (query param requerido)
+   * @returns Objeto con call (id, code, title, year) y sections (array con fields)
+   * @throws BadRequestException si falta callId o no existe la convocatoria
+   */
   @Get()
   async getForm(@Query('callId') callId: string) {
     if (!callId) {
@@ -89,7 +115,26 @@ export class AdminFormsController {
     };
   }
 
-  // PUT /api/admin/forms?callId=UUID
+  /**
+   * PUT /api/admin/forms?callId=UUID
+   * 
+   * Guarda el formulario completo de una convocatoria.
+   * Operación destructiva: DELETE + INSERT.
+   * 
+   * Flujo:
+   * 1. Elimina todos los campos (form_fields) de la convocatoria
+   * 2. Elimina todas las secciones (form_sections) de la convocatoria
+   * 3. Inserta nuevas secciones en orden
+   * 4. Inserta nuevos campos para cada sección
+   * 
+   * Genera nuevos UUIDs para secciones y campos.
+   * Usado por el Form Builder al guardar cambios.
+   * 
+   * @param callId - UUID de la convocatoria (query param requerido)
+   * @param body - DTO con array de sections (cada una con fields)
+   * @returns Objeto con ok: true si exitoso
+   * @throws BadRequestException si falta callId, sections, o no existe la convocatoria
+   */
   @Put()
   async saveForm(@Query('callId') callId: string, @Body() body: SaveFormDto) {
     if (!callId) {
@@ -175,7 +220,24 @@ export class AdminFormsController {
     }
   }
 
-  // POST /api/admin/forms/clone
+  /**
+   * POST /api/admin/forms/clone
+   * 
+   * Clona el formulario de una convocatoria a otra.
+   * Útil para reutilizar formularios en nuevas convocatorias.
+   * 
+   * Flujo:
+   * 1. Verifica que ambas convocatorias existan
+   * 2. Elimina secciones y campos de la convocatoria destino
+   * 3. Copia secciones de origen a destino (genera nuevos UUIDs)
+   * 4. Copia campos de origen a destino (con nuevos section_ids)
+   * 
+   * Mantiene orden, visibilidad, validaciones y opciones de los campos originales.
+   * 
+   * @param body - Objeto con fromCallId (origen) y toCallId (destino)
+   * @returns Objeto con ok: true si exitoso
+   * @throws BadRequestException si faltan IDs o no existen las convocatorias
+   */
   @Post('clone')
   async cloneForm(@Body() body: { fromCallId: string; toCallId: string }) {
     const { fromCallId, toCallId } = body;
