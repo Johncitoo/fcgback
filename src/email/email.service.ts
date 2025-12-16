@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 
 export interface SendEmailOptions {
   to: string;
@@ -43,19 +44,19 @@ export class EmailService {
   private readonly brevoApiKey1: string;
   private readonly fromEmail1: string;
   private readonly fromName1: string;
-  private dailyEmailCount1: number = 0;
   
   // Account 2 - Mass emails
   private readonly brevoApiKey2: string;
   private readonly fromEmail2: string;
   private readonly fromName2: string;
-  private dailyEmailCount2: number = 0;
   
   // Shared configuration
-  private lastResetDate: string = this.getTodayDate();
   private readonly DAILY_LIMIT = 300; // Límite por cuenta
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly dataSource: DataSource,
+  ) {
     // Account 1 - Transactional
     this.brevoApiKey1 = this.config.get<string>('BREVO_API_KEY_1') || this.config.get<string>('BREVO_API_KEY') || '';
     this.fromEmail1 = this.config.get<string>('EMAIL_FROM_1') || this.config.get<string>('EMAIL_FROM') || 'noreply@fcg.cl';
@@ -66,37 +67,66 @@ export class EmailService {
     this.fromEmail2 = this.config.get<string>('EMAIL_FROM_2') || this.fromEmail1;
     this.fromName2 = this.config.get<string>('EMAIL_FROM_NAME_2') || this.fromName1;
     
-    // Verificar y resetear contadores si es necesario
-    this.checkAndResetCounter();
+    this.logger.log('📧 Email Service inicializado con 2 cuentas Brevo + persistencia en BD');
     
-    this.logger.log('📧 Email Service inicializado con 2 cuentas Brevo');
+    // Inicializar registro de hoy en la BD si no existe
+    this.initializeTodayQuota().catch(err => {
+      this.logger.error('Error inicializando quota:', err);
+    });
   }
   
   /**
-   * Obtiene la fecha actual en formato YYYY-MM-DD
+   * Inicializa o verifica el registro de cuota para hoy
    */
-  private getTodayDate(): string {
-    return new Date().toISOString().split('T')[0];
+  private async initializeTodayQuota(): Promise<void> {
+    try {
+      const result = await this.dataSource.query(
+        `INSERT INTO email_quota_tracking (tracking_date, account1_count, account2_count)
+         VALUES (CURRENT_DATE, 0, 0)
+         ON CONFLICT (tracking_date) DO NOTHING
+         RETURNING id`,
+      );
+      
+      if (result.length > 0) {
+        this.logger.log('📧 Nuevo día - registro de cuota creado');
+      }
+    } catch (error) {
+      this.logger.error('Error inicializando cuota del día:', error);
+    }
   }
-  
+
   /**
-   * Verifica si es un nuevo día y resetea los contadores si es necesario
+   * Obtiene los contadores actuales desde la BD
    */
-  private checkAndResetCounter(): void {
-    const today = this.getTodayDate();
-    if (today !== this.lastResetDate) {
-      this.logger.log(`📧 Nuevo día detectado. Reseteando contadores (Cuenta 1: ${this.dailyEmailCount1}, Cuenta 2: ${this.dailyEmailCount2})`);
-      this.dailyEmailCount1 = 0;
-      this.dailyEmailCount2 = 0;
-      this.lastResetDate = today;
+  private async getCurrentQuota(): Promise<{ account1: number; account2: number }> {
+    try {
+      const result = await this.dataSource.query(
+        `SELECT account1_count, account2_count 
+         FROM email_quota_tracking 
+         WHERE tracking_date = CURRENT_DATE`,
+      );
+      
+      if (result.length === 0) {
+        // No existe registro para hoy, crear uno
+        await this.initializeTodayQuota();
+        return { account1: 0, account2: 0 };
+      }
+      
+      return {
+        account1: result[0].account1_count || 0,
+        account2: result[0].account2_count || 0,
+      };
+    } catch (error) {
+      this.logger.error('Error obteniendo cuota actual:', error);
+      return { account1: 0, account2: 0 };
     }
   }
   
   /**
-   * Obtiene el estado de ambas cuentas de email
+   * Obtiene el estado de ambas cuentas de email desde la BD
    */
   async getDualQuotaStatus(): Promise<DualEmailQuotaStatus> {
-    this.checkAndResetCounter();
+    const quota = await this.getCurrentQuota();
     
     // Calcular cuándo se resetea (mañana a las 00:00 UTC)
     const tomorrow = new Date();
@@ -105,23 +135,23 @@ export class EmailService {
     
     const account1 = {
       name: 'Transaccional',
-      used: this.dailyEmailCount1,
+      used: quota.account1,
       limit: this.DAILY_LIMIT,
-      remaining: Math.max(0, this.DAILY_LIMIT - this.dailyEmailCount1),
-      percentage: Math.round((this.dailyEmailCount1 / this.DAILY_LIMIT) * 100),
+      remaining: Math.max(0, this.DAILY_LIMIT - quota.account1),
+      percentage: Math.round((quota.account1 / this.DAILY_LIMIT) * 100),
       resetAt: tomorrow,
     };
     
     const account2 = {
       name: 'Masivos',
-      used: this.dailyEmailCount2,
+      used: quota.account2,
       limit: this.DAILY_LIMIT,
-      remaining: Math.max(0, this.DAILY_LIMIT - this.dailyEmailCount2),
-      percentage: Math.round((this.dailyEmailCount2 / this.DAILY_LIMIT) * 100),
+      remaining: Math.max(0, this.DAILY_LIMIT - quota.account2),
+      percentage: Math.round((quota.account2 / this.DAILY_LIMIT) * 100),
       resetAt: tomorrow,
     };
     
-    const totalUsed = this.dailyEmailCount1 + this.dailyEmailCount2;
+    const totalUsed = quota.account1 + quota.account2;
     const totalLimit = this.DAILY_LIMIT * 2;
     
     return {
@@ -146,22 +176,29 @@ export class EmailService {
   }
   
   /**
-   * Incrementa el contador de emails enviados según la categoría
+   * Incrementa el contador de emails enviados según la categoría en la BD
    */
-  private incrementCounter(category: EmailCategory): void {
-    if (category === EmailCategory.TRANSACTIONAL) {
-      this.dailyEmailCount1++;
-      this.logger.log(`📊 [Cuenta 1] Emails enviados hoy: ${this.dailyEmailCount1}/${this.DAILY_LIMIT}`);
-    } else {
-      this.dailyEmailCount2++;
-      this.logger.log(`📊 [Cuenta 2] Emails enviados hoy: ${this.dailyEmailCount2}/${this.DAILY_LIMIT}`);
+  private async incrementCounter(category: EmailCategory): Promise<void> {
+    try {
+      const column = category === EmailCategory.TRANSACTIONAL ? 'account1_count' : 'account2_count';
+      const accountName = category === EmailCategory.TRANSACTIONAL ? 'Cuenta 1' : 'Cuenta 2';
+      
+      await this.dataSource.query(
+        `UPDATE email_quota_tracking 
+         SET ${column} = ${column} + 1, updated_at = NOW()
+         WHERE tracking_date = CURRENT_DATE`,
+      );
+      
+      const quota = await this.getCurrentQuota();
+      const currentCount = category === EmailCategory.TRANSACTIONAL ? quota.account1 : quota.account2;
+      
+      this.logger.log(`📊 [${accountName}] Emails enviados hoy: ${currentCount}/${this.DAILY_LIMIT}`);
+    } catch (error) {
+      this.logger.error(`Error incrementando contador para ${category}:`, error);
     }
   }
 
   async sendEmail(options: SendEmailOptions, category: EmailCategory = EmailCategory.TRANSACTIONAL): Promise<boolean> {
-    // Verificar y resetear contadores si es un nuevo día
-    this.checkAndResetCounter();
-    
     // Seleccionar cuenta según categoría
     const apiKey = category === EmailCategory.TRANSACTIONAL ? this.brevoApiKey1 : this.brevoApiKey2;
     const fromEmail = category === EmailCategory.TRANSACTIONAL ? this.fromEmail1 : this.fromEmail2;
@@ -182,7 +219,7 @@ export class EmailService {
       this.logger.warn(`[${accountName}] API key no configurada. Email no enviado (modo desarrollo)`);
       this.logger.log(`Email simulado a: ${options.to}`);
       this.logger.log(`Asunto: ${options.subject}`);
-      this.incrementCounter(category);
+      await this.incrementCounter(category);
       return true;
     }
 
@@ -212,7 +249,7 @@ export class EmailService {
         return false;
       }
 
-      this.incrementCounter(category);
+      await this.incrementCounter(category);
       this.logger.log(`✅ [${accountName}] Email enviado a: ${options.to}`);
       return true;
     } catch (error) {
