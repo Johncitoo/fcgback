@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, Ip, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Ip, Post, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginStaffDto } from './dto/login-staff.dto';
@@ -10,6 +10,18 @@ import { Public } from './public.decorator';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  // Endpoint para verificar autenticación y obtener info del usuario
+  @Get('me')
+  @HttpCode(200)
+  async getMe(@Req() req: any) {
+    const user = req.user; // Inyectado por JwtAuthGuard
+    return {
+      id: user.sub,
+      role: user.role,
+      type: user.typ,
+    };
+  }
 
   // Cambiar a login-staff (sin la barra)
   @Public()

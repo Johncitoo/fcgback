@@ -101,6 +101,7 @@ export class StorageClientController {
   }
 
   @Get(':id/download')
+  @UseGuards(JwtAuthGuard)
   async downloadFile(@Param('id') id: string, @Res() res: Response) {
     const metadata = await this.storageClient.getMetadata(id);
     const buffer = await this.storageClient.download(id);
@@ -115,6 +116,7 @@ export class StorageClientController {
   }
 
   @Get(':id/view')
+  @UseGuards(JwtAuthGuard)
   async viewFile(@Param('id') id: string, @Res() res: Response) {
     const metadata = await this.storageClient.getMetadata(id);
     const buffer = await this.storageClient.download(id);
@@ -129,6 +131,7 @@ export class StorageClientController {
   }
 
   @Get(':id/thumbnail')
+  @UseGuards(JwtAuthGuard)
   async getThumbnail(@Param('id') id: string, @Res() res: Response) {
     const buffer = await this.storageClient.getThumbnail(id);
 
@@ -142,6 +145,7 @@ export class StorageClientController {
   }
 
   @Get(':id/metadata')
+  @UseGuards(JwtAuthGuard)
   async getMetadata(@Param('id') id: string) {
     return this.storageClient.getMetadata(id);
   }

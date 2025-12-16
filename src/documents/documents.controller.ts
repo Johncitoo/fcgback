@@ -12,8 +12,10 @@ import { DocumentsService } from './documents.service';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 import { ModerateDocumentDto } from './dto/moderate-document.dto';
 import { AuthService } from '../auth/auth.service';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('documents')
+@Roles('ADMIN', 'REVIEWER', 'APPLICANT')
 export class DocumentsController {
   constructor(
     private readonly docs: DocumentsService,
@@ -46,6 +48,7 @@ export class DocumentsController {
 
   // ===== Moderación Staff =====
   @Post(':id/moderate')
+  @Roles('ADMIN', 'REVIEWER')
   async moderate(
     @Req() req: any,
     @Param('id') id: string,

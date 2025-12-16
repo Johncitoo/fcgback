@@ -16,8 +16,10 @@ import { DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('applicants')
+@Roles('ADMIN', 'REVIEWER')
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
 
@@ -93,6 +95,7 @@ export class UsersController {
 
   // GET /api/applicants/me - Obtener perfil del postulante autenticado
   @Get('me')
+  @Roles('APPLICANT')
   async getMe(@Req() req: any) {
     try {
       this.logger.log('GET /applicants/me - Iniciando...');
