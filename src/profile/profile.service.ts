@@ -13,6 +13,17 @@ type ApplicantPayload = {
   region?: string;
 };
 
+/**
+ * Service para gestión de perfiles de postulantes (applicants).
+ * 
+ * Maneja la creación y actualización de datos personales de postulantes
+ * en la tabla applicants. Los datos incluyen RUT, nombre, contacto y ubicación.
+ * 
+ * Operaciones principales:
+ * - ensureApplicant: Crea o actualiza perfil de postulante
+ * - Validación de RUT mediante trigger de BD
+ * - Vinculación automática con tabla users
+ */
 @Injectable()
 export class ProfileService {
   constructor(private ds: DataSource) {}
