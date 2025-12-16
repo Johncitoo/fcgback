@@ -8,26 +8,181 @@ export interface SendEmailOptions {
   textContent?: string;
 }
 
+export interface EmailQuotaStatus {
+  used: number;
+  limit: number;
+  remaining: number;
+  percentage: number;
+  resetAt: Date;
+}
+
+export interface DualEmailQuotaStatus {
+  account1: EmailQuotaStatus & { name: string };
+  account2: EmailQuotaStatus & { name: string };
+  total: {
+    used: number;
+    limit: number;
+    remaining: number;
+    percentage: number;
+  };
+}
+
+export enum EmailCategory {
+  TRANSACTIONAL = 'TRANSACTIONAL', // Cuenta 1: Confirmaciones, password reset
+  MASS = 'MASS', // Cuenta 2: Invitaciones masivas, anuncios
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly brevoApiKey: string;
+  
+  // API Configuration
   private readonly brevoApiUrl = 'https://api.brevo.com/v3/smtp/email';
-  private readonly fromEmail: string;
-  private readonly fromName: string;
+  
+  // Account 1 - Transactional emails
+  private readonly brevoApiKey1: string;
+  private readonly fromEmail1: string;
+  private readonly fromName1: string;
+  private dailyEmailCount1: number = 0;
+  
+  // Account 2 - Mass emails
+  private readonly brevoApiKey2: string;
+  private readonly fromEmail2: string;
+  private readonly fromName2: string;
+  private dailyEmailCount2: number = 0;
+  
+  // Shared configuration
+  private lastResetDate: string = this.getTodayDate();
+  private readonly DAILY_LIMIT = 300; // Límite por cuenta
 
   constructor(private readonly config: ConfigService) {
-    this.brevoApiKey = this.config.get<string>('BREVO_API_KEY') || '';
-    this.fromEmail = this.config.get<string>('EMAIL_FROM') || 'noreply@fcg.cl';
-    this.fromName = this.config.get<string>('EMAIL_FROM_NAME') || 'Fundación Carmen Goudie';
+    // Account 1 - Transactional
+    this.brevoApiKey1 = this.config.get<string>('BREVO_API_KEY_1') || this.config.get<string>('BREVO_API_KEY') || '';
+    this.fromEmail1 = this.config.get<string>('EMAIL_FROM_1') || this.config.get<string>('EMAIL_FROM') || 'noreply@fcg.cl';
+    this.fromName1 = this.config.get<string>('EMAIL_FROM_NAME_1') || this.config.get<string>('EMAIL_FROM_NAME') || 'Fundación Carmen Goudie';
+    
+    // Account 2 - Mass
+    this.brevoApiKey2 = this.config.get<string>('BREVO_API_KEY_2') || '';
+    this.fromEmail2 = this.config.get<string>('EMAIL_FROM_2') || this.fromEmail1;
+    this.fromName2 = this.config.get<string>('EMAIL_FROM_NAME_2') || this.fromName1;
+    
+    // Verificar y resetear contadores si es necesario
+    this.checkAndResetCounter();
+    
+    this.logger.log('📧 Email Service inicializado con 2 cuentas Brevo');
+  }
+  
+  /**
+   * Obtiene la fecha actual en formato YYYY-MM-DD
+   */
+  private getTodayDate(): string {
+    return new Date().toISOString().split('T')[0];
+  }
+  
+  /**
+   * Verifica si es un nuevo día y resetea los contadores si es necesario
+   */
+  private checkAndResetCounter(): void {
+    const today = this.getTodayDate();
+    if (today !== this.lastResetDate) {
+      this.logger.log(`📧 Nuevo día detectado. Reseteando contadores (Cuenta 1: ${this.dailyEmailCount1}, Cuenta 2: ${this.dailyEmailCount2})`);
+      this.dailyEmailCount1 = 0;
+      this.dailyEmailCount2 = 0;
+      this.lastResetDate = today;
+    }
+  }
+  
+  /**
+   * Obtiene el estado de ambas cuentas de email
+   */
+  async getDualQuotaStatus(): Promise<DualEmailQuotaStatus> {
+    this.checkAndResetCounter();
+    
+    // Calcular cuándo se resetea (mañana a las 00:00 UTC)
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    
+    const account1 = {
+      name: 'Transaccional',
+      used: this.dailyEmailCount1,
+      limit: this.DAILY_LIMIT,
+      remaining: Math.max(0, this.DAILY_LIMIT - this.dailyEmailCount1),
+      percentage: Math.round((this.dailyEmailCount1 / this.DAILY_LIMIT) * 100),
+      resetAt: tomorrow,
+    };
+    
+    const account2 = {
+      name: 'Masivos',
+      used: this.dailyEmailCount2,
+      limit: this.DAILY_LIMIT,
+      remaining: Math.max(0, this.DAILY_LIMIT - this.dailyEmailCount2),
+      percentage: Math.round((this.dailyEmailCount2 / this.DAILY_LIMIT) * 100),
+      resetAt: tomorrow,
+    };
+    
+    const totalUsed = this.dailyEmailCount1 + this.dailyEmailCount2;
+    const totalLimit = this.DAILY_LIMIT * 2;
+    
+    return {
+      account1,
+      account2,
+      total: {
+        used: totalUsed,
+        limit: totalLimit,
+        remaining: Math.max(0, totalLimit - totalUsed),
+        percentage: Math.round((totalUsed / totalLimit) * 100),
+      },
+    };
+  }
+  
+  /**
+   * Verifica si hay suficiente cuota disponible en una cuenta específica
+   */
+  async canSendEmails(count: number = 1, category: EmailCategory = EmailCategory.TRANSACTIONAL): Promise<boolean> {
+    const status = await this.getDualQuotaStatus();
+    const accountStatus = category === EmailCategory.TRANSACTIONAL ? status.account1 : status.account2;
+    return accountStatus.remaining >= count;
+  }
+  
+  /**
+   * Incrementa el contador de emails enviados según la categoría
+   */
+  private incrementCounter(category: EmailCategory): void {
+    if (category === EmailCategory.TRANSACTIONAL) {
+      this.dailyEmailCount1++;
+      this.logger.log(`📊 [Cuenta 1] Emails enviados hoy: ${this.dailyEmailCount1}/${this.DAILY_LIMIT}`);
+    } else {
+      this.dailyEmailCount2++;
+      this.logger.log(`📊 [Cuenta 2] Emails enviados hoy: ${this.dailyEmailCount2}/${this.DAILY_LIMIT}`);
+    }
   }
 
-  async sendEmail(options: SendEmailOptions): Promise<boolean> {
+  async sendEmail(options: SendEmailOptions, category: EmailCategory = EmailCategory.TRANSACTIONAL): Promise<boolean> {
+    // Verificar y resetear contadores si es un nuevo día
+    this.checkAndResetCounter();
+    
+    // Seleccionar cuenta según categoría
+    const apiKey = category === EmailCategory.TRANSACTIONAL ? this.brevoApiKey1 : this.brevoApiKey2;
+    const fromEmail = category === EmailCategory.TRANSACTIONAL ? this.fromEmail1 : this.fromEmail2;
+    const fromName = category === EmailCategory.TRANSACTIONAL ? this.fromName1 : this.fromName2;
+    const accountName = category === EmailCategory.TRANSACTIONAL ? 'Cuenta 1' : 'Cuenta 2';
+    
+    // Verificar cuota antes de enviar
+    const hasQuota = await this.canSendEmails(1, category);
+    if (!hasQuota) {
+      const status = await this.getDualQuotaStatus();
+      const accountStatus = category === EmailCategory.TRANSACTIONAL ? status.account1 : status.account2;
+      this.logger.error(`❌ [${accountName}] Cuota diaria agotada (${accountStatus.used}/${accountStatus.limit}). Reset: ${accountStatus.resetAt.toLocaleString()}`);
+      throw new Error(`Límite diario de emails alcanzado en ${accountStatus.name} (${accountStatus.used}/${accountStatus.limit}). Intenta mañana.`);
+    }
+    
     // Si no hay API key configurada, solo loguear (modo desarrollo)
-    if (!this.brevoApiKey) {
-      this.logger.warn('BREVO_API_KEY no configurada. Email no enviado (modo desarrollo)');
+    if (!apiKey) {
+      this.logger.warn(`[${accountName}] API key no configurada. Email no enviado (modo desarrollo)`);
       this.logger.log(`Email simulado a: ${options.to}`);
       this.logger.log(`Asunto: ${options.subject}`);
+      this.incrementCounter(category);
       return true;
     }
 
@@ -36,13 +191,13 @@ export class EmailService {
         method: 'POST',
         headers: {
           'accept': 'application/json',
-          'api-key': this.brevoApiKey,
+          'api-key': apiKey,
           'content-type': 'application/json',
         },
         body: JSON.stringify({
           sender: {
-            name: this.fromName,
-            email: this.fromEmail,
+            name: fromName,
+            email: fromEmail,
           },
           to: [{ email: options.to }],
           subject: options.subject,
@@ -53,14 +208,15 @@ export class EmailService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        this.logger.error(`Error al enviar email: ${errorText}`);
+        this.logger.error(`[${accountName}] Error al enviar email: ${errorText}`);
         return false;
       }
 
-      this.logger.log(`Email enviado exitosamente a: ${options.to}`);
+      this.incrementCounter(category);
+      this.logger.log(`✅ [${accountName}] Email enviado a: ${options.to}`);
       return true;
     } catch (error) {
-      this.logger.error(`Error al enviar email: ${error}`);
+      this.logger.error(`[${accountName}] Error al enviar email: ${error}`);
       return false;
     }
   }
@@ -117,11 +273,14 @@ export class EmailService {
       </html>
     `;
 
-    return this.sendEmail({
-      to: email,
-      subject,
-      htmlContent,
-    });
+    return this.sendEmail(
+      {
+        to: email,
+        subject,
+        htmlContent,
+      },
+      EmailCategory.TRANSACTIONAL
+    );
   }
 
   async sendInitialInviteEmail(email: string, code: string, callName?: string, fullName?: string): Promise<boolean> {
@@ -186,11 +345,14 @@ export class EmailService {
       </html>
     `;
 
-    return this.sendEmail({
-      to: email,
-      subject,
-      htmlContent,
-    });
+    return this.sendEmail(
+      {
+        to: email,
+        subject,
+        htmlContent,
+      },
+      EmailCategory.MASS
+    );
   }
 
   async sendInviteResentEmail(email: string, newCode: string): Promise<boolean> {
@@ -237,10 +399,13 @@ export class EmailService {
       </html>
     `;
 
-    return this.sendEmail({
-      to: email,
-      subject,
-      htmlContent,
-    });
+    return this.sendEmail(
+      {
+        to: email,
+        subject,
+        htmlContent,
+      },
+      EmailCategory.MASS
+    );
   }
 }
