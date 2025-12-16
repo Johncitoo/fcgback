@@ -13,6 +13,22 @@ export class ApplicationsService {
     private auditService: AuditService,
   ) {}
 
+  /**
+   * Lista aplicaciones con filtros avanzados y paginación.
+   * Incluye información del postulante, convocatoria, hito actual y estado general.
+   * 
+   * @param params - Parámetros de filtrado y paginación
+   * @param params.limit - Número máximo de resultados
+   * @param params.offset - Desplazamiento para paginación
+   * @param params.overallStatus - Filtro por estado general
+   * @param params.callId - Filtro por ID de convocatoria
+   * @param params.milestoneOrder - Filtro por orden de hito actual
+   * @param params.needCount - Si debe incluir conteo total
+   * @returns Lista de aplicaciones con metadata de paginación
+   * 
+   * @example
+   * const result = await listApplications({ limit: 10, offset: 0, overallStatus: 'IN_REVIEW' });
+   */
   async listApplications(params: {
     limit: number;
     offset: number;
@@ -117,6 +133,18 @@ export class ApplicationsService {
     return { data, total, limit, offset };
   }
 
+  /**
+   * Obtiene una aplicación existente o crea una nueva para el usuario y convocatoria especificados.
+   * 
+   * @param userId - ID del usuario postulante
+   * @param callId - ID de la convocatoria
+   * @returns Aplicación con ID, estado y modo (existing o created)
+   * @throws {BadRequestException} Si el usuario no tiene perfil de postulante
+   * 
+   * @example
+   * const app = await getOrCreate('uuid-user', 'uuid-call');
+   * // { id: 'uuid-123', status: 'DRAFT', mode: 'created' }
+   */
   async getOrCreate(userId: string, callId: string) {
     // Trae applicantId del user
     const u = (
@@ -152,7 +180,19 @@ export class ApplicationsService {
     return { id: created[0].id, status: created[0].status, mode: 'created' };
   }
 
-  // Obtener o crear application para la convocatoria activa (OPEN)
+  /**
+   * Obtiene o crea una aplicación para la convocatoria actualmente activa (estado OPEN).
+   * Busca la convocatoria más reciente con estado OPEN.
+   * 
+   * @param userId - ID del usuario postulante
+   * @returns Aplicación con información de la convocatoria activa
+   * @throws {NotFoundException} Si no hay convocatoria activa
+   * @throws {BadRequestException} Si el usuario no tiene perfil de postulante
+   * 
+   * @example
+   * const app = await getOrCreateForActiveCall('uuid-user');
+   * // { id: 'uuid-123', status: 'DRAFT', call: { id: 'uuid-call', code: 'BECA2024' } }
+   */
   async getOrCreateForActiveCall(userId: string) {
     // Buscar convocatoria activa (status = OPEN)
     const activeCall = (
@@ -227,6 +267,17 @@ export class ApplicationsService {
     };
   }
 
+  /**
+   * Obtiene una aplicación por ID validando que pertenece al usuario.
+   * 
+   * @param userId - ID del usuario propietario
+   * @param id - ID de la aplicación
+   * @returns Detalles de la aplicación
+   * @throws {NotFoundException} Si la aplicación no existe o no pertenece al usuario
+   * 
+   * @example
+   * const app = await getById('uuid-user', 'uuid-app');
+   */
   async getById(userId: string, id: string) {
     const app = (
       await this.ds.query(
@@ -249,6 +300,17 @@ export class ApplicationsService {
     return app;
   }
 
+  /**
+   * Obtiene una aplicación por ID sin validar ownership (solo para administradores).
+   * Incluye información completa del postulante, convocatoria e institución.
+   * 
+   * @param id - ID de la aplicación
+   * @returns Detalles completos de la aplicación
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * const app = await getByIdAdmin('uuid-app');
+   */
   async getByIdAdmin(id: string) {
     const app = (
       await this.ds.query(
@@ -280,6 +342,19 @@ export class ApplicationsService {
     return app;
   }
 
+  /**
+   * Actualiza parcialmente los campos de una aplicación.
+   * Valida ownership antes de actualizar.
+   * 
+   * @param userId - ID del usuario propietario
+   * @param id - ID de la aplicación
+   * @param dto - Campos a actualizar (academic, household, participation, texts, builderExtra)
+   * @returns Confirmación de actualización
+   * @throws {NotFoundException} Si la aplicación no existe o no pertenece al usuario
+   * 
+   * @example
+   * await patch('uuid-user', 'uuid-app', { academic: { institution: 'UCH' } });
+   */
   async patch(userId: string, id: string, dto: any) {
     // asegura ownership
     await this.getById(userId, id);
@@ -309,6 +384,21 @@ export class ApplicationsService {
     return { ok: true, updated: true };
   }
 
+  /**
+   * Envía una aplicación para revisión.
+   * Valida que esté en estado permitido y que tenga las secciones requeridas.
+   * Registra el cambio de estado en el historial y auditoría.
+   * 
+   * @param userId - ID del usuario propietario
+   * @param id - ID de la aplicación
+   * @returns Confirmación con nuevo estado
+   * @throws {BadRequestException} Si el estado no permite envío o faltan secciones
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * await submit('uuid-user', 'uuid-app');
+   * // { ok: true, status: 'SUBMITTED' }
+   */
   async submit(userId: string, id: string) {
     // ownership + estado
     const app = await this.getById(userId, id);
@@ -352,7 +442,16 @@ export class ApplicationsService {
   }
 
   /**
-   * Marca el código de invitación como completado después del envío del formulario
+   * Marca el código de invitación como completado después del envío del formulario.
+   * Actualiza el campo used_at de la invitación asociada.
+   * 
+   * @param userId - ID del usuario postulante
+   * @param applicationId - ID de la aplicación
+   * @returns Confirmación de operación
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * await completeInvite('uuid-user', 'uuid-app');
    */
   async completeInvite(userId: string, applicationId: string) {
     // Verificar ownership
@@ -381,8 +480,16 @@ export class ApplicationsService {
   }
 
   /**
-   * GET /api/applications/:id/answers
-   * Devuelve las respuestas guardadas del formulario
+   * Devuelve las respuestas guardadas del formulario de una aplicación.
+   * Obtiene la última form_submission ordenada por fecha.
+   * 
+   * @param userId - ID del usuario propietario
+   * @param applicationId - ID de la aplicación
+   * @returns Objeto con respuestas del formulario (o {} si no hay)
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * const answers = await getAnswers('uuid-user', 'uuid-app');
    */
   async getAnswers(userId: string, applicationId: string) {
     // Verificar ownership
@@ -405,8 +512,18 @@ export class ApplicationsService {
   }
 
   /**
-   * PATCH /api/applications/:id/answers
-   * Guarda las respuestas del formulario (borrador)
+   * Guarda las respuestas del formulario como borrador.
+   * Actualiza la submission existente o crea una nueva para el Hito 1.
+   * 
+   * @param userId - ID del usuario propietario
+   * @param applicationId - ID de la aplicación
+   * @param answers - Objeto con las respuestas del formulario
+   * @returns Confirmación de guardado
+   * @throws {BadRequestException} Si no se encuentra el formulario inicial
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * await saveAnswers('uuid-user', 'uuid-app', { field1: 'value1' });
    */
   async saveAnswers(userId: string, applicationId: string, answers: any) {
     // Verificar ownership
@@ -460,8 +577,17 @@ export class ApplicationsService {
     return { ok: true, updated: true };
   }
 
-  // ============ MÉTODOS DE ESTADÍSTICAS ============
-
+  /**
+   * Obtiene estadísticas generales de aplicaciones por convocatoria.
+   * Cuenta aplicaciones por cada estado posible.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Objeto con conteos por estado
+   * 
+   * @example
+   * const stats = await getStatsOverview('uuid-call');
+   * // { total: 100, draft: 10, submitted: 50, in_review: 20, ... }
+   */
   async getStatsOverview(callId: string) {
     const result = await this.ds.query(
       `SELECT 
@@ -482,6 +608,17 @@ export class ApplicationsService {
     return result[0] || {};
   }
 
+  /**
+   * Obtiene la distribución de género de los postulantes por convocatoria.
+   * Excluye aplicaciones en estado DRAFT.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array con conteo por género
+   * 
+   * @example
+   * const dist = await getGenderDistribution('uuid-call');
+   * // [{ gender: 'Femenino', count: 60 }, { gender: 'Masculino', count: 40 }]
+   */
   async getGenderDistribution(callId: string) {
     const result = await this.ds.query(
       `SELECT 
@@ -496,6 +633,17 @@ export class ApplicationsService {
     return result;
   }
 
+  /**
+   * Obtiene las 5 instituciones con más postulantes por convocatoria.
+   * Excluye aplicaciones en estado DRAFT.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array de instituciones ordenadas por cantidad de postulantes
+   * 
+   * @example
+   * const top = await getTopInstitutions('uuid-call');
+   * // [{ institution_name: 'Universidad de Chile', count: 25 }, ...]
+   */
   async getTopInstitutions(callId: string) {
     const result = await this.ds.query(
       `SELECT 
@@ -512,6 +660,17 @@ export class ApplicationsService {
     return result;
   }
 
+  /**
+   * Obtiene las 5 comunas con más postulantes por convocatoria.
+   * Excluye aplicaciones en estado DRAFT.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array de comunas ordenadas por cantidad de postulantes
+   * 
+   * @example
+   * const top = await getTopCommunes('uuid-call');
+   * // [{ commune: 'Santiago', count: 30 }, { commune: 'Providencia', count: 20 }, ...]
+   */
   async getTopCommunes(callId: string) {
     const result = await this.ds.query(
       `SELECT 
@@ -528,6 +687,17 @@ export class ApplicationsService {
     return result;
   }
 
+  /**
+   * Obtiene la distribución de puntajes de las aplicaciones por convocatoria.
+   * Agrupa en rangos: Sin puntaje, 0-25, 26-50, 51-75, 76-100.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array con conteo por rango de puntaje
+   * 
+   * @example
+   * const dist = await getScoreDistribution('uuid-call');
+   * // [{ score_range: '76-100', count: 15 }, { score_range: '51-75', count: 30 }, ...]
+   */
   async getScoreDistribution(callId: string) {
     const result = await this.ds.query(
       `SELECT 
@@ -548,6 +718,17 @@ export class ApplicationsService {
     return result;
   }
 
+  /**
+   * Obtiene la línea de tiempo de envíos de aplicaciones por convocatoria.
+   * Muestra los últimos 30 días con envíos.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array con fecha y cantidad de envíos por día
+   * 
+   * @example
+   * const timeline = await getSubmissionTimeline('uuid-call');
+   * // [{ submission_date: '2024-03-15', count: 5 }, { submission_date: '2024-03-14', count: 8 }]
+   */
   async getSubmissionTimeline(callId: string) {
     const result = await this.ds.query(
       `SELECT 

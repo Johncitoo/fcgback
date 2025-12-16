@@ -30,7 +30,19 @@ export class UsersController {
     private cfg: ConfigService,
   ) {}
 
-  // GET /api/applicants - Lista de postulantes con paginación
+  /**
+   * Lista todos los usuarios postulantes con paginación y filtros.
+   * Incluye información del perfil de applicant e institución asociada.
+   * 
+   * @param limit - Número máximo de resultados (default: 20)
+   * @param offset - Desplazamiento para paginación (default: 0)
+   * @param count - Si debe incluir el conteo total ('1' o 'true')
+   * @param callId - Filtro opcional por convocatoria específica
+   * @returns Lista paginada de postulantes con metadata
+   * 
+   * @example
+   * GET /api/applicants?limit=10&count=1&callId=uuid-123
+   */
   @Get()
   async list(
     @Query('limit') limit?: string,
@@ -93,7 +105,18 @@ export class UsersController {
     return { data, total, limit: limitNum, offset: offsetNum };
   }
 
-  // GET /api/applicants/me - Obtener perfil del postulante autenticado
+  /**
+   * Obtiene el perfil completo del postulante autenticado.
+   * Valida el token JWT y retorna datos del applicant.
+   * 
+   * @param req - Request con token JWT del postulante
+   * @returns Perfil completo del applicant (email, nombre, RUT, dirección, etc.)
+   * @throws {UnauthorizedException} Si el token es inválido o no es APPLICANT
+   * 
+   * @example
+   * GET /api/applicants/me
+   * Response: { "id": "uuid", "email": "user@example.com", "first_name": "Juan", ... }
+   */
   @Get('me')
   @Roles('APPLICANT')
   async getMe(@Req() req: any) {
@@ -163,7 +186,19 @@ export class UsersController {
     }
   }
 
-  // POST /api/applicants - Crear nuevo postulante
+  /**
+   * Crea un nuevo usuario postulante con su perfil de applicant.
+   * Genera RUT temporal si no se proporciona y puede crear automáticamente una application.
+   * 
+   * @param body - Datos del postulante (email requerido, demás campos opcionales)
+   * @returns Usuario creado con applicantId y contraseña temporal si fue generada
+   * @throws {BadRequestException} Si el email ya existe o es inválido
+   * 
+   * @example
+   * POST /api/applicants
+   * Body: { "email": "nuevo@example.com", "first_name": "Juan", "call_id": "uuid-call" }
+   * Response: { "id": "uuid", "email": "nuevo@example.com", "temporaryPassword": "abc123" }
+   */
   @Post()
   async create(
     @Body() body: {
@@ -288,7 +323,18 @@ export class UsersController {
     };
   }
 
-  // GET /api/applicants/:id - Obtener detalles de un postulante
+  /**
+   * Obtiene los detalles completos de un postulante específico.
+   * Incluye información del usuario y lista de aplicaciones.
+   * 
+   * @param id - ID del usuario postulante
+   * @returns Detalles del postulante con sus aplicaciones
+   * @throws {BadRequestException} Si el postulante no existe
+   * 
+   * @example
+   * GET /api/applicants/uuid-123
+   * Response: { "id": "uuid", "email": "user@example.com", "applications": [...] }
+   */
   @Get(':id')
   async getById(@Param('id') id: string) {
     const result = await this.ds.query(
@@ -334,7 +380,19 @@ export class UsersController {
     return { ...result[0], applications };
   }
 
-  // PATCH /api/applicants/:id - Actualizar usuario/postulante
+  /**
+   * Actualiza parcialmente los datos de un postulante.
+   * Actualiza tanto la tabla users como applicants según los campos proporcionados.
+   * 
+   * @param id - ID del usuario postulante
+   * @param body - Campos a actualizar (fullName, isActive, datos de applicant)
+   * @returns Confirmación de actualización
+   * @throws {BadRequestException} Si el postulante no existe
+   * 
+   * @example
+   * PATCH /api/applicants/uuid-123
+   * Body: { "fullName": "Juan Pérez", "phone": "+56912345678" }
+   */
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateUserDto) {
     const user = await this.users.findById(id);

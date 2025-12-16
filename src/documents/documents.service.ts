@@ -14,7 +14,17 @@ export class DocumentsService {
     private readonly ds: DataSource,
   ) {}
 
-  /** Ownership: mapea user.id -> users.applicant_id y compara contra applications.applicant_id */
+  /**
+   * Valida que el usuario postulante sea propietario de la aplicación.
+   * Mapea user.id a users.applicant_id y compara contra applications.applicant_id.
+   * 
+   * @param applicationId - ID de la aplicación
+   * @param userId - ID del usuario
+   * @throws {ForbiddenException} Si la aplicación no pertenece al usuario
+   * 
+   * @example
+   * await assertApplicantOwnsApplication('uuid-app', 'uuid-user');
+   */
   async assertApplicantOwnsApplication(applicationId: string, userId: string) {
     const rows = await this.ds.query(
       `
@@ -32,7 +42,20 @@ export class DocumentsService {
     }
   }
 
-  /** Alta + versionado */
+  /**
+   * Sube un nuevo documento con versionado automático.
+   * Marca la versión anterior como no actual si existe.
+   * Genera storageKey, checksum y metadata.
+   * 
+   * @param dto - DTO con datos del documento
+   * @param userId - ID del usuario que sube el documento
+   * @param userRole - Rol del usuario (APPLICANT, ADMIN, REVIEWER)
+   * @returns Documento creado con metadata completa
+   * @throws {ForbiddenException} Si es postulante y no es propietario
+   * 
+   * @example
+   * const doc = await upload(dto, 'uuid-user', 'APPLICANT');
+   */
   async upload(dto: UploadDocumentDto, userId: string, userRole: string) {
     if (userRole === 'APPLICANT') {
       await this.assertApplicantOwnsApplication(dto.applicationId, userId);
@@ -81,6 +104,19 @@ export class DocumentsService {
     return doc;
   }
 
+  /**
+   * Lista todos los documentos de una aplicación.
+   * Valida ownership para postulantes.
+   * 
+   * @param applicationId - ID de la aplicación
+   * @param userId - ID del usuario
+   * @param userRole - Rol del usuario
+   * @returns Array de documentos ordenados por fecha de creación descendente
+   * @throws {ForbiddenException} Si es postulante y no es propietario
+   * 
+   * @example
+   * const docs = await listByApplication('uuid-app', 'uuid-user', 'APPLICANT');
+   */
   async listByApplication(
     applicationId: string,
     userId: string,
@@ -95,6 +131,19 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * Elimina un documento por su ID.
+   * Valida ownership para postulantes.
+   * 
+   * @param id - ID del documento
+   * @param userId - ID del usuario
+   * @param userRole - Rol del usuario
+   * @returns Confirmación de eliminación
+   * @throws {ForbiddenException} Si es postulante y no es propietario
+   * 
+   * @example
+   * await remove('uuid-doc', 'uuid-user', 'APPLICANT');
+   */
   async remove(id: string, userId: string, userRole: string) {
     if (userRole === 'APPLICANT') {
       const doc = await this.repo.findOne({ where: { id } });
@@ -105,7 +154,19 @@ export class DocumentsService {
     return { ok: true };
   }
 
-  /** Moderación Staff */
+  /**
+   * Modera un documento estableciendo su estado de validación.
+   * Actualiza validationStatus, invalidReason y timestamps.
+   * 
+   * @param id - ID del documento
+   * @param status - Estado de moderación (VALID o INVALID)
+   * @param reason - Razón de rechazo si es INVALID
+   * @param actorUserId - ID del usuario moderador
+   * @returns Documento actualizado o null si no existe
+   * 
+   * @example
+   * const doc = await moderate('uuid-doc', ModerateStatus.VALID, null, 'uuid-admin');
+   */
   async moderate(
     id: string,
     status: ModerateStatus,

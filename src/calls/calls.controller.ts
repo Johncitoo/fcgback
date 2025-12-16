@@ -22,7 +22,15 @@ import { RolesGuard } from '../auth/roles.guard';
 export class CallsController {
   constructor(private calls: CallsService) {}
 
-  // GET /api/calls - Lista de convocatorias
+  /**
+   * Lista todas las convocatorias con filtros y paginación.
+   * 
+   * @param query - Parámetros de consulta (limit, offset, onlyActive, count)
+   * @returns Lista paginada de convocatorias
+   * 
+   * @example
+   * GET /api/calls?limit=10&onlyActive=true
+   */
   @Roles('ADMIN', 'REVIEWER')
   @Get()
   async list(@Query() query: ListCallsDto) {
@@ -39,28 +47,70 @@ export class CallsController {
     });
   }
 
-  // GET /api/calls/:id - Obtener detalles de una convocatoria
+  /**
+   * Obtiene los detalles completos de una convocatoria específica.
+   * 
+   * @param id - ID de la convocatoria
+   * @returns Detalles de la convocatoria
+   * @throws {NotFoundException} Si la convocatoria no existe
+   * 
+   * @example
+   * GET /api/calls/uuid-123
+   */
   @Roles('ADMIN', 'REVIEWER')
   @Get(':id')
   async getById(@Param('id') id: string) {
     return this.calls.getCallById(id);
   }
 
-  // GET /api/calls/:id/form - Obtener formulario de una convocatoria
+  /**
+   * Obtiene el formulario asociado a una convocatoria.
+   * Prioriza el formulario del Form Builder sobre el formulario viejo (sections/fields).
+   * 
+   * @param id - ID de la convocatoria
+   * @returns Formulario con secciones y campos
+   * @throws {NotFoundException} Si la convocatoria no existe
+   * 
+   * @example
+   * GET /api/calls/uuid-123/form
+   */
   @Get(':id/form')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
   async getForm(@Param('id') id: string) {
     return this.calls.getForm(id);
   }
 
-  // POST /api/calls - Crear nueva convocatoria
+  /**
+   * Crea una nueva convocatoria.
+   * 
+   * @param body - Datos de la convocatoria (name, year, status, totalSeats, etc.)
+   * @returns Convocatoria creada
+   * @throws {BadRequestException} Si faltan campos requeridos
+   * 
+   * @example
+   * POST /api/calls
+   * Body: { "name": "BECA2024", "year": 2024, "status": "DRAFT" }
+   */
   @Roles('ADMIN', 'REVIEWER')
   @Post()
   async create(@Body() body: CreateCallDto) {
     return this.calls.createCall(body);
   }
 
-  // PATCH /api/calls/:id - Actualizar convocatoria
+  /**
+   * Actualiza parcialmente una convocatoria existente.
+   * Valida que solo haya una convocatoria activa a la vez.
+   * 
+   * @param id - ID de la convocatoria
+   * @param body - Campos a actualizar
+   * @returns Confirmación de actualización
+   * @throws {NotFoundException} Si la convocatoria no existe
+   * @throws {BadRequestException} Si intenta activar cuando ya hay otra activa
+   * 
+   * @example
+   * PATCH /api/calls/uuid-123
+   * Body: { "status": "OPEN", "isActive": true }
+   */
   @Roles('ADMIN', 'REVIEWER')
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateCallDto) {

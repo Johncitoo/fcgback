@@ -25,6 +25,20 @@ export class CallsService {
     private milestoneRepo: Repository<Milestone>,
   ) {}
 
+  /**
+   * Lista convocatorias con filtros y paginación.
+   * Soporta filtrado por convocatorias activas y validación de fechas.
+   * 
+   * @param params - Parámetros de filtrado
+   * @param params.limit - Número máximo de resultados
+   * @param params.offset - Desplazamiento para paginación
+   * @param params.onlyActive - Si debe mostrar solo convocatorias activas
+   * @param params.needCount - Si debe incluir el conteo total
+   * @returns Lista paginada de convocatorias
+   * 
+   * @example
+   * const result = await listCalls({ limit: 10, offset: 0, onlyActive: true, needCount: true });
+   */
   async listCalls(params: {
     limit: number;
     offset: number;
@@ -62,6 +76,16 @@ export class CallsService {
     return { data, total, limit, offset };
   }
 
+  /**
+   * Obtiene una convocatoria por su ID.
+   * 
+   * @param id - ID de la convocatoria
+   * @returns Convocatoria encontrada
+   * @throws {NotFoundException} Si la convocatoria no existe
+   * 
+   * @example
+   * const call = await getCallById('uuid-123');
+   */
   async getCallById(id: string) {
     const call = await this.callRepo.findOne({ where: { id } });
 
@@ -72,6 +96,16 @@ export class CallsService {
     return call;
   }
 
+  /**
+   * Crea una nueva convocatoria con los datos proporcionados.
+   * 
+   * @param body - Datos de la convocatoria
+   * @returns Convocatoria creada
+   * @throws {BadRequestException} Si faltan campos requeridos (name, year)
+   * 
+   * @example
+   * const call = await createCall({ name: 'BECA2024', year: 2024, status: 'DRAFT' });
+   */
   async createCall(body: any) {
     if (!body.name || !body.year) {
       throw new BadRequestException('Name and year are required');
@@ -96,6 +130,19 @@ export class CallsService {
     return saved;
   }
 
+  /**
+   * Actualiza una convocatoria existente.
+   * Valida que solo pueda haber una convocatoria activa con estado OPEN a la vez.
+   * 
+   * @param id - ID de la convocatoria
+   * @param body - Campos a actualizar
+   * @returns Confirmación de actualización
+   * @throws {NotFoundException} Si la convocatoria no existe
+   * @throws {BadRequestException} Si intenta activar cuando ya hay otra activa
+   * 
+   * @example
+   * await updateCall('uuid-123', { status: 'OPEN', isActive: true });
+   */
   async updateCall(id: string, body: any) {
     const call = await this.callRepo.findOne({ where: { id } });
 
@@ -142,6 +189,19 @@ export class CallsService {
     return { ok: true, updated: true };
   }
 
+  /**
+   * Obtiene el formulario de una convocatoria.
+   * Prioriza el formulario del Form Builder (a través de milestones).
+   * Si no existe, usa el formulario viejo (form_sections y form_fields).
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Formulario con secciones y campos
+   * @throws {NotFoundException} Si la convocatoria no existe
+   * 
+   * @example
+   * const form = await getForm('uuid-123');
+   * // { id, title, year, sections: [...] }
+   */
   async getForm(callId: string) {
     const call = await this.callRepo.findOne({
       where: { id: callId },

@@ -30,6 +30,17 @@ export class ApplicationsController {
     @InjectDataSource() private dataSource: DataSource,
   ) {}
 
+  /**
+   * Extrae y valida el usuario desde el token JWT en el header Authorization.
+   * 
+   * @param req - Objeto Request con headers de autenticación
+   * @returns Payload del JWT con sub (user ID), role y typ (tipo de token)
+   * @throws {BadRequestException} Si el token no está presente o es inválido
+   * 
+   * @example
+   * const user = this.getUserFromAuth(req);
+   * // { sub: 'uuid-123', role: 'APPLICANT', typ: 'access' }
+   */
   private getUserFromAuth(req: any) {
     const hdr = (req.headers?.authorization ?? '') as string;
     const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
@@ -43,7 +54,21 @@ export class ApplicationsController {
     return payload as { sub: string; role: string; typ: string };
   }
 
-  // GET /api/applications - Lista administrativa de aplicaciones
+  /**
+   * Lista todas las aplicaciones con filtros y paginación para administradores.
+   * Permite filtrar por estado, convocatoria y hito actual.
+   * 
+   * @param limit - Número máximo de resultados (default: 20)
+   * @param offset - Desplazamiento para paginación (default: 0)
+   * @param overallStatus - Filtro por estado general (APPROVED, REJECTED, IN_REVIEW, etc.)
+   * @param callId - Filtro por ID de convocatoria
+   * @param milestoneOrder - Filtro por orden de hito actual
+   * @param count - Si debe incluir el conteo total ('1' o 'true')
+   * @returns Lista paginada de aplicaciones con información del postulante y hito actual
+   * 
+   * @example
+   * GET /api/applications?limit=10&overallStatus=IN_REVIEW&callId=uuid-123
+   */
   @Get()
   async listAdmin(
     @Query('limit') limit?: string,
@@ -68,6 +93,20 @@ export class ApplicationsController {
     });
   }
 
+  /**
+   * Obtiene una aplicación existente o crea una nueva para el postulante.
+   * Requiere token de acceso de APPLICANT.
+   * 
+   * @param req - Request con token JWT del postulante
+   * @param body - Objeto con callId de la convocatoria
+   * @returns Aplicación existente o recién creada con su ID y estado
+   * @throws {BadRequestException} Si no es token de APPLICANT o falta callId
+   * 
+   * @example
+   * POST /api/applications
+   * Body: { "callId": "uuid-123" }
+   * Response: { "id": "uuid-456", "status": "DRAFT", "mode": "created" }
+   */
   @Post()
   async getOrCreate(@Req() req: any, @Body() body: { callId: string }) {
     const user = this.getUserFromAuth(req);
@@ -78,9 +117,21 @@ export class ApplicationsController {
     return this.apps.getOrCreate(user.sub, body.callId);
   }
 
-  // GET /api/applications/my-active - Obtener o crear la application del postulante para la convocatoria activa
+  /**
+   * Obtiene o crea la aplicación del postulante para la convocatoria actualmente activa (OPEN).
+   * Solo accesible para postulantes (APPLICANT).
+   * 
+   * @param req - Request con token JWT del postulante
+   * @returns Aplicación del postulante con información de la convocatoria activa
+   * @throws {NotFoundException} Si no hay convocatoria activa
+   * @throws {BadRequestException} Si el usuario no tiene perfil de postulante
+   * 
+   * @example
+   * GET /api/applications/my-active
+   * Response: { "id": "uuid-456", "status": "DRAFT", "call": { "id": "uuid-123", "code": "BECA2024" } }
+   */
   @Get('my-active')
-  @Roles('APPLICANT') // Sobrescribir: solo para APPLICANT
+  @Roles('APPLICANT')
   async getMyActive(@Req() req: any) {
     const user = this.getUserFromAuth(req);
     if (user.typ !== 'access' || user.role !== 'APPLICANT') {
@@ -89,6 +140,18 @@ export class ApplicationsController {
     return this.apps.getOrCreateForActiveCall(user.sub);
   }
 
+  /**
+   * Obtiene los detalles de una aplicación específica.
+   * Postulantes solo pueden ver sus propias aplicaciones, administradores pueden ver cualquiera.
+   * 
+   * @param req - Request con token JWT
+   * @param id - ID de la aplicación
+   * @returns Detalles completos de la aplicación
+   * @throws {NotFoundException} Si la aplicación no existe o no tiene acceso
+   * 
+   * @example
+   * GET /api/applications/uuid-123
+   */
   @Get(':id')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
   async getById(@Req() req: any, @Param('id') id: string) {
@@ -109,6 +172,21 @@ export class ApplicationsController {
     }
   }
 
+  /**
+   * Actualiza parcialmente los datos de una aplicación.
+   * Solo el postulante propietario puede actualizar su aplicación.
+   * 
+   * @param req - Request con token JWT del postulante
+   * @param id - ID de la aplicación a actualizar
+   * @param body - Campos a actualizar (academic, household, participation, texts, builderExtra)
+   * @returns Confirmación de actualización
+   * @throws {BadRequestException} Si no es el propietario
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * PATCH /api/applications/uuid-123
+   * Body: { "academic": { "institution": "Universidad de Chile" } }
+   */
   @Patch(':id')
   @Roles('APPLICANT')
   async patch(@Req() req: any, @Param('id') id: string, @Body() body: UpdateApplicationDto) {
@@ -118,6 +196,20 @@ export class ApplicationsController {
     return this.apps.patch(user.sub, id, body);
   }
 
+  /**
+   * Envía una aplicación para revisión.
+   * Cambia el estado de DRAFT/NEEDS_FIX a SUBMITTED y registra en el historial.
+   * 
+   * @param req - Request con token JWT del postulante
+   * @param id - ID de la aplicación a enviar
+   * @returns Confirmación con nuevo estado
+   * @throws {BadRequestException} Si el estado no permite envío o faltan secciones requeridas
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * POST /api/applications/uuid-123/submit
+   * Response: { "ok": true, "status": "SUBMITTED" }
+   */
   @Post(':id/submit')
   @Roles('APPLICANT')
   async submit(@Req() req: any, @Param('id') id: string) {
@@ -127,7 +219,18 @@ export class ApplicationsController {
     return this.apps.submit(user.sub, id);
   }
 
-  // Marcar código de invitación como completado después de enviar el formulario
+  /**
+   * Marca el código de invitación como completado después de enviar el formulario.
+   * Actualiza el campo used_at de la invitación asociada al postulante.
+   * 
+   * @param req - Request con token JWT del postulante
+   * @param id - ID de la aplicación
+   * @returns Confirmación de operación
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * POST /api/applications/uuid-123/complete-invite
+   */
   @Post(':id/complete-invite')
   @Roles('APPLICANT')
   async completeInvite(@Req() req: any, @Param('id') id: string) {
@@ -137,7 +240,19 @@ export class ApplicationsController {
     return this.apps.completeInvite(user.sub, id);
   }
 
-  // GET /api/applications/:id/answers - Obtener respuestas guardadas del formulario
+  /**
+   * Obtiene las respuestas guardadas del formulario de una aplicación.
+   * Devuelve la última submission guardada como borrador.
+   * 
+   * @param req - Request con token JWT del postulante
+   * @param id - ID de la aplicación
+   * @returns Objeto con las respuestas del formulario (o {} si no hay)
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * GET /api/applications/uuid-123/answers
+   * Response: { "field1": "valor1", "field2": "valor2" }
+   */
   @Get(':id/answers')
   @Roles('APPLICANT')
   async getAnswers(@Req() req: any, @Param('id') id: string) {
@@ -147,7 +262,21 @@ export class ApplicationsController {
     return this.apps.getAnswers(user.sub, id);
   }
 
-  // PUT /api/applications/:id/answers - Guardar respuestas del formulario (borrador)
+  /**
+   * Guarda las respuestas del formulario como borrador.
+   * Actualiza la form_submission existente o crea una nueva.
+   * 
+   * @param req - Request con token JWT del postulante
+   * @param id - ID de la aplicación
+   * @param dto - DTO con las respuestas del formulario
+   * @returns Confirmación de guardado
+   * @throws {BadRequestException} Si no se encuentra el formulario inicial
+   * @throws {NotFoundException} Si la aplicación no existe
+   * 
+   * @example
+   * PATCH /api/applications/uuid-123/answers
+   * Body: { "answers": { "field1": "valor1", "field2": "valor2" } }
+   */
   @Patch(':id/answers')
   @Roles('APPLICANT')
   async saveAnswers(
