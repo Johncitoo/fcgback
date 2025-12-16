@@ -15,6 +15,9 @@ import * as argon2 from 'argon2';
 import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
+import { CurrentUser, JwtPayload } from '../auth/current-user.decorator';
+import { Admin2FAService } from './admin-2fa.service';
+import { EmailService, EmailCategory } from '../email/email.service';
 
 /**
  * Controller para administración de usuarios por parte de ADMIN.
@@ -37,7 +40,159 @@ export class AdminUsersController {
   constructor(
     private users: UsersService,
     private ds: DataSource,
+    private admin2FA: Admin2FAService,
+    private emailService: EmailService,
   ) {}
+
+  /**
+   * PASO 1: Solicitar código 2FA para crear usuario
+   * 
+   * El código se envía al EMAIL del ADMIN que está creando el usuario,
+   * NO al email del usuario nuevo.
+   * 
+   * POST /api/admin/users/request-2fa
+   */
+  @Post('request-2fa')
+  async request2FA(
+    @CurrentUser() admin: JwtPayload,
+    @Body()
+    body: {
+      email: string;
+      fullName: string;
+      role: 'ADMIN' | 'REVIEWER';
+      password?: string;
+    },
+  ) {
+    if (!body.email || !body.fullName || !body.role) {
+      throw new BadRequestException('Email, fullName and role are required');
+    }
+
+    // CRÍTICO: Solo permitir crear ADMIN o REVIEWER, nunca APPLICANT
+    if (body.role !== 'ADMIN' && body.role !== 'REVIEWER') {
+      throw new BadRequestException(
+        'Only ADMIN and REVIEWER roles can be created through this endpoint',
+      );
+    }
+
+    // Verificar que email no exista
+    const existing = await this.users.findByEmail(body.email);
+    if (existing) {
+      throw new BadRequestException('Email already exists');
+    }
+
+    // Generar contraseña temporal si no se provee
+    const password = body.password || Math.random().toString(36).slice(-10);
+
+    // Generar código 2FA
+    const { code, expiresAt } = await this.admin2FA.requestCode(
+      admin.email, // Email del admin que está creando
+      'CREATE_USER',
+      { ...body, password }, // Guardar datos del usuario a crear
+    );
+
+    // Enviar email con código al ADMIN (no al usuario nuevo)
+    await this.emailService.sendEmail(
+      {
+        to: admin.email,
+        subject: '🔐 Código de Verificación - Creación de Usuario',
+        htmlContent: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #1e40af;">Código de Verificación</h2>
+            <p>Has solicitado crear un nuevo usuario <strong>${body.role}</strong> en el sistema.</p>
+            
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+              <p style="margin: 0; color: #6b7280; font-size: 14px;">Tu código de verificación es:</p>
+              <p style="font-size: 32px; font-weight: bold; color: #1e40af; letter-spacing: 8px; margin: 10px 0;">
+                ${code}
+              </p>
+              <p style="margin: 0; color: #6b7280; font-size: 12px;">Este código expira en 10 minutos</p>
+            </div>
+            
+            <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+              <p style="margin: 0; color: #92400e;"><strong>⚠️ Detalles del usuario a crear:</strong></p>
+              <ul style="margin: 10px 0;">
+                <li><strong>Email:</strong> ${body.email}</li>
+                <li><strong>Nombre:</strong> ${body.fullName}</li>
+                <li><strong>Rol:</strong> ${body.role}</li>
+              </ul>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">
+              Si no solicitaste esto, ignora este correo.
+            </p>
+          </div>
+        `,
+        textContent: `
+Código de Verificación
+
+Has solicitado crear un nuevo usuario ${body.role} en el sistema.
+
+Tu código de verificación es: ${code}
+
+Este código expira en 10 minutos.
+
+Detalles del usuario a crear:
+- Email: ${body.email}
+- Nombre: ${body.fullName}
+- Rol: ${body.role}
+
+Si no solicitaste esto, ignora este correo.
+        `,
+      },
+      EmailCategory.TRANSACTIONAL,
+    );
+
+    return {
+      message: 'Código de verificación enviado a tu correo',
+      expiresAt,
+    };
+  }
+
+  /**
+   * PASO 2: Crear usuario con código 2FA
+   * 
+   * POST /api/admin/users/create-with-2fa
+   */
+  @Post('create-with-2fa')
+  async createWith2FA(
+    @CurrentUser() admin: JwtPayload,
+    @Body() body: { code: string },
+  ) {
+    if (!body.code || body.code.length !== 6) {
+      throw new BadRequestException('Valid 6-digit code is required');
+    }
+
+    // Validar y consumir código
+    const codeEntity = await this.admin2FA.validateAndConsume(
+      admin.email,
+      body.code,
+      'CREATE_USER',
+    );
+
+    if (!codeEntity) {
+      throw new BadRequestException('Invalid or expired code');
+    }
+
+    // Extraer datos del usuario desde metadata
+    const userData = codeEntity.metadata;
+
+    // Encriptar contraseña
+    const hash = await argon2.hash(userData.password, { type: argon2.argon2id });
+
+    // Crear usuario
+    const result = await this.ds.query(
+      `INSERT INTO users (email, password_hash, full_name, role, is_active)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, email, full_name as "fullName", role, is_active as "isActive", created_at as "createdAt"`,
+      [userData.email, hash, userData.fullName, userData.role, true],
+    );
+
+    return {
+      message: `Usuario ${userData.role} creado exitosamente`,
+      user: result[0],
+      temporaryPassword: userData.password,
+    };
+  }
 
   // POST /api/admin/users - Crear nuevo usuario (ADMIN/REVIEWER únicamente)
   @Post()
