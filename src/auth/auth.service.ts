@@ -392,6 +392,33 @@ export class AuthService {
   }
 
   /**
+   * Valida un token de reset sin consumirlo
+   */
+  async validateResetToken(token: string): Promise<{ valid: boolean; message: string }> {
+    if (!token) {
+      return { valid: false, message: 'Token requerido' };
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const result = await this.dataSource.query(
+      `SELECT pr.id
+       FROM password_resets pr
+       WHERE pr.token_hash = $1
+         AND pr.used_at IS NULL
+         AND pr.expires_at > NOW()
+       LIMIT 1`,
+      [tokenHash],
+    );
+
+    if (!result || result.length === 0) {
+      return { valid: false, message: 'Token inválido, expirado o ya utilizado' };
+    }
+
+    return { valid: true, message: 'Token válido' };
+  }
+
+  /**
    * Restablece la contraseña usando el token
    */
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {

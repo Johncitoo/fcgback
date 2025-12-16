@@ -71,6 +71,14 @@ export class AuthController {
     return this.auth.forgotPassword(dto.email);
   }
 
+  // Validar token de reset (sin consumirlo)
+  @Public()
+  @Post('validate-reset-token')
+  @HttpCode(200)
+  async validateResetToken(@Body() dto: { token: string }) {
+    return this.auth.validateResetToken(dto.token);
+  }
+
   // Restablecer contraseña con token
   @Public()
   @Post('reset-password')
