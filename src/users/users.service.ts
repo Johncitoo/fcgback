@@ -16,22 +16,55 @@ interface CreateUserData {
 export class UsersService {
   constructor(@InjectRepository(User) private repo: Repository<User>) {}
 
-  // Buscar por email
+  /**
+   * Busca un usuario por su email.
+   * 
+   * @param email - Email del usuario
+   * @returns Usuario encontrado o null
+   * 
+   * @example
+   * const user = await findByEmail('user@example.com');
+   */
   findByEmail(email: string): Promise<User | null> {
     return this.repo.findOne({ where: { email } });
   }
 
-  // Buscar por id
+  /**
+   * Busca un usuario por su ID.
+   * 
+   * @param id - ID del usuario
+   * @returns Usuario encontrado o null
+   * 
+   * @example
+   * const user = await findById('uuid-123');
+   */
   findById(id: string): Promise<User | null> {
     return this.repo.findOne({ where: { id } });
   }
 
-  // Registrar último acceso
+  /**
+   * Registra el último acceso del usuario.
+   * Actualiza el campo lastLoginAt con la fecha/hora actual.
+   * 
+   * @param userId - ID del usuario
+   * 
+   * @example
+   * await setLastLogin('uuid-123');
+   */
   async setLastLogin(userId: string): Promise<void> {
     await this.repo.update(userId, { lastLoginAt: new Date() });
   }
 
-  // Crear usuario genérico
+  /**
+   * Crea un usuario genérico con cualquier rol.
+   * 
+   * @param data - Datos del usuario (email, fullName, passwordHash, role, etc.)
+   * @returns Usuario creado
+   * @throws {ConflictException} Si el email ya existe
+   * 
+   * @example
+   * const user = await createUser({ email: 'admin@example.com', fullName: 'Admin', passwordHash: 'hash', role: 'ADMIN', isActive: true });
+   */
   async createUser(data: CreateUserData): Promise<User> {
     const exists = await this.repo.findOne({ where: { email: data.email } });
     if (exists) {
@@ -50,6 +83,18 @@ export class UsersService {
     return this.repo.save(user);
   }
 
+  /**
+   * Crea un usuario con rol APPLICANT.
+   * Atajo para crear postulantes rápidamente.
+   * 
+   * @param email - Email del postulante
+   * @param fullName - Nombre completo
+   * @param passwordHash - Hash de la contraseña
+   * @returns Usuario postulante creado
+   * 
+   * @example
+   * const user = await createApplicantUser('postulante@example.com', 'Juan Pérez', 'hash123');
+   */
   async createApplicantUser(
     email: string,
     fullName: string,
@@ -67,7 +112,19 @@ export class UsersService {
     return this.repo.save(u);
   }
 
-  // Crear usuarios STAFF en entorno DEV
+  /**
+   * Crea usuarios STAFF (ADMIN/REVIEWER) solo en entorno de desarrollo.
+   * Requiere ALLOW_DEV_SEED=true en variables de entorno.
+   * 
+   * @param email - Email del staff
+   * @param fullName - Nombre completo
+   * @param passwordHash - Hash de la contraseña
+   * @param role - Rol del staff (ADMIN o REVIEWER)
+   * @returns Usuario creado o existente, null si no está permitido
+   * 
+   * @example
+   * const admin = await createStaffIfAllowed('admin@example.com', 'Admin User', 'hash', 'ADMIN');
+   */
   async createStaffIfAllowed(
     email: string,
     fullName: string,
@@ -92,7 +149,16 @@ export class UsersService {
     return this.repo.save(user);
   }
 
-  // Actualizar contraseña
+  /**
+   * Actualiza la contraseña de un usuario.
+   * Actualiza passwordHash y passwordUpdatedAt.
+   * 
+   * @param userId - ID del usuario
+   * @param passwordHash - Nuevo hash de contraseña
+   * 
+   * @example
+   * await updatePassword('uuid-123', 'newHash456');
+   */
   async updatePassword(userId: string, passwordHash: string): Promise<void> {
     await this.repo.update(userId, {
       passwordHash,

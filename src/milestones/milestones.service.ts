@@ -19,6 +19,16 @@ export class MilestonesService {
     private emailService: EmailService,
   ) {}
 
+  /**
+   * Crea un nuevo hito para una convocatoria.
+   * Auto-inicializa milestone_progress para todas las aplicaciones existentes.
+   * 
+   * @param data - Datos del hito (callId, name, orderIndex requeridos)
+   * @returns Hito creado
+   * 
+   * @example
+   * const milestone = await create({ callId: 'uuid', name: 'Postulación', orderIndex: 1, whoCanFill: ['APPLICANT'] });
+   */
   async create(data: {
     callId: string;
     formId?: string;
@@ -76,6 +86,15 @@ export class MilestonesService {
     return savedMilestone;
   }
 
+  /**
+   * Obtiene todos los hitos de una convocatoria ordenados por orderIndex.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array de hitos ordenados
+   * 
+   * @example
+   * const milestones = await findByCall('uuid-call');
+   */
   async findByCall(callId: string): Promise<Milestone[]> {
     return this.milestonesRepo.find({
       where: { callId },
@@ -83,6 +102,16 @@ export class MilestonesService {
     });
   }
 
+  /**
+   * Obtiene un hito por su ID.
+   * 
+   * @param id - ID del hito
+   * @returns Hito encontrado
+   * @throws {NotFoundException} Si el hito no existe
+   * 
+   * @example
+   * const milestone = await findOne('uuid-123');
+   */
   async findOne(id: string): Promise<Milestone> {
     const milestone = await this.milestonesRepo.findOne({ where: { id } });
     if (!milestone) {
@@ -91,6 +120,17 @@ export class MilestonesService {
     return milestone;
   }
 
+  /**
+   * Actualiza parcialmente un hito.
+   * Maneja whoCanFill con SQL directo debido a limitaciones de TypeORM con arrays.
+   * 
+   * @param id - ID del hito
+   * @param data - Campos a actualizar
+   * @returns Hito actualizado
+   * 
+   * @example
+   * const milestone = await update('uuid-123', { name: 'Nuevo Nombre', required: false });
+   */
   async update(id: string, data: Partial<Milestone>): Promise<Milestone> {
     // Separar whoCanFill del resto de datos porque TypeORM simple-array no funciona con query builder UPDATE
     const { whoCanFill, ...updateData } = data;
@@ -110,10 +150,28 @@ export class MilestonesService {
     return this.findOne(id);
   }
 
+  /**
+   * Elimina un hito por su ID.
+   * 
+   * @param id - ID del hito
+   * 
+   * @example
+   * await remove('uuid-123');
+   */
   async remove(id: string): Promise<void> {
     await this.milestonesRepo.delete(id);
   }
 
+  /**
+   * Obtiene el progreso de todos los hitos de una aplicación.
+   * Incluye información del hito y estado de revisión.
+   * 
+   * @param applicationId - ID de la aplicación
+   * @returns Array de milestone_progress con detalles del hito
+   * 
+   * @example
+   * const progress = await getProgress('uuid-app');
+   */
   async getProgress(applicationId: string): Promise<any> {
     const progress = await this.progressRepo
       .createQueryBuilder('mp')

@@ -17,6 +17,19 @@ type ApplicantPayload = {
 export class ProfileService {
   constructor(private ds: DataSource) {}
 
+  /**
+   * Asegura que un usuario tenga un perfil de applicant.
+   * Si ya existe, actualiza los datos. Si no existe, lo crea y vincula.
+   * 
+   * @param userId - ID del usuario
+   * @param data - Datos del applicant (RUT, nombre, dirección, etc.)
+   * @returns Confirmación con applicantId y modo (created o updated)
+   * @throws {BadRequestException} Si el usuario no existe
+   * 
+   * @example
+   * const result = await ensureApplicant('uuid-user', { rutNumber: 12345678, rutDv: '9', firstName: 'Juan', lastName: 'Pérez' });
+   * // { ok: true, applicantId: 'uuid-app', mode: 'created' }
+   */
   async ensureApplicant(userId: string, data: ApplicantPayload) {
     // Revisa si el user ya está vinculado
     const user = (

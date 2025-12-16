@@ -36,7 +36,14 @@ export class OnboardingService {
   ) {}
 
   /**
-   * Busca una invitación por su código
+   * Busca una invitación por su código usando verificación de hash.
+   * En modo DEV, acepta códigos usados para facilitar testing.
+   * 
+   * @param code - Código de invitación (se normaliza a mayúsculas)
+   * @returns Invitación encontrada o null
+   * 
+   * @example
+   * const invite = await findInviteByCode('ABC123');
    */
   async findInviteByCode(code: string): Promise<Invite | null> {
     const normalizedCode = code.trim().toUpperCase();
@@ -62,7 +69,21 @@ export class OnboardingService {
   }
 
   /**
-   * Crea una invitación (para desarrollo)
+   * Crea una invitación para desarrollo/testing.
+   * Genera hash del código y establece fecha de expiración.
+   * Puede incluir datos del postulante en metadata.
+   * 
+   * @param callId - ID de la convocatoria
+   * @param code - Código de invitación (se hashea)
+   * @param ttlDays - Días de validez (default: 30)
+   * @param institutionId - ID de la institución opcional
+   * @param firstName - Nombre del postulante opcional
+   * @param lastName - Apellido del postulante opcional
+   * @param email - Email del postulante opcional
+   * @returns Invitación creada
+   * 
+   * @example
+   * const invite = await devCreateInvite('uuid-call', 'TEST123', 30, null, 'Juan', 'Pérez', 'juan@example.com');
    */
   async devCreateInvite(
     callId: string,
@@ -99,8 +120,19 @@ export class OnboardingService {
   }
 
   /**
-   * Valida un código de invitación y crea/actualiza usuario + applicant + application
-   * NUEVA LÓGICA: NO quema el código hasta completar el formulario
+   * Valida un código de invitación y prepara el onboarding del usuario.
+   * Crea/actualiza usuario, applicant y application. Genera token de contraseña.
+   * NO marca el código como usado hasta completar el formulario.
+   * 
+   * @param code - Código de invitación
+   * @param email - Email del usuario (debe coincidir con el de la invitación)
+   * @returns Objeto con user, invite, applicationId, passwordToken e isNewUser
+   * @throws {NotFoundException} Si el código no existe
+   * @throws {BadRequestException} Si el código expiró, fue usado o el email no coincide
+   * 
+   * @example
+   * const result = await validateInviteCode('ABC123', 'user@example.com');
+   * // { user: User, invite: Invite, applicationId: 'uuid', passwordToken: 'token', isNewUser: true }
    */
   async validateInviteCode(
     code: string,

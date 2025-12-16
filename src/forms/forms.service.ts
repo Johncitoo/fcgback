@@ -10,6 +10,16 @@ export class FormsService {
     private formsRepo: Repository<Form>,
   ) {}
 
+  /**
+   * Crea un nuevo formulario en el Form Builder.
+   * Acepta sections array o schema completo.
+   * 
+   * @param data - Datos del formulario (name/title, description, schema/sections)
+   * @returns Formulario creado
+   * 
+   * @example
+   * const form = await create({ name: 'Formulario Test', sections: [...] });
+   */
   async create(data: {
     name?: string;
     title?: string;
@@ -39,6 +49,15 @@ export class FormsService {
     return this.formsRepo.save(form);
   }
 
+  /**
+   * Lista todos los formularios con filtro opcional por plantillas.
+   * 
+   * @param isTemplate - Filtro opcional (true para plantillas, false para formularios regulares)
+   * @returns Array de formularios
+   * 
+   * @example
+   * const templates = await findAll(true);
+   */
   async findAll(isTemplate?: boolean): Promise<Form[]> {
     const query = this.formsRepo.createQueryBuilder('form');
     if (isTemplate !== undefined) {
@@ -47,6 +66,18 @@ export class FormsService {
     return query.getMany();
   }
 
+  /**
+   * Obtiene un formulario por su ID.
+   * Usa query raw para evitar cache de TypeORM.
+   * Parsea el schema automáticamente si viene como string.
+   * 
+   * @param id - ID del formulario
+   * @returns Formulario con schema parseado
+   * @throws {NotFoundException} Si el formulario no existe
+   * 
+   * @example
+   * const form = await findOne('uuid-123');
+   */
   async findOne(id: string): Promise<Form> {
     const timestamp = new Date().toISOString();
     console.log(`[FormsService ${timestamp}] 🔍 findOne buscando form:`, id);
@@ -84,6 +115,17 @@ export class FormsService {
     return form as Form;
   }
 
+  /**
+   * Actualiza parcialmente un formulario.
+   * Maneja sections array o schema completo. Usa query raw para evitar cache.
+   * 
+   * @param id - ID del formulario
+   * @param data - Campos a actualizar (name/title, description, sections/schema)
+   * @returns Formulario actualizado
+   * 
+   * @example
+   * const form = await update('uuid-123', { name: 'Nuevo Nombre', sections: [...] });
+   */
   async update(id: string, data: any): Promise<Form> {
     const timestamp = new Date().toISOString();
     console.log(`[FormsService ${timestamp}] ===== UPDATE INICIADO =====`);
