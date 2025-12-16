@@ -75,7 +75,7 @@ export class InvitesController {
     values.push(limitNum, offsetNum);
 
     const query = `
-      SELECT 
+      SELECT DISTINCT ON (i.meta->>'email', i.call_id)
         i.id,
         i.call_id as "callId",
         i.institution_id as "institutionId",
@@ -95,7 +95,7 @@ export class InvitesController {
       FROM invites i
       LEFT JOIN calls c ON c.id = i.call_id
       ${whereClause}
-      ORDER BY i.created_at DESC
+      ORDER BY i.meta->>'email', i.call_id, i.created_at DESC
       LIMIT $${idx++} OFFSET $${idx++}
     `;
 
