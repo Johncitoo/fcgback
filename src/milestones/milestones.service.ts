@@ -186,7 +186,7 @@ export class MilestonesService {
 
   async reviewMilestone(
     progressId: string,
-    reviewStatus: 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES',
+    reviewStatus: 'APPROVED' | 'REJECTED',
     reviewedBy: string,
     reviewNotes?: string,
   ): Promise<MilestoneProgress> {
@@ -263,23 +263,6 @@ export class MilestonesService {
         // Enviar email de rechazo (ÚLTIMO EMAIL - no más notificaciones)
         this.sendMilestoneRejectedEmail(progress.applicationId, milestone).catch(err => {
           this.logger.error(`Error enviando email de rechazo: ${err.message}`);
-        });
-      }
-    }
-
-    // Si necesita cambios, cambiar el estado
-    if (reviewStatus === 'NEEDS_CHANGES') {
-      progress.status = 'NEEDS_CHANGES';
-      
-      // Obtener el milestone para enviar email
-      const milestone = await this.milestonesRepo.findOne({
-        where: { id: progress.milestoneId },
-      });
-      
-      if (milestone) {
-        // Enviar email solicitando correcciones
-        this.sendMilestoneNeedsChangesEmail(progress.applicationId, milestone, reviewNotes || '').catch(err => {
-          this.logger.error(`Error enviando email de correcciones: ${err.message}`);
         });
       }
     }
@@ -434,46 +417,6 @@ export class MilestonesService {
       this.logger.log(`✅ Email de rechazo enviado (último): ${milestone.name} → ${data.email}`);
     } catch (error) {
       this.logger.error(`Error enviando email de rechazo: ${error.message}`);
-    }
-  }
-
-  /**
-   * Envía email solicitando correcciones
-   */
-  private async sendMilestoneNeedsChangesEmail(
-    applicationId: string,
-    milestone: Milestone,
-    reviewerComments: string,
-  ): Promise<void> {
-    try {
-      const result = await this.ds.query(
-        `SELECT 
-          u.email,
-          u.full_name,
-          c.name as call_name
-        FROM applications a
-        JOIN users u ON u.applicant_id = a.applicant_id
-        JOIN calls c ON c.id = a.call_id
-        WHERE a.id = $1
-        LIMIT 1`,
-        [applicationId]
-      );
-
-      if (!result || result.length === 0) return;
-
-      const data = result[0];
-
-      await this.emailService.sendMilestoneNeedsChangesEmail(
-        data.email,
-        data.full_name || 'Postulante',
-        data.call_name || 'Convocatoria',
-        milestone.name,
-        reviewerComments,
-      );
-
-      this.logger.log(`✅ Email de correcciones enviado: ${milestone.name} → ${data.email}`);
-    } catch (error) {
-      this.logger.error(`Error enviando email de correcciones: ${error.message}`);
     }
   }
 }

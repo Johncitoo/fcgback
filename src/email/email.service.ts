@@ -588,33 +588,6 @@ export class EmailService {
   }
 
   /**
-   * Envía notificación de correcciones requeridas usando plantilla BD
-   */
-  async sendMilestoneNeedsChangesEmail(
-    email: string,
-    applicantName: string,
-    callName: string,
-    milestoneName: string,
-    reviewerComments: string,
-  ): Promise<boolean> {
-    const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
-    const dashboardLink = `${baseUrl}/#/dashboard`;
-
-    return this.sendFromTemplate(
-      'MILESTONE_NEEDS_CHANGES',
-      email,
-      {
-        applicant_name: applicantName,
-        call_name: callName,
-        milestone_name: milestoneName,
-        reviewer_comments: reviewerComments,
-        dashboard_link: dashboardLink,
-      },
-      EmailCategory.TRANSACTIONAL,
-    );
-  }
-
-  /**
    * Envía email de bienvenida usando plantilla BD
    */
   async sendWelcomeEmail(email: string, applicantName: string): Promise<boolean> {

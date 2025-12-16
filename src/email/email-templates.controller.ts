@@ -91,6 +91,7 @@ export class EmailTemplatesController {
         name,
         subject_tpl as "subjectTemplate",
         body_tpl as "bodyTemplate",
+        is_editable as "isEditable",
         created_at as "createdAt"
       FROM email_templates
       WHERE id = $1
@@ -148,13 +149,6 @@ export class EmailTemplatesController {
         { name: 'call_name', description: 'Nombre de la convocatoria', required: true },
         { name: 'milestone_name', description: 'Nombre del hito rechazado', required: true },
       ],
-      MILESTONE_NEEDS_CHANGES: [
-        { name: 'applicant_name', description: 'Nombre completo del postulante', required: true },
-        { name: 'call_name', description: 'Nombre de la convocatoria', required: true },
-        { name: 'milestone_name', description: 'Nombre del hito que requiere cambios', required: true },
-        { name: 'reviewer_comments', description: 'Comentarios del revisor', required: true },
-        { name: 'dashboard_link', description: 'Link al dashboard del postulante', required: true },
-      ],
       WELCOME: [
         { name: 'applicant_name', description: 'Nombre completo del postulante', required: true },
         { name: 'dashboard_link', description: 'Link al dashboard del postulante', required: true },
@@ -167,6 +161,20 @@ export class EmailTemplatesController {
   // PATCH /api/email/templates/:id - Actualizar template
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateEmailTemplateDto) {
+    // Verificar si la plantilla es editable
+    const checkResult = await this.ds.query(
+      `SELECT is_editable as "isEditable" FROM email_templates WHERE id = $1`,
+      [id],
+    );
+
+    if (!checkResult || checkResult.length === 0) {
+      throw new BadRequestException('Template not found');
+    }
+
+    if (checkResult[0].isEditable === false) {
+      throw new BadRequestException('This template is not editable');
+    }
+
     const fields: string[] = [];
     const values: any[] = [];
     let idx = 1;
