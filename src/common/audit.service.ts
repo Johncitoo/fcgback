@@ -9,12 +9,49 @@ export interface AuditLogData {
   meta?: Record<string, any>;
 }
 
+/**
+ * Service para registro de auditoría del sistema.
+ * 
+ * Registra todas las acciones críticas en la tabla audit_logs:
+ * - Creación, actualización y eliminación de registros
+ * - Validación de códigos de invitación
+ * - Establecimiento de contraseñas
+ * - Logins y logouts
+ * - Envío de emails
+ * - Cambios en estados de aplicaciones
+ * 
+ * Campos registrados:
+ * - actor_user_id: Usuario que realizó la acción
+ * - action: Tipo de acción (CREATE, UPDATE, DELETE, etc.)
+ * - entity: Tipo de entidad afectada (USER, APPLICATION, INVITE, etc.)
+ * - entity_id: ID del registro afectado
+ * - meta: JSON con información adicional
+ * - created_at: Timestamp automático
+ * 
+ * Los logs no bloquean el flujo principal si falla el registro.
+ */
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
   constructor(private readonly dataSource: DataSource) {}
 
+  /**
+   * Registra una acción en el log de auditoría.
+   * 
+   * Inserta un registro en audit_logs y escribe en el logger.
+   * No lanza errores si falla para no interrumpir el flujo principal.
+   * 
+   * @param data - Datos de la acción a registrar
+   * @param data.actorUserId - ID del usuario que realizó la acción (opcional, 'SYSTEM' si no se provee)
+   * @param data.action - Tipo de acción (CREATE, UPDATE, DELETE, LOGIN, etc.)
+   * @param data.entity - Tipo de entidad afectada (USER, APPLICATION, INVITE, etc.)
+   * @param data.entityId - ID del registro afectado (opcional)
+   * @param data.meta - Información adicional en formato JSON (opcional)
+   * 
+   * @example
+   * await log({ action: 'CREATE', entity: 'USER', entityId: 'uuid-123', actorUserId: 'uuid-admin' });
+   */
   async log(data: AuditLogData): Promise<void> {
     try {
       await this.dataSource.query(

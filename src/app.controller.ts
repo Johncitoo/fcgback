@@ -2,6 +2,18 @@ import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Public } from './auth/public.decorator';
 
+/**
+ * Controller principal del API.
+ * 
+ * Proporciona endpoints de información general:
+ * - Endpoint raíz con mensaje de bienvenida
+ * - Health check para monitoreo y status del servicio
+ * 
+ * Todos los endpoints son públicos (no requieren autenticación).
+ * 
+ * @path / (raíz del API)
+ * @public Todos los endpoints son accesibles sin autenticación
+ */
 @Controller()
 @Public()
 export class AppController {

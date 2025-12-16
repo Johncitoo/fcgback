@@ -12,6 +12,18 @@ interface CreateUserData {
   applicantId?: string | null;
 }
 
+/**
+ * Service para gestión de usuarios del sistema.
+ * 
+ * Proporciona operaciones CRUD básicas sobre la entidad User:
+ * - Búsqueda por email o ID
+ * - Creación de usuarios (genéricos, APPLICANT, STAFF)
+ * - Actualización de contraseña
+ * - Registro de último login
+ * - Soft delete de usuarios
+ * 
+ * Roles soportados: APPLICANT (postulante), ADMIN, REVIEWER
+ */
 @Injectable()
 export class UsersService {
   constructor(@InjectRepository(User) private repo: Repository<User>) {}

@@ -6,6 +6,22 @@ import {
 import { DataSource } from 'typeorm';
 import { AuditService } from '../common/audit.service';
 
+/**
+ * Service para gestión de aplicaciones de postulantes.
+ * 
+ * Maneja el ciclo de vida completo de las aplicaciones:
+ * - Creación automática al validar código de invitación
+ * - Actualización de datos del postulante
+ * - Envío para revisión (DRAFT → SUBMITTED)
+ * - Tracking de progreso por hitos (milestone_progress)
+ * - Estadísticas y reportes por convocatoria
+ * - Gestión de respuestas de formularios (form_submissions)
+ * 
+ * Integración con:
+ * - AuditService: Registro de todas las acciones
+ * - FormSubmissionsService: Manejo de respuestas
+ * - EmailService: Notificaciones automáticas
+ */
 @Injectable()
 export class ApplicationsService {
   constructor(

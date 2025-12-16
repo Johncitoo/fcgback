@@ -8,6 +8,26 @@ interface LoginAttempt {
   success: boolean;
 }
 
+/**
+ * Service para seguridad y prevención de ataques de fuerza bruta.
+ * 
+ * Implementa protección contra intentos de login maliciosos:
+ * - Rate limiting por email + IP
+ * - Bloqueo temporal de cuentas tras múltiples fallos
+ * - Limpieza automática de intentos antiguos
+ * - Registro en BD para auditoría
+ * 
+ * Configuración:
+ * - MAX_FAILED_ATTEMPTS: 5 intentos fallidos
+ * - LOCKOUT_DURATION: 15 minutos de bloqueo
+ * - ATTEMPT_WINDOW: Ventana de 30 minutos para conteo
+ * 
+ * Storage:
+ * - Memoria (Map): Tracking en tiempo real de intentos
+ * - Base de datos: Registro histórico para análisis
+ * 
+ * Limpieza automática cada 5 minutos de intentos antiguos.
+ */
 @Injectable()
 export class SecurityService {
   private failedAttempts: Map<string, LoginAttempt[]> = new Map();
@@ -24,7 +44,18 @@ export class SecurityService {
   }
 
   /**
-   * Registra un intento de login
+   * Registra un intento de login (exitoso o fallido).
+   * 
+   * Almacena el intento en memoria para rate limiting y en BD para auditoría.
+   * Si se superan MAX_FAILED_ATTEMPTS en la ventana de tiempo, bloquea la cuenta.
+   * 
+   * @param email - Email del usuario intentando login
+   * @param ip - Dirección IP del cliente
+   * @param success - Si el login fue exitoso (true) o fallido (false)
+   * @param userAgent - User-Agent del navegador (opcional)
+   * 
+   * @example
+   * await recordLoginAttempt('user@example.com', '192.168.1.1', false, 'Mozilla/5.0...');
    */
   async recordLoginAttempt(
     email: string,

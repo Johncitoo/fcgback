@@ -1,8 +1,26 @@
 import { DataSource } from 'typeorm';
 
 /**
- * Script para eliminar aplicaciones duplicadas
- * Mantiene solo la aplicación con form_submissions
+ * Limpia aplicaciones duplicadas en el sistema.
+ * 
+ * Identifica aplicaciones duplicadas por (applicant_id, call_id) y mantiene
+ * solo la que tiene más form_submissions asociadas. Si todas están vacías,
+ * mantiene la más reciente.
+ * 
+ * El proceso elimina en cascada:
+ * - Registros de milestone_progress vinculados
+ * - Form_submissions vinculadas
+ * - La aplicación duplicada
+ * 
+ * Ejecuta en transacción para garantizar consistencia.
+ * 
+ * @param dataSource - Conexión a la base de datos TypeORM
+ * @returns Resumen de operación con conteos de eliminadas/mantenidas
+ * @throws Error si falla la transacción (hace rollback automático)
+ * 
+ * @example
+ * const result = await cleanupDuplicateApplications(dataSource);
+ * // { deleted: 5, kept: 5, duplicateGroups: 5 }
  */
 export async function cleanupDuplicateApplications(dataSource: DataSource) {
   const queryRunner = dataSource.createQueryRunner();
