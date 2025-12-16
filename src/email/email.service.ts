@@ -3,6 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { TemplateRendererService, TemplateVariables } from './template-renderer.service';
 
+/**
+ * Opciones para envío de email individual.
+ */
 export interface SendEmailOptions {
   to: string;
   subject: string;
@@ -10,6 +13,9 @@ export interface SendEmailOptions {
   textContent?: string;
 }
 
+/**
+ * Estado de cuota de una cuenta de email.
+ */
 export interface EmailQuotaStatus {
   used: number;
   limit: number;
@@ -18,6 +24,9 @@ export interface EmailQuotaStatus {
   resetAt: Date;
 }
 
+/**
+ * Estado combinado de ambas cuentas de email (transaccional y masivos).
+ */
 export interface DualEmailQuotaStatus {
   account1: EmailQuotaStatus & { name: string };
   account2: EmailQuotaStatus & { name: string };
@@ -29,11 +38,42 @@ export interface DualEmailQuotaStatus {
   };
 }
 
+/**
+ * Categorías de email para selección de cuenta.
+ * 
+ * - TRANSACTIONAL: Emails automáticos críticos (confirmaciones, password reset)
+ *   Usa cuenta 1 configurada con BREVO_API_KEY_1
+ * 
+ * - MASS: Emails masivos (invitaciones, anuncios)
+ *   Usa cuenta 2 configurada con BREVO_API_KEY_2
+ */
 export enum EmailCategory {
   TRANSACTIONAL = 'TRANSACTIONAL', // Cuenta 1: Confirmaciones, password reset
   MASS = 'MASS', // Cuenta 2: Invitaciones masivas, anuncios
 }
 
+/**
+ * Servicio de envío de emails usando Brevo API.
+ * 
+ * Características:
+ * - Sistema dual de cuentas para separar transaccionales y masivos
+ * - Cuotas diarias persistidas en BD (300 emails por cuenta/día)
+ * - Verificación de cuota antes de enviar
+ * - Logging detallado de cada envío
+ * - Plantillas hardcoded y basadas en BD con variables
+ * - Modo desarrollo (sin API key loguea pero no envía)
+ * 
+ * Cuentas:
+ * - Cuenta 1 (TRANSACTIONAL): Password reset, confirmaciones, notificaciones de hitos
+ * - Cuenta 2 (MASS): Invitaciones masivas, anuncios
+ * 
+ * Variables de entorno requeridas:
+ * - BREVO_API_KEY_1: API key cuenta transaccional
+ * - BREVO_API_KEY_2: API key cuenta masivos
+ * - EMAIL_FROM_1, EMAIL_FROM_NAME_1: Remitente cuenta 1
+ * - EMAIL_FROM_2, EMAIL_FROM_NAME_2: Remitente cuenta 2
+ * - FRONTEND_URL: URL base para links en emails
+ */
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -78,7 +118,9 @@ export class EmailService {
   }
   
   /**
-   * Inicializa o verifica el registro de cuota para hoy
+   * Inicializa el registro de cuota para el día actual si no existe.
+   * Se ejecuta automáticamente en el constructor.
+   * Usa ON CONFLICT DO NOTHING para evitar duplicados.
    */
   private async initializeTodayQuota(): Promise<void> {
     try {
@@ -98,7 +140,10 @@ export class EmailService {
   }
 
   /**
-   * Obtiene los contadores actuales desde la BD
+   * Obtiene los contadores de emails enviados hoy para ambas cuentas.
+   * Si no existe registro para hoy, inicializa uno nuevo.
+   * 
+   * @returns Objeto con account1 y account2 counts
    */
   private async getCurrentQuota(): Promise<{ account1: number; account2: number }> {
     try {
@@ -125,7 +170,11 @@ export class EmailService {
   }
   
   /**
-   * Obtiene el estado de ambas cuentas de email desde la BD
+   * Obtiene el estado completo de cuotas de ambas cuentas.
+   * Incluye used, limit, remaining, percentage y resetAt para cada cuenta,
+   * más totales combinados.
+   * 
+   * @returns DualEmailQuotaStatus con estado de cuenta 1, cuenta 2 y totales
    */
   async getDualQuotaStatus(): Promise<DualEmailQuotaStatus> {
     const quota = await this.getCurrentQuota();
@@ -169,7 +218,11 @@ export class EmailService {
   }
   
   /**
-   * Verifica si hay suficiente cuota disponible en una cuenta específica
+   * Verifica si hay suficiente cuota disponible para enviar N emails.
+   * 
+   * @param count - Número de emails a enviar (default: 1)
+   * @param category - Categoría/cuenta a usar (default: TRANSACTIONAL)
+   * @returns true si hay cuota disponible, false si está agotada
    */
   async canSendEmails(count: number = 1, category: EmailCategory = EmailCategory.TRANSACTIONAL): Promise<boolean> {
     const status = await this.getDualQuotaStatus();
@@ -178,7 +231,10 @@ export class EmailService {
   }
   
   /**
-   * Incrementa el contador de emails enviados según la categoría en la BD
+   * Incrementa el contador de emails enviados hoy en la BD.
+   * Actualiza la columna correspondiente según la categoría.
+   * 
+   * @param category - Categoría del email (determina qué columna incrementar)
    */
   private async incrementCounter(category: EmailCategory): Promise<void> {
     try {
@@ -200,6 +256,23 @@ export class EmailService {
     }
   }
 
+  /**
+   * Envía un email usando Brevo API.
+   * 
+   * Flujo:
+   * 1. Selecciona cuenta según categoría
+   * 2. Verifica cuota disponible (rechaza si agotada)
+   * 3. Envía email via Brevo API
+   * 4. Incrementa contador si exitoso
+   * 5. Retorna true/false según resultado
+   * 
+   * Modo desarrollo: Si no hay API key, loguea pero no envía (retorna true)
+   * 
+   * @param options - Opciones del email (to, subject, htmlContent, textContent)
+   * @param category - Categoría para seleccionar cuenta (default: TRANSACTIONAL)
+   * @returns true si se envió exitosamente, false en caso de error
+   * @throws Error si la cuota diaria está agotada
+   */
   async sendEmail(options: SendEmailOptions, category: EmailCategory = EmailCategory.TRANSACTIONAL): Promise<boolean> {
     // Seleccionar cuenta según categoría
     const apiKey = category === EmailCategory.TRANSACTIONAL ? this.brevoApiKey1 : this.brevoApiKey2;
@@ -260,6 +333,16 @@ export class EmailService {
     }
   }
 
+  /**
+   * Envía email con link para establecer contraseña inicial.
+   * Usado después de validar código de invitación.
+   * Plantilla hardcoded con HTML inline.
+   * 
+   * @param email - Email destino
+   * @param token - Token JWT de un solo uso (válido 24h)
+   * @param applicantName - Nombre del postulante (opcional)
+   * @returns true si se envió exitosamente
+   */
   async sendPasswordSetEmail(email: string, token: string, applicantName?: string): Promise<boolean> {
     const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
     const setPasswordUrl = `${baseUrl}/#/set-password?token=${token}`;
@@ -322,6 +405,17 @@ export class EmailService {
     );
   }
 
+  /**
+   * Envía email de invitación inicial con código para postular.
+   * Plantilla hardcoded con HTML inline.
+   * Usa categoría MASS (cuenta 2) para envíos masivos.
+   * 
+   * @param email - Email destino
+   * @param code - Código de invitación (formato: ABC-123-XYZ)
+   * @param callName - Nombre de la convocatoria (opcional)
+   * @param fullName - Nombre completo del postulante (opcional)
+   * @returns true si se envió exitosamente
+   */
   async sendInitialInviteEmail(email: string, code: string, callName?: string, fullName?: string): Promise<boolean> {
     const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
     const applyUrl = `${baseUrl}/#/login`;
@@ -394,6 +488,15 @@ export class EmailService {
     );
   }
 
+  /**
+   * Envía email con nuevo código de invitación.
+   * Usado cuando se regenera un código (el anterior queda invalidado).
+   * Plantilla hardcoded con HTML inline.
+   * 
+   * @param email - Email destino
+   * @param newCode - Nuevo código de invitación
+   * @returns true si se envió exitosamente
+   */
   async sendInviteResentEmail(email: string, newCode: string): Promise<boolean> {
     const subject = 'Nuevo código de invitación - Fundación Carmen Goudie';
     
@@ -453,11 +556,18 @@ export class EmailService {
   // ========================================
 
   /**
-   * Envía email usando plantilla de BD
-   * @param templateKey Clave de la plantilla (ej: 'PASSWORD_RESET')
-   * @param to Email destino
-   * @param variables Variables para reemplazar en la plantilla
-   * @param category Categoría del email (TRANSACTIONAL o MASS)
+   * Envía email usando plantilla almacenada en la tabla email_templates.
+   * 
+   * Flujo:
+   * 1. Busca plantilla por key en BD
+   * 2. Renderiza subject_tpl y body_tpl con variables usando TemplateRendererService
+   * 3. Envía email con el contenido renderizado
+   * 
+   * @param templateKey - Clave de la plantilla (ej: 'PASSWORD_RESET', 'FORM_SUBMITTED')
+   * @param to - Email destino
+   * @param variables - Variables para reemplazar en la plantilla ({{variable_name}})
+   * @param category - Categoría del email (default: TRANSACTIONAL)
+   * @returns true si se envió exitosamente, false si no existe la plantilla o falla el envío
    */
   async sendFromTemplate(
     templateKey: string,
@@ -492,7 +602,15 @@ export class EmailService {
   }
 
   /**
-   * Envía email de recuperación de contraseña usando plantilla BD
+   * Envía email de recuperación de contraseña.
+   * Usa plantilla 'PASSWORD_RESET' de BD.
+   * 
+   * Variables: applicant_name, reset_link
+   * 
+   * @param email - Email destino
+   * @param token - Token JWT de un solo uso para reset
+   * @param applicantName - Nombre del postulante
+   * @returns true si se envió exitosamente
    */
   async sendPasswordResetEmail(email: string, token: string, applicantName: string): Promise<boolean> {
     const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
@@ -510,7 +628,16 @@ export class EmailService {
   }
 
   /**
-   * Envía confirmación de formulario enviado usando plantilla BD
+   * Envía confirmación de que un formulario fue enviado.
+   * Usa plantilla 'FORM_SUBMITTED' de BD.
+   * 
+   * Variables: applicant_name, call_name, form_name, submission_date, dashboard_link
+   * 
+   * @param email - Email del postulante
+   * @param applicantName - Nombre del postulante
+   * @param callName - Nombre de la convocatoria
+   * @param formName - Nombre del formulario enviado
+   * @returns true si se envió exitosamente
    */
   async sendFormSubmittedEmail(
     email: string,
@@ -540,7 +667,17 @@ export class EmailService {
   }
 
   /**
-   * Envía notificación de hito aprobado usando plantilla BD
+   * Envía notificación de que un hito fue aprobado.
+   * Usa plantilla 'MILESTONE_APPROVED' de BD.
+   * 
+   * Variables: applicant_name, call_name, milestone_name, next_milestone_name, dashboard_link
+   * 
+   * @param email - Email del postulante
+   * @param applicantName - Nombre del postulante
+   * @param callName - Nombre de la convocatoria
+   * @param milestoneName - Nombre del hito aprobado
+   * @param nextMilestoneName - Nombre del siguiente hito (opcional)
+   * @returns true si se envió exitosamente
    */
   async sendMilestoneApprovedEmail(
     email: string,
@@ -567,7 +704,16 @@ export class EmailService {
   }
 
   /**
-   * Envía notificación de hito rechazado (ÚLTIMO EMAIL) usando plantilla BD
+   * Envía notificación de que un hito fue rechazado (ÚLTIMO EMAIL, termina proceso).
+   * Usa plantilla 'MILESTONE_REJECTED' de BD.
+   * 
+   * Variables: applicant_name, call_name, milestone_name
+   * 
+   * @param email - Email del postulante
+   * @param applicantName - Nombre del postulante
+   * @param callName - Nombre de la convocatoria
+   * @param milestoneName - Nombre del hito rechazado
+   * @returns true si se envió exitosamente
    */
   async sendMilestoneRejectedEmail(
     email: string,
@@ -588,7 +734,14 @@ export class EmailService {
   }
 
   /**
-   * Envía email de bienvenida usando plantilla BD
+   * Envía email de bienvenida al sistema.
+   * Usa plantilla 'WELCOME' de BD.
+   * 
+   * Variables: applicant_name, dashboard_link
+   * 
+   * @param email - Email del postulante
+   * @param applicantName - Nombre del postulante
+   * @returns true si se envió exitosamente
    */
   async sendWelcomeEmail(email: string, applicantName: string): Promise<boolean> {
     const baseUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';

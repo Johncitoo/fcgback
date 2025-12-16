@@ -3,6 +3,17 @@ import { Roles } from '../auth/roles.decorator';
 import { EmailService, EmailCategory } from './email.service';
 import { DataSource } from 'typeorm';
 
+/**
+ * DTO para envío de anuncio.
+ * 
+ * recipientType determina los destinatarios:
+ * - 'all': Todos los postulantes de callId
+ * - 'milestone': Postulantes en estado pending del milestoneId
+ * - 'specific': Lista de applicantIds
+ * - 'single': Un solo singleEmail
+ * - 'institutions-all': Todas las instituciones con email
+ * - 'institution-single': Una institución por institutionId
+ */
 interface SendAnnouncementDto {
   subject: string;
   message: string;
@@ -14,6 +25,9 @@ interface SendAnnouncementDto {
   institutionId?: string;
 }
 
+/**
+ * DTO para preview de destinatarios (sin enviar emails).
+ */
 interface RecipientPreviewDto {
   recipientType: 'all' | 'specific' | 'milestone' | 'institutions-all' | 'institution-single';
   callId?: string;
@@ -22,6 +36,25 @@ interface RecipientPreviewDto {
   institutionId?: string;
 }
 
+/**
+ * Controlador para envío de anuncios masivos.
+ * 
+ * Permite enviar emails a grupos de destinatarios:
+ * - Todos los postulantes de una convocatoria
+ * - Postulantes en un hito específico (estado pending)
+ * - Selección manual de postulantes
+ * - Email individual
+ * - Todas las instituciones
+ * - Institución específica
+ * 
+ * Funcionalidades:
+ * - Envío masivo con verificación de cuota
+ * - Preview de destinatarios antes de enviar
+ * - Helpers para obtener postulantes y hitos de una convocatoria
+ * - Plantilla de email HTML con formato institucional
+ * 
+ * Seguridad: Solo ADMIN
+ */
 @Controller('announcements')
 @Roles('ADMIN')
 export class AnnouncementsController {

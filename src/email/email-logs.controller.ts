@@ -2,12 +2,34 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Roles } from '../auth/roles.decorator';
 
+/**
+ * Controlador para consultar logs de emails enviados.
+ * 
+ * Proporciona historial de emails con:
+ * - Destinatario
+ * - Plantilla usada
+ * - Estado (sent/failed)
+ * - Mensaje de error (si aplica)
+ * - Fecha de envío
+ * 
+ * Seguridad: ADMIN y REVIEWER
+ */
 @Controller('email/logs')
 @Roles('ADMIN', 'REVIEWER')
 export class EmailLogsController {
   constructor(private ds: DataSource) {}
 
-  // GET /api/email/logs - Lista de logs de email
+  /**
+   * GET /api/email/logs
+   * 
+   * Lista logs de emails enviados con paginación.
+   * Ordenados por fecha de creación descendente (más recientes primero).
+   * 
+   * @param limit - Cantidad de resultados (default: 20)
+   * @param offset - Desplazamiento para paginación (default: 0)
+   * @param count - Si es '1' o 'true', incluye total de registros
+   * @returns Objeto con data (array de logs), total (opcional), limit, offset
+   */
   @Get()
   async list(
     @Query('limit') limit?: string,

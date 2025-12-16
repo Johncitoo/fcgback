@@ -11,6 +11,24 @@ import { DataSource } from 'typeorm';
 import { OnboardingService } from './onboarding.service';
 import { Roles } from '../auth/roles.decorator';
 
+/**
+ * Controlador para gestión de invitaciones.
+ * 
+ * Proporciona endpoints para:
+ * - Listar invitaciones con filtros por convocatoria
+ * - Crear invitaciones individuales (con envío opcional de email)
+ * - Obtener detalles de invitación
+ * - Regenerar código de invitación
+ * - Envío masivo a postulantes sin invitar
+ * 
+ * Características:
+ * - Generación automática de códigos formato TEST-XXXXXXXX
+ * - Integración con OnboardingService para lógica de negocio
+ * - Envío de emails automático en creación y regeneración
+ * - Filtrado de postulantes ya invitados en envío masivo
+ * 
+ * Seguridad: ADMIN y REVIEWER
+ */
 @Controller('invites')
 @Roles('ADMIN', 'REVIEWER') // Todo el controlador requiere admin o revisor
 export class InvitesController {
@@ -19,7 +37,18 @@ export class InvitesController {
     private onboarding: OnboardingService,
   ) {}
 
-  // GET /api/invites - Lista de invitaciones
+  /**
+   * GET /api/invites
+   * 
+   * Lista invitaciones con paginación y filtros opcionales.
+   * Incluye datos de convocatoria asociada (callName, callYear).
+   * 
+   * @param limit - Cantidad de resultados (default: 20)
+   * @param offset - Desplazamiento para paginación (default: 0)
+   * @param callId - Filtro opcional por convocatoria
+   * @param count - Si es '1' o 'true', incluye total de registros
+   * @returns Objeto con data (array de invitaciones), total (opcional), limit, offset
+   */
   @Get()
   async list(
     @Query('limit') limit?: string,
@@ -79,7 +108,28 @@ export class InvitesController {
     return { data, total, limit: limitNum, offset: offsetNum };
   }
 
-  // POST /api/invites - Crear nueva invitación
+  /**
+   * POST /api/invites
+   * 
+   * Crea una nueva invitación individual.
+   * 
+   * Flujo:
+   * 1. Genera código automático si no se proporciona
+   * 2. Crea invitación en BD
+   * 3. Envía email si email está presente y sendEmail !== false
+   * 
+   * @param body - Objeto con:
+   *   - callId (requerido): ID de la convocatoria
+   *   - code (opcional): Código custom, si no se proporciona genera automáticamente
+   *   - ttlDays (opcional): Días de validez
+   *   - institutionId (opcional): Institución asociada
+   *   - email (opcional): Email del invitado
+   *   - firstName (opcional): Nombre del invitado
+   *   - lastName (opcional): Apellido del invitado
+   *   - sendEmail (opcional): Si es false, no envía email (default: true si hay email)
+   * @returns Invitación creada con code e invitationCode
+   * @throws BadRequestException si falta callId
+   */
   @Post()
   async create(
     @Body()
@@ -125,6 +175,12 @@ export class InvitesController {
     return { ...invite, code, invitationCode: code };
   }
 
+  /**
+   * Genera código de invitación aleatorio formato TEST-XXXXXXXX.
+   * Usa caracteres A-Z y 0-9.
+   * 
+   * @returns Código de 13 caracteres (TEST- + 8 random)
+   */
   private generateInviteCode(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = 'TEST-';
@@ -134,7 +190,16 @@ export class InvitesController {
     return code;
   }
 
-  // GET /api/invites/:id - Obtener detalles de una invitación
+  /**
+   * GET /api/invites/:id
+   * 
+   * Obtiene detalles completos de una invitación.
+   * Incluye datos de convocatoria asociada y metadata (email, firstName, lastName).
+   * 
+   * @param id - UUID de la invitación
+   * @returns Invitación con campos: id, callId, institutionId, expiresAt, usedAt, email, firstName, lastName, used, callName, callYear
+   * @throws BadRequestException si no existe
+   */
   @Get(':id')
   async getById(@Param('id') id: string) {
     const result = await this.ds.query(
@@ -167,7 +232,18 @@ export class InvitesController {
     return result[0];
   }
 
-  // POST /api/invites/:id/regenerate - Regenerar código de invitación
+  /**
+   * POST /api/invites/:id/regenerate
+   * 
+   * Regenera el código de una invitación existente.
+   * El código anterior queda invalidado.
+   * Envía email con nuevo código automáticamente.
+   * 
+   * @param id - UUID de la invitación
+   * @param body - Objeto con code (nuevo código)
+   * @returns Objeto con success, message, inviteId, code
+   * @throws BadRequestException si falta code
+   */
   @Post(':id/regenerate')
   async regenerate(
     @Param('id') id: string,
@@ -187,7 +263,29 @@ export class InvitesController {
     };
   }
 
-  // POST /api/invites/bulk-send - Envío masivo de invitaciones a postulantes sin invitar
+  /**
+   * POST /api/invites/bulk-send
+   * 
+   * Envío masivo de invitaciones a postulantes sin invitar.
+   * 
+   * Modos de operación:
+   * 1. sendToAll = true: Envía a TODOS los postulantes sin invitación previa en callId
+   * 2. applicantIds: Envía solo a IDs especificados
+   * 
+   * Lógica:
+   * - Filtra postulantes que NO tienen invitación en esta convocatoria
+   * - Genera código único para cada uno
+   * - Crea invitación en BD
+   * - Envía email con código
+   * - Reporta exitosos y fallidos
+   * 
+   * @param body - Objeto con:
+   *   - callId (requerido): ID de la convocatoria
+   *   - sendToAll (opcional): Si true, envía a todos sin invitar
+   *   - applicantIds (opcional): Lista de IDs específicos
+   * @returns Objeto con sent, failed, total, errors (opcional), message
+   * @throws BadRequestException si falta callId
+   */
   @Post('bulk-send')
   async bulkSend(
     @Body()

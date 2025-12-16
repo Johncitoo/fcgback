@@ -1,9 +1,25 @@
 import { Injectable } from '@nestjs/common';
 
+/**
+ * Variables para renderizar en plantillas de email.
+ * Permite cualquier combinación de strings, números o undefined.
+ */
 export interface TemplateVariables {
   [key: string]: string | number | undefined;
 }
 
+/**
+ * Servicio de renderizado de plantillas de email.
+ * 
+ * Usa sintaxis simple de reemplazo de variables: {{variable_name}}
+ * No usa librerías externas como Handlebars para mantener simplicidad.
+ * 
+ * Funcionalidades:
+ * - Renderizar plantillas con variables
+ * - Extraer variables presentes en una plantilla
+ * - Validar que una plantilla tenga las variables requeridas
+ * - Generar previews con datos de ejemplo
+ */
 @Injectable()
 export class TemplateRendererService {
   /**
@@ -74,7 +90,16 @@ export class TemplateRendererService {
   }
 
   /**
-   * Obtiene datos de ejemplo para cada tipo de plantilla
+   * Genera datos de ejemplo para preview de plantillas.
+   * Retorna un conjunto de variables de muestra según el tipo de plantilla.
+   * 
+   * Plantillas soportadas:
+   * - INVITE_APPLICANT, PASSWORD_SET, PASSWORD_RESET
+   * - FORM_SUBMITTED, MILESTONE_APPROVED, MILESTONE_REJECTED
+   * - MILESTONE_NEEDS_CHANGES, WELCOME
+   * 
+   * @param templateKey - Clave de la plantilla
+   * @returns Objeto con variables de ejemplo para esa plantilla
    */
   private getSampleData(templateKey: string): TemplateVariables {
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';

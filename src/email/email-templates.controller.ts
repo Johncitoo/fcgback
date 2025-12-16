@@ -14,6 +14,18 @@ import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
 import { TemplateRendererService } from './template-renderer.service';
 
+/**
+ * Controlador para gestión de plantillas de email.
+ * 
+ * Proporciona CRUD completo para email_templates:
+ * - Listar plantillas con paginación
+ * - Crear nuevas plantillas
+ * - Obtener plantilla por ID con metadata de variables
+ * - Actualizar plantillas editables
+ * - Preview de plantillas con datos de ejemplo
+ * 
+ * Seguridad: Solo ADMIN
+ */
 @Controller('email/templates')
 @Roles('ADMIN')
 export class EmailTemplatesController {
@@ -22,7 +34,16 @@ export class EmailTemplatesController {
     private templateRenderer: TemplateRendererService,
   ) {}
 
-  // GET /api/email/templates - Lista de templates
+  /**
+   * GET /api/email/templates
+   * 
+   * Lista plantillas de email con paginación.
+   * 
+   * @param limit - Cantidad de resultados (default: 20)
+   * @param offset - Desplazamiento para paginación (default: 0)
+   * @param count - Si es '1' o 'true', incluye total de registros
+   * @returns Objeto con data (array de plantillas), total (opcional), limit, offset
+   */
   @Get()
   async list(
     @Query('limit') limit?: string,
@@ -59,7 +80,15 @@ export class EmailTemplatesController {
     return { data, total, limit: limitNum, offset: offsetNum };
   }
 
-  // POST /api/email/templates - Crear template
+  /**
+   * POST /api/email/templates
+   * 
+   * Crea una nueva plantilla de email.
+   * 
+   * @param body - DTO con key, name, subjectTemplate, bodyTemplate
+   * @returns Plantilla creada con id generado
+   * @throws BadRequestException si faltan campos requeridos
+   */
   @Post()
   async create(@Body() body: CreateEmailTemplateDto) {
     if (!body.key || !body.name || !body.subjectTemplate || !body.bodyTemplate) {
@@ -80,7 +109,15 @@ export class EmailTemplatesController {
     return result[0];
   }
 
-  // GET /api/email/templates/:id - Obtener template
+  /**
+   * GET /api/email/templates/:id
+   * 
+   * Obtiene una plantilla por ID con metadata de variables disponibles.
+   * 
+   * @param id - UUID de la plantilla
+   * @returns Plantilla con availableVariables (nombre, descripción, required)
+   * @throws BadRequestException si no existe
+   */
   @Get(':id')
   async getById(@Param('id') id: string) {
     const result = await this.ds.query(
@@ -112,7 +149,21 @@ export class EmailTemplatesController {
     return template;
   }
 
-  // Retorna las variables disponibles para cada tipo de template
+  /**
+   * Retorna metadatos de variables disponibles para cada tipo de plantilla.
+   * 
+   * Plantillas soportadas:
+   * - INVITE_APPLICANT: applicant_name, call_name, invite_code, invite_link
+   * - PASSWORD_SET: applicant_name, call_name, password_set_link
+   * - PASSWORD_RESET: applicant_name, reset_link
+   * - FORM_SUBMITTED: applicant_name, call_name, form_name, submission_date, dashboard_link
+   * - MILESTONE_APPROVED: applicant_name, call_name, milestone_name, next_milestone_name, dashboard_link
+   * - MILESTONE_REJECTED: applicant_name, call_name, milestone_name
+   * - WELCOME: applicant_name, dashboard_link
+   * 
+   * @param templateKey - Clave de la plantilla
+   * @returns Array de variables con name, description, required
+   */
   private getAvailableVariables(templateKey: string): Array<{name: string, description: string, required: boolean}> {
     const variables: Record<string, Array<{name: string, description: string, required: boolean}>> = {
       INVITE_APPLICANT: [
@@ -158,7 +209,17 @@ export class EmailTemplatesController {
     return variables[templateKey] || [];
   }
 
-  // PATCH /api/email/templates/:id - Actualizar template
+  /**
+   * PATCH /api/email/templates/:id
+   * 
+   * Actualiza una plantilla editable.
+   * Solo permite actualizar plantillas con is_editable = true.
+   * 
+   * @param id - UUID de la plantilla
+   * @param body - DTO con campos opcionales: key, name, subjectTemplate, bodyTemplate
+   * @returns Objeto con ok: true, updated: boolean
+   * @throws BadRequestException si no existe o no es editable
+   */
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateEmailTemplateDto) {
     // Verificar si la plantilla es editable
@@ -214,7 +275,19 @@ export class EmailTemplatesController {
     return { ok: true, updated: true };
   }
 
-  // POST /api/email/templates/:id/preview - Preview con datos de ejemplo
+  /**
+   * POST /api/email/templates/:id/preview
+   * 
+   * Genera preview de una plantilla con datos de ejemplo.
+   * 
+   * Modo 1: Si se envía body con bodyTemplate/subjectTemplate, renderiza esas plantillas
+   * Modo 2: Si no se envía body, renderiza la plantilla guardada en BD
+   * 
+   * @param id - UUID de la plantilla (se usa para obtener templateKey)
+   * @param body - Opcional: bodyTemplate y subjectTemplate custom para preview
+   * @returns Objeto con subject y body renderizados
+   * @throws BadRequestException si no existe la plantilla
+   */
   @Post(':id/preview')
   async preview(@Param('id') id: string, @Body() body?: { bodyTemplate?: string; subjectTemplate?: string }) {
     // Si se envía body con plantilla custom, renderizar esa

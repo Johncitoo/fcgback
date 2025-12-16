@@ -12,6 +12,18 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { Roles } from '../auth/roles.decorator';
 
+/**
+ * Controlador para gestión de postulantes (applicants).
+ * 
+ * Proporciona endpoints para:
+ * - Consultar información del postulante autenticado
+ * - Eliminar datos completos de un postulante (admin only)
+ * 
+ * Seguridad:
+ * - Requiere roles ADMIN o REVIEWER (excepto /me que requiere APPLICANT)
+ * - Validación de JWT en cada request
+ * - Transacciones para garantizar consistencia en eliminaciones
+ */
 @Controller('applicants')
 @Roles('ADMIN', 'REVIEWER')
 export class ApplicantsController {
@@ -23,6 +35,13 @@ export class ApplicantsController {
     private readonly dataSource: DataSource,
   ) {}
 
+  /**
+   * Extrae y valida el usuario desde el header Authorization.
+   * 
+   * @param req - Request HTTP con header Authorization
+   * @returns Payload JWT con sub (userId), role y typ
+   * @throws UnauthorizedException si el token es inválido o no existe
+   */
   private getUserFromAuth(req: any) {
     const hdr = req.headers?.authorization ?? '';
     const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
@@ -51,7 +70,18 @@ export class ApplicantsController {
 
   /**
    * GET /applicants/me
-   * Retorna información del applicant actual basado en el token JWT
+   * 
+   * Retorna información completa del postulante autenticado.
+   * 
+   * Flujo:
+   * 1. Valida token JWT
+   * 2. Obtiene user_id del token
+   * 3. Busca applicant_id asociado al user
+   * 4. Retorna datos completos del applicant (nombre, RUT, dirección, institución, etc.)
+   * 
+   * @param req - Request con token JWT en Authorization header
+   * @returns Objeto con datos del applicant: id, email, nombre, teléfono, RUT, fecha nacimiento, dirección, comuna, región, institution_id
+   * @throws UnauthorizedException si no es APPLICANT, no tiene applicant_id o no existe el registro
    */
   @Get('me')
   @Roles('APPLICANT')
@@ -105,8 +135,24 @@ export class ApplicantsController {
   }
 
   /**
-   * Endpoint de administración para eliminar TODOS los datos de un postulante por email
-   * Solo para testing/desarrollo
+   * DELETE /applicants/delete-by-email/:email
+   * 
+   * Elimina TODOS los datos de un postulante de forma irreversible.
+   * Endpoint administrativo para testing y limpieza.
+   * 
+   * Elimina en cascada (con transacción):
+   * 1. form_submissions de sus applications
+   * 2. milestone_progress de sus applications
+   * 3. applications del applicant
+   * 4. invites asociadas al email
+   * 5. sessions del usuario
+   * 6. user
+   * 7. applicant
+   * 
+   * @param email - Email del postulante a eliminar
+   * @param req - Request con token JWT de ADMIN
+   * @returns Objeto con mensaje, deleted flag y summary de registros eliminados
+   * @throws Error si la transacción falla (rollback automático)
    */
   @Delete('delete-by-email/:email')
   @Roles('ADMIN')
