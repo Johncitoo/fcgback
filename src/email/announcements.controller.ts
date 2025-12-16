@@ -31,8 +31,17 @@ export class AnnouncementsController {
   ) {}
 
   /**
+   * Envía avisos masivos a destinatarios según criterio.
+   * Soporta envío a todos los postulantes, hito específico, selección manual, email individual o instituciones.
+   * Valida cuota disponible antes de enviar.
+   * 
+   * @param dto - Configuración del envío (subject, message, recipientType, etc.)
+   * @returns Resumen de envío con total, exitosos y errores
+   * @throws {Error} Si faltan parámetros requeridos o cuota insuficiente
+   * 
+   * @example
    * POST /api/announcements/send
-   * Envía avisos masivos según criterio
+   * Body: { "subject": "Aviso", "message": "Texto", "recipientType": "all", "callId": "uuid" }
    */
   @Post('send')
   async sendAnnouncement(@Body() dto: SendAnnouncementDto) {
@@ -206,8 +215,17 @@ export class AnnouncementsController {
   }
 
   /**
+   * Obtiene la lista de destinatarios sin enviar emails.
+   * Útil para previsualizar quiénes recibirán el anuncio.
+   * 
+   * @param dto - Configuración de destinatarios (recipientType, callId, milestoneId, etc.)
+   * @returns Conteo y lista de destinatarios con id, email y nombre
+   * @throws {Error} Si faltan parámetros requeridos
+   * 
+   * @example
    * POST /api/announcements/preview
-   * Obtiene la lista de destinatarios sin enviar
+   * Body: { "recipientType": "all", "callId": "uuid" }
+   * Response: { "count": 50, "recipients": [{ "id": "uuid", "email": "...", "name": "..." }] }
    */
   @Post('preview')
   async previewRecipients(@Body() dto: RecipientPreviewDto) {
@@ -308,8 +326,14 @@ export class AnnouncementsController {
   }
 
   /**
-   * GET /api/announcements/applicants/:callId
-   * Obtiene lista de postulantes de una convocatoria
+   * Obtiene lista de postulantes de una convocatoria.
+   * Retorna solo postulantes con email válido.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array de postulantes ordenados por nombre
+   * 
+   * @example
+   * GET /api/announcements/applicants/uuid-call-123
    */
   @Get('applicants/:callId')
   async getApplicantsByCall(@Param('callId') callId: string) {
@@ -325,8 +349,14 @@ export class AnnouncementsController {
   }
 
   /**
-   * GET /api/announcements/milestones/:callId
-   * Obtiene lista de hitos de una convocatoria
+   * Obtiene lista de hitos de una convocatoria.
+   * Ordenados por orderIndex ascendente.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array de hitos con id, name, description y whoCanFill
+   * 
+   * @example
+   * GET /api/announcements/milestones/uuid-call-123
    */
   @Get('milestones/:callId')
   async getMilestonesByCall(@Param('callId') callId: string) {
@@ -340,6 +370,18 @@ export class AnnouncementsController {
     return milestones;
   }
 
+  /**
+   * Construye el HTML del email de anuncio con formato institucional.
+   * Incluye header con logo de fundación y footer con copyright.
+   * 
+   * @param recipientName - Nombre del destinatario
+   * @param subject - Asunto del email (no usado en el HTML)
+   * @param message - Mensaje del anuncio (saltos de línea convertidos a <br>)
+   * @returns HTML formateado del email
+   * 
+   * @example
+   * const html = this.buildAnnouncementEmail('Juan Pérez', 'Aviso', 'Mensaje de prueba');
+   */
   private buildAnnouncementEmail(recipientName: string, subject: string, message: string): string {
     return `
       <!DOCTYPE html>
