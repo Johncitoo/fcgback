@@ -43,9 +43,17 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  // ===== Helpers comunes =====
-
-  /** Firma un access token usando AUTH_JWT_* */
+  /**
+   * Firma un access token JWT para un usuario.
+   * Usa configuración AUTH_JWT_SECRET, AUTH_JWT_EXPIRES (default 900s).
+   * Incluye sub (user ID), role y typ='access' en el payload.
+   * 
+   * @param user - Usuario para generar el token
+   * @returns JWT firmado
+   * 
+   * @example
+   * const token = this.signAccessToken(user);
+   */
   private signAccessToken(user: User) {
     const iss = this.cfg.get<string>('AUTH_JWT_ISS');
     const aud = this.cfg.get<string>('AUTH_JWT_AUD');
@@ -65,7 +73,17 @@ export class AuthService {
     return this.jwt.sign(payload, options);
   }
 
-  /** Verifica un access token con AUTH_JWT_* (lanza 401 si es inválido) */
+  /**
+   * Verifica y decodifica un access token JWT.
+   * 
+   * @param token - JWT a verificar
+   * @returns Payload decodificado con sub, role y typ
+   * @throws {UnauthorizedException} Si el token es inválido o tipo incorrecto
+   * 
+   * @example
+   * const payload = verifyAccessToken('jwt.token.here');
+   * // { sub: 'uuid', role: 'APPLICANT', typ: 'access' }
+   */
   verifyAccessToken(token: string): AccessPayload {
     const secret = this.cfg.get<string>('AUTH_JWT_SECRET')!;
     const iss = this.cfg.get<string>('AUTH_JWT_ISS');
@@ -87,7 +105,16 @@ export class AuthService {
     return payload;
   }
 
-  /** Extrae y verifica el bearer token del header Authorization */
+  /**
+   * Extrae y verifica el bearer token del header Authorization.
+   * 
+   * @param authorization - Header Authorization (Bearer <token>)
+   * @returns Payload decodificado del JWT
+   * @throws {UnauthorizedException} Si falta el token o es inválido
+   * 
+   * @example
+   * const payload = getUserFromAuthHeader('Bearer jwt.token.here');
+   */
   getUserFromAuthHeader(authorization?: string): AccessPayload {
     if (!authorization?.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing bearer token');
@@ -105,6 +132,21 @@ export class AuthService {
 
   // ===== Flujos de autenticación Staff =====
 
+  /**
+   * Autentica un usuario STAFF (ADMIN o REVIEWER).
+   * Verifica credenciales, crea sesión y registra en auditoría.
+   * 
+   * @param email - Email del staff
+   * @param password - Contraseña en texto plano
+   * @param ip - IP del cliente opcional
+   * @param ua - User agent opcional
+   * @returns Tokens de acceso y refresh
+   * @throws {UnauthorizedException} Si credenciales inválidas
+   * @throws {ForbiddenException} Si el usuario está inactivo o no es staff
+   * 
+   * @example
+   * const tokens = await loginStaff('admin@example.com', 'password123', '127.0.0.1', 'Mozilla');
+   */
   async loginStaff(email: string, password: string, ip?: string, ua?: string) {
     // Verificar si la cuenta está bloqueada
     if (this.securityService.isAccountLocked(email, ip || '0.0.0.0')) {
@@ -176,6 +218,20 @@ export class AuthService {
     };
   }
 
+  /**
+   * Renueva un access token usando un refresh token válido.
+   * Valida la sesión y genera nuevos tokens.
+   * 
+   * @param refreshToken - Refresh token JWT
+   * @param ip - IP del cliente opcional
+   * @param ua - User agent opcional
+   * @returns Nuevos tokens de acceso y refresh
+   * @throws {UnauthorizedException} Si el refresh token es inválido
+   * @throws {ForbiddenException} Si la sesión fue revocada o el usuario inactivo
+   * 
+   * @example
+   * const newTokens = await refresh('refresh.token.jwt', '127.0.0.1', 'Mozilla');
+   */
   async refresh(refreshToken: string, ip?: string, ua?: string) {
     const pepper = this.cfg.get<string>('REFRESH_TOKEN_PEPPER') ?? '';
     if (!pepper) throw new Error('REFRESH_TOKEN_PEPPER not set');
@@ -218,6 +274,17 @@ export class AuthService {
     };
   }
 
+  /**
+   * Cierra sesión revocando el refresh token.
+   * Marca la sesión como revocada en la base de datos.
+   * 
+   * @param refreshToken - Refresh token JWT a revocar
+   * @returns Confirmación de logout
+   * @throws {UnauthorizedException} Si el refresh token es inválido
+   * 
+   * @example
+   * await logout('refresh.token.jwt');
+   */
   async logout(refreshToken: string) {
     const pepper = this.cfg.get<string>('REFRESH_TOKEN_PEPPER') ?? '';
     if (!pepper) return { ok: true };
@@ -232,6 +299,21 @@ export class AuthService {
 
   // ===== Login normal para postulantes (email + password) =====
 
+  /**
+   * Autentica un usuario APPLICANT (postulante).
+   * Verifica credenciales, crea sesión y registra en auditoría.
+   * 
+   * @param email - Email del postulante
+   * @param password - Contraseña en texto plano
+   * @param ip - IP del cliente opcional
+   * @param ua - User agent opcional
+   * @returns Tokens de acceso y refresh
+   * @throws {UnauthorizedException} Si credenciales inválidas
+   * @throws {ForbiddenException} Si el usuario está inactivo o no es applicant
+   * 
+   * @example
+   * const tokens = await loginApplicant('postulante@example.com', 'password123', '127.0.0.1', 'Mozilla');
+   */
   async loginApplicant(email: string, password: string, ip?: string, ua?: string) {
     const user = await this.users.findByEmail(email);
     if (!user) throw new UnauthorizedException('Credenciales inválidas');
@@ -345,6 +427,18 @@ export class AuthService {
    * Solicita recuperación de contraseña
    * Genera token y envía email
    */
+  /**
+   * Inicia el proceso de recuperación de contraseña.
+   * Genera un token de reseteo y envía email al usuario.
+   * 
+   * @param email - Email del usuario
+   * @returns Mensaje de confirmación
+   * @throws {NotFoundException} Si el email no existe
+   * 
+   * @example
+   * const result = await forgotPassword('user@example.com');
+   * // { message: 'Email enviado' }
+   */
   async forgotPassword(email: string): Promise<{ message: string }> {
     // Buscar usuario por email
     const user = await this.dataSource.query(
@@ -394,6 +488,17 @@ export class AuthService {
   /**
    * Valida un token de reset sin consumirlo
    */
+  /**
+   * Valida un token de reseteo de contraseña.
+   * Verifica que no haya expirado ni sido usado.
+   * 
+   * @param token - Token de reseteo
+   * @returns Objeto con valid y message
+   * 
+   * @example
+   * const result = await validateResetToken('reset.token.123');
+   * // { valid: true, message: 'Token válido' }
+   */
   async validateResetToken(token: string): Promise<{ valid: boolean; message: string }> {
     if (!token) {
       return { valid: false, message: 'Token requerido' };
@@ -420,6 +525,19 @@ export class AuthService {
 
   /**
    * Restablece la contraseña usando el token
+   */
+  /**
+   * Restablece la contraseña usando un token de reseteo válido.
+   * Marca el token como usado y actualiza la contraseña del usuario.
+   * 
+   * @param token - Token de reseteo
+   * @param newPassword - Nueva contraseña en texto plano (se hashea)
+   * @returns Mensaje de confirmación
+   * @throws {BadRequestException} Si el token es inválido o expiró
+   * 
+   * @example
+   * const result = await resetPassword('reset.token.123', 'NewSecurePass123!');
+   * // { message: 'Contraseña actualizada' }
    */
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
     if (!token || !newPassword) {
