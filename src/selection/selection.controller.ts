@@ -91,7 +91,7 @@ export class SelectionController {
     // Registrar en el historial
     await this.dataSource.query(
       `INSERT INTO application_status_history (application_id, from_status, to_status, actor_user_id, reason, created_at)
-       SELECT status, $1, $2, $3, NOW()
+       SELECT id, status, $1, $2, $3, NOW()
        FROM applications
        WHERE id = $4`,
       [status, userId, reason || `Decisión final: ${status}`, applicationId]
