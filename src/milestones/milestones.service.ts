@@ -37,6 +37,7 @@ export class MilestonesService {
     orderIndex: number;
     required?: boolean;
     whoCanFill?: string[];
+    startDate?: Date;
     dueDate?: Date;
     status?: string;
   }): Promise<Milestone> {
@@ -45,8 +46,8 @@ export class MilestonesService {
     
     // Usar SQL directo con parámetros (mismo patrón que update - probado y seguro)
     const result = await this.ds.query(
-      `INSERT INTO milestones (call_id, form_id, name, description, order_index, required, who_can_fill, due_date, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      `INSERT INTO milestones (call_id, form_id, name, description, order_index, required, who_can_fill, start_date, due_date, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
        RETURNING *`,
       [
         data.callId,
@@ -56,6 +57,7 @@ export class MilestonesService {
         data.orderIndex,
         data.required !== undefined ? data.required : true,
         whoCanFillArray,  // PostgreSQL maneja el array automáticamente con $7
+        data.startDate || null,
         data.dueDate || null,
         data.status || 'ACTIVE'
       ]

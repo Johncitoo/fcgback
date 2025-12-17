@@ -34,6 +34,9 @@ export class Milestone {
   @Column({ type: 'simple-array', default: 'APPLICANT', name: 'who_can_fill' })
   whoCanFill: string[];
 
+  @Column({ type: 'timestamptz', nullable: true, name: 'start_date' })
+  startDate: Date;
+
   @Column({ type: 'timestamptz', nullable: true, name: 'due_date' })
   dueDate: Date;
 
