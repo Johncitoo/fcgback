@@ -170,7 +170,7 @@ export class AdminCreationService {
       const sent = await this.emailService.sendEmail({
         to: adminEmail,
         subject,
-        html,
+        htmlContent: html,
       });
 
       if (sent) {
