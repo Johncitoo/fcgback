@@ -4,7 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
-import { AdminUsersController } from './admin-users.controller';
+import { AdminUsersController, AdminApplicantsController } from './admin-users.controller';
 import { UserAuthController } from './user-auth.controller';
 import { AdminManagementController } from './admin-management.controller';
 import { User } from './entities/user.entity';
@@ -30,6 +30,7 @@ import { EmailModule } from '../email/email.module';
   controllers: [
     UsersController,
     AdminUsersController,
+    AdminApplicantsController,
     UserAuthController,
     AdminManagementController,
     ReviewerManagementController,

@@ -357,3 +357,51 @@ Si no solicitaste esto, ignora este correo.
     return { ok: true, deleted: true };
   }
 }
+
+/**
+ * Controller para administración de applicants por parte de ADMIN.
+ * 
+ * @path /admin/applicants
+ * @roles ADMIN, REVIEWER
+ */
+@Controller('admin/applicants')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN', 'REVIEWER')
+export class AdminApplicantsController {
+  constructor(private ds: DataSource) {}
+
+  // GET /api/admin/applicants/:id - Obtener applicant por ID
+  @Get(':id')
+  async getById(@Param('id') id: string) {
+    const result = await this.ds.query(
+      `SELECT 
+        a.id,
+        a.rut_number as "rutNumber",
+        a.rut_dv as "rutDv",
+        a.first_name as "firstName",
+        a.last_name as "lastName",
+        a.full_name as "fullName",
+        a.birth_date as "birthDate",
+        a.email,
+        a.phone,
+        a.address,
+        a.commune,
+        a.region,
+        a.institution_id as "institutionId",
+        a.created_at as "createdAt",
+        a.updated_at as "updatedAt",
+        i.name as "institutionName",
+        i.commune as "institutionCommune"
+       FROM applicants a
+       LEFT JOIN institutions i ON i.id = a.institution_id
+       WHERE a.id = $1`,
+      [id],
+    );
+
+    if (!result || result.length === 0) {
+      throw new BadRequestException('Applicant not found');
+    }
+
+    return result[0];
+  }
+}
