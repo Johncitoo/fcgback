@@ -37,8 +37,12 @@ export class SupportMessagesService {
 
   /**
    * Crea un nuevo mensaje de soporte desde un postulante.
+   * Guarda en BD y envía email a todos los administradores.
    */
   async create(dto: CreateSupportMessageDto): Promise<SupportMessage> {
+    this.logger.log(`📨 Nuevo mensaje de soporte de ${dto.applicantEmail}: ${dto.subject}`);
+
+    // Guardar mensaje en base de datos
     const result = await this.dataSource.query(
       `INSERT INTO support_messages 
        (application_id, applicant_email, subject, message, status, created_at)
@@ -47,12 +51,57 @@ export class SupportMessagesService {
       [dto.applicationId, dto.applicantEmail, dto.subject, dto.message]
     );
 
-    this.logger.log(
-      `📨 Nuevo mensaje de soporte de ${dto.applicantEmail} - ` +
-      `Asunto: "${dto.subject}" (App: ${dto.applicationId})`
+    const message = result[0];
+
+    // Obtener todos los administradores activos
+    const admins = await this.dataSource.query(
+      `SELECT email, full_name FROM users WHERE role = 'ADMIN' AND is_active = true`
     );
 
-    return this.mapToSupportMessage(result[0]);
+    if (admins.length > 0) {
+      this.logger.log(`📧 Enviando notificación a ${admins.length} administrador(es)`);
+
+      // Enviar email a cada administrador
+      const emailPromises = admins.map(admin => {
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">🆘 Nueva Solicitud de Ayuda</h2>
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>De:</strong> ${dto.applicantEmail}</p>
+              <p><strong>ID Postulación:</strong> ${dto.applicationId}</p>
+              <p><strong>Asunto:</strong> ${dto.subject}</p>
+            </div>
+            <div style="background: white; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h3 style="margin-top: 0;">Mensaje:</h3>
+              <p style="white-space: pre-wrap;">${dto.message}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+              Este es un mensaje automático del sistema de postulaciones.<br>
+              Por favor, contacta directamente al postulante para ayudarle.
+            </p>
+          </div>
+        `;
+
+        return this.emailService.sendEmail(
+          {
+            to: admin.email,
+            subject: `🆘 Solicitud de ayuda: ${dto.subject}`,
+            htmlContent,
+          },
+          EmailCategory.TRANSACTIONAL
+        ).catch(error => {
+          this.logger.error(`❌ Error enviando email a ${admin.email}: ${error.message}`);
+          return false;
+        });
+      });
+
+      await Promise.all(emailPromises);
+      this.logger.log(`✅ Notificaciones enviadas a administradores`);
+    } else {
+      this.logger.warn(`⚠️ No hay administradores activos para notificar`);
+    }
+
+    return this.mapToSupportMessage(message);
   }
 
   /**
