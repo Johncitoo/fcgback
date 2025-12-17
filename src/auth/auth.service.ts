@@ -548,7 +548,17 @@ export class AuthService {
       throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
     }
 
-    // Primero intentar buscar en password_change_tokens (botón "Cambiar contraseña" del menú)
+    // Primero verificar si el token ya fue usado en password_change_tokens
+    const usedChangeToken = await this.dataSource.query(
+      `SELECT pct.id FROM password_change_tokens pct WHERE pct.token = $1 AND pct.used = true LIMIT 1`,
+      [token],
+    );
+
+    if (usedChangeToken && usedChangeToken.length > 0) {
+      throw new BadRequestException('Este enlace ya fue utilizado. Por seguridad, cada enlace solo puede usarse una vez. Solicita un nuevo cambio de contraseña desde tu cuenta.');
+    }
+
+    // Buscar token válido en password_change_tokens (botón "Cambiar contraseña" del menú)
     const changeTokenResult = await this.dataSource.query(
       `SELECT pct.id, pct.user_id, u.email, u.full_name, 'change' as token_type
        FROM password_change_tokens pct
@@ -566,6 +576,16 @@ export class AuthService {
     if (!resetData) {
       // Hash del token para buscar en password_resets
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+      // Verificar si ya fue usado
+      const usedForgotToken = await this.dataSource.query(
+        `SELECT pr.id FROM password_resets pr WHERE pr.token_hash = $1 AND pr.used_at IS NOT NULL LIMIT 1`,
+        [tokenHash],
+      );
+
+      if (usedForgotToken && usedForgotToken.length > 0) {
+        throw new BadRequestException('Este enlace ya fue utilizado. Por seguridad, cada enlace solo puede usarse una vez. Solicita un nuevo restablecimiento de contraseña.');
+      }
 
       const forgotResult = await this.dataSource.query(
         `SELECT pr.id, pr.user_id, u.email, u.full_name, 'forgot' as token_type
