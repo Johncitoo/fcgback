@@ -5,6 +5,7 @@ import { AdminVerificationCode } from './entities/admin-verification-code.entity
 import { User } from './entities/user.entity';
 import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from '../email/email.service';
 
 /**
  * Servicio para gestionar creación de usuarios admin con verificación 2FA.
@@ -33,6 +34,7 @@ export class AdminCreationService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly config: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -103,8 +105,7 @@ export class AdminCreationService {
   /**
    * Envía email con código de verificación al admin solicitante.
    * 
-   * TODO: Integrar con servicio de emails (Brevo).
-   * Por ahora solo registra en logs.
+   * Usa EmailService integrado con Brevo para envío real.
    * 
    * @param adminEmail - Email del admin solicitante
    * @param code - Código de 6 dígitos
@@ -115,17 +116,73 @@ export class AdminCreationService {
     code: string,
     newAdminEmail: string,
   ): Promise<void> {
-    // TODO: Integrar con servicio de emails existente
-    // Por ahora solo log para desarrollo
-    this.logger.warn(
-      `[DESARROLLO] Código de verificación para ${adminEmail}: ${code}`,
-    );
-    this.logger.warn(
-      `Email a enviar: "Tu código para crear admin ${newAdminEmail} es: ${code}. Expira en 10 minutos."`,
-    );
+    try {
+      const subject = 'Código de verificación - Creación de administrador';
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
+            .code-box { background: white; border: 2px solid #0ea5e9; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0; }
+            .code { font-size: 32px; font-weight: bold; color: #0ea5e9; letter-spacing: 8px; font-family: monospace; }
+            .info { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+            .footer { text-align: center; padding: 20px; color: #64748b; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0;">🔐 Código de Verificación</h1>
+            </div>
+            <div class="content">
+              <p>Hola,</p>
+              <p>Has solicitado crear un nuevo usuario administrador con el siguiente email:</p>
+              <p style="font-weight: bold; color: #0ea5e9; font-size: 16px;">📧 ${newAdminEmail}</p>
+              
+              <p>Para confirmar esta acción, ingresa el siguiente código de verificación:</p>
+              
+              <div class="code-box">
+                <div class="code">${code}</div>
+              </div>
+              
+              <div class="info">
+                <strong>⏱️ Importante:</strong> Este código expira en <strong>10 minutos</strong>.
+              </div>
+              
+              <p style="color: #64748b; font-size: 14px;">
+                Si no solicitaste esta acción, ignora este email. El código expirará automáticamente.
+              </p>
+            </div>
+            <div class="footer">
+              <p>Fundación Carmen Goudie - Sistema de Gestión</p>
+              <p style="font-size: 12px;">Este es un email automático, por favor no responder.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
 
-    // En producción, usar el servicio de emails:
-    // await this.emailService.sendAdminVerificationCode(adminEmail, code, newAdminEmail);
+      const sent = await this.emailService.sendEmail({
+        to: adminEmail,
+        subject,
+        html,
+      });
+
+      if (sent) {
+        this.logger.log(`✅ Email enviado a ${adminEmail} con código de verificación`);
+      } else {
+        this.logger.error(`❌ Fallo al enviar email a ${adminEmail}`);
+      }
+    } catch (error) {
+      this.logger.error(`Error enviando email de verificación:`, error);
+      // No lanzar excepción para no bloquear el flujo
+      // El código sigue siendo válido aunque falle el email
+    }
   }
 
   /**
