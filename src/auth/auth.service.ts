@@ -596,15 +596,25 @@ export class AuthService {
 
     // Marcar token como usado según el tipo
     if (resetData.token_type === 'change') {
-      await this.dataSource.query(
+      const updateResult = await this.dataSource.query(
         `UPDATE password_change_tokens SET used = true WHERE id = $1`,
         [resetData.id],
       );
+      console.log('🔐 Token de cambio de contraseña marcado como usado:', {
+        tokenId: resetData.id,
+        userId: resetData.user_id,
+        affectedRows: updateResult[1],
+      });
     } else {
-      await this.dataSource.query(
+      const updateResult = await this.dataSource.query(
         `UPDATE password_resets SET used_at = NOW() WHERE id = $1`,
         [resetData.id],
       );
+      console.log('🔐 Token de reset marcado como usado:', {
+        tokenId: resetData.id,
+        userId: resetData.user_id,
+        affectedRows: updateResult[1],
+      });
     }
 
     // Invalidar todas las sesiones del usuario por seguridad
