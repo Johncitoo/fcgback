@@ -72,9 +72,10 @@ export class FormSubmissionsService {
       this.logger.log(`Creating submission for app ${data.applicationId}, milestone ${data.milestoneId}`);
       
       // VALIDACIÓN DE LINEALIDAD: Verificar que el hito esté IN_PROGRESS
+      // EXCEPCIÓN: ADMINS pueden completar hitos con who_can_fill=['ADMIN'] sin validar linealidad
       if (data.milestoneId) {
         const progressCheck = await this.dataSource.query(
-          `SELECT mp.status, mp.milestone_id, m.due_date, m.order_index
+          `SELECT mp.status, mp.milestone_id, m.due_date, m.order_index, m.who_can_fill
            FROM milestone_progress mp
            INNER JOIN milestones m ON m.id = mp.milestone_id
            WHERE mp.application_id = $1 AND mp.milestone_id = $2`,
@@ -83,13 +84,19 @@ export class FormSubmissionsService {
         
         if (progressCheck && progressCheck.length > 0) {
           const progress = progressCheck[0];
+          const whoCanFill = progress.who_can_fill || [];
           
-          // Validar que el hito esté IN_PROGRESS (linealidad)
-          if (progress.status !== 'IN_PROGRESS' && progress.status !== 'COMPLETED') {
-            throw new Error('Este hito no está disponible. Solo puedes completar el hito actual.');
+          // Si es ADMIN y el hito permite ADMIN, saltar validación de linealidad
+          const isAdminMilestone = whoCanFill.includes('ADMIN') && userRole === 'ADMIN';
+          
+          if (!isAdminMilestone) {
+            // Validar que el hito esté IN_PROGRESS (linealidad)
+            if (progress.status !== 'IN_PROGRESS' && progress.status !== 'COMPLETED') {
+              throw new Error('Este hito no está disponible. Solo puedes completar el hito actual.');
+            }
           }
           
-          // Validar fecha límite
+          // Validar fecha límite (aplica para todos)
           if (progress.due_date) {
             const dueDate = new Date(progress.due_date);
             const now = new Date();

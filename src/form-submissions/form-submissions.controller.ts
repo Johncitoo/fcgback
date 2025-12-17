@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Req } from '@nestjs/common';
 import { FormSubmissionsService } from './form-submissions.service';
 import { Roles } from '../auth/roles.decorator';
 import { CreateFormSubmissionDto } from './dto/create-form-submission.dto';
@@ -37,8 +37,9 @@ export class FormSubmissionsController {
    */
   @Post()
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
-  create(@Body() data: CreateFormSubmissionDto) {
-    return this.submissionsService.create(data);
+  create(@Body() data: CreateFormSubmissionDto, @Req() req: any) {
+    const userRole = req.user?.role;
+    return this.submissionsService.create(data, userRole);
   }
 
   /**

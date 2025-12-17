@@ -9,7 +9,9 @@ import { ReviewMilestoneDto } from './dto/review-milestone.dto';
 @Controller('milestones')
 @Roles('ADMIN', 'REVIEWER')
 export class MilestonesController {
-  constructor(private milestonesService: MilestonesService) {}
+  constructor(
+    private milestonesService: MilestonesService,
+  ) {}
 
   /**
    * Crea un nuevo hito para una convocatoria.
