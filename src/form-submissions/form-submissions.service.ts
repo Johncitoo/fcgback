@@ -71,6 +71,35 @@ export class FormSubmissionsService {
       
       this.logger.log(`Creating submission for app ${data.applicationId}, milestone ${data.milestoneId}`);
       
+      // VALIDACIÓN DE LINEALIDAD: Verificar que el hito esté IN_PROGRESS
+      if (data.milestoneId) {
+        const progressCheck = await this.dataSource.query(
+          `SELECT mp.status, mp.milestone_id, m.due_date, m.order_index
+           FROM milestone_progress mp
+           INNER JOIN milestones m ON m.id = mp.milestone_id
+           WHERE mp.application_id = $1 AND mp.milestone_id = $2`,
+          [data.applicationId, data.milestoneId]
+        );
+        
+        if (progressCheck && progressCheck.length > 0) {
+          const progress = progressCheck[0];
+          
+          // Validar que el hito esté IN_PROGRESS (linealidad)
+          if (progress.status !== 'IN_PROGRESS' && progress.status !== 'COMPLETED') {
+            throw new Error('Este hito no está disponible. Solo puedes completar el hito actual.');
+          }
+          
+          // Validar fecha límite
+          if (progress.due_date) {
+            const dueDate = new Date(progress.due_date);
+            const now = new Date();
+            if (now > dueDate) {
+              throw new Error('La fecha límite para este hito ha expirado. No se pueden enviar más formularios.');
+            }
+          }
+        }
+      }
+      
       const submission = this.submissionsRepo.create(normalizedData);
       const saved = await this.submissionsRepo.save(submission);
       

@@ -295,7 +295,7 @@ export class MilestonesService {
       }
     }
 
-    // Si se rechaza, cambiar el estado y bloquear hitos siguientes
+    // Si se rechaza, cambiar el estado pero mantener el postulante en ese hito (no avanzar)
     if (reviewStatus === 'REJECTED') {
       progress.status = 'REJECTED';
       
@@ -305,18 +305,9 @@ export class MilestonesService {
       });
 
       if (milestone) {
-        // Bloquear todos los hitos siguientes (orderIndex mayor)
-        await this.ds.query(
-          `UPDATE milestone_progress mp
-           SET status = 'REJECTED', review_status = 'REJECTED', review_notes = 'Bloqueado por rechazo de hito anterior'
-           FROM milestones m
-           WHERE mp.milestone_id = m.id
-           AND mp.application_id = $1
-           AND m.call_id = $2
-           AND m.order_index > $3
-           AND mp.status NOT IN ('COMPLETED', 'REJECTED')`,
-          [progress.applicationId, milestone.callId, milestone.orderIndex],
-        );
+        // NO bloqueamos los hitos siguientes - el postulante queda en este hito rechazado
+        // Esto permite que los administradores vean en qué etapa fue rechazado el postulante
+        // Los hitos siguientes permanecen en PENDING y no serán accesibles hasta que este sea aprobado
         
         // Enviar email de rechazo (ÚLTIMO EMAIL - no más notificaciones)
         this.sendMilestoneRejectedEmail(progress.applicationId, milestone).catch(err => {
