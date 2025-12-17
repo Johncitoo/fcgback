@@ -13,7 +13,8 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { SupportMessagesService, CreateSupportMessageDto } from './support-messages.service';
+import { SupportMessagesService } from './support-messages.service';
+import type { CreateSupportMessageDto } from './support-messages.service';
 
 /**
  * Controlador para mensajes de soporte/ayuda de postulantes.
