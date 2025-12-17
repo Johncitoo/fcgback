@@ -263,6 +263,12 @@ export class MilestonesService {
     reviewedBy: string,
     reviewNotes?: string,
   ): Promise<MilestoneProgress> {
+    this.logger.log(
+      `🔍 reviewMilestone() llamado - ProgressID: ${progressId}, ` +
+      `ReviewStatus: ${reviewStatus}, ReviewedBy: ${reviewedBy}, ` +
+      `Versión: v2.0-BLOQUEO-CASCADA`
+    );
+    
     const progress = await this.progressRepo.findOne({
       where: { id: progressId },
     });
