@@ -71,11 +71,16 @@ export class SelectionController {
   @Roles('ADMIN')
   async setFinalDecision(
     @Param('applicationId') applicationId: string,
-    @Body() body: { status: 'SELECTED' | 'NOT_SELECTED'; reason?: string; notes?: string },
+    @Body() body: { status?: 'SELECTED' | 'NOT_SELECTED'; decision?: 'SELECTED' | 'NOT_SELECTED'; reason?: string; notes?: string },
     @Req() req: any
   ) {
-    const { status, reason, notes } = body;
+    const status = body.decision || body.status; // Soportar ambos nombres
+    const { reason, notes } = body;
     const userId = req.user?.id;
+    
+    if (!status) {
+      throw new Error('Se requiere decision o status');
+    }
 
     // Actualizar status de la application
     await this.dataSource.query(
