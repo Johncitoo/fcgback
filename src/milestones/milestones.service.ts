@@ -173,6 +173,15 @@ export class MilestonesService {
    * const progress = await getProgress('uuid-app');
    */
   async getProgress(applicationId: string): Promise<any> {
+    // Obtener información de la application
+    const application = await this.ds.query(
+      `SELECT status, submitted_at FROM applications WHERE id = $1`,
+      [applicationId]
+    );
+
+    const appStatus = application[0]?.status || 'DRAFT';
+    const isRejected = appStatus === 'NOT_SELECTED';
+
     const progress = await this.progressRepo
       .createQueryBuilder('mp')
       .innerJoin('milestones', 'm', 'm.id = mp.milestone_id')
@@ -202,14 +211,20 @@ export class MilestonesService {
 
     const total = progress.length;
     const completed = progress.filter((p) => p.status === 'COMPLETED').length;
+    const blocked = progress.filter((p) => p.status === 'BLOCKED').length;
     const current = progress.find((p) => p.status === 'IN_PROGRESS');
+    const rejectedMilestone = progress.find((p) => p.reviewStatus === 'REJECTED');
 
     return {
       progress,
+      applicationStatus: appStatus,
+      isRejected,
+      rejectedMilestone: rejectedMilestone || null,
       summary: {
         total,
         completed,
-        pending: total - completed,
+        blocked,
+        pending: total - completed - blocked,
         percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
         currentMilestone: current || null,
       },
@@ -306,11 +321,47 @@ export class MilestonesService {
       });
 
       if (milestone) {
-        // NO bloqueamos los hitos siguientes - el postulante queda en este hito rechazado
-        // Esto permite que los administradores vean en qué etapa fue rechazado el postulante
-        // Los hitos siguientes permanecen en PENDING y no serán accesibles hasta que este sea aprobado
+        // BLOQUEAR LA POSTULACIÓN COMPLETA
+        // 1. Cambiar estado de la application a NOT_SELECTED (rechazada)
+        await this.ds.query(
+          `UPDATE applications 
+           SET status = 'NOT_SELECTED', updated_at = NOW()
+           WHERE id = $1`,
+          [progress.applicationId]
+        );
+
+        // 2. Bloquear todos los hitos siguientes (status = BLOCKED)
+        await this.ds.query(
+          `UPDATE milestone_progress mp
+           SET status = 'BLOCKED'
+           FROM milestones m
+           WHERE mp.milestone_id = m.id
+           AND mp.application_id = $1
+           AND m.call_id = $2
+           AND m.order_index > $3
+           AND mp.status IN ('PENDING', 'IN_PROGRESS')`,
+          [progress.applicationId, milestone.callId, milestone.orderIndex]
+        );
+
+        // 3. Registrar en el historial de estados
+        await this.ds.query(
+          `INSERT INTO application_status_history 
+           (application_id, from_status, to_status, actor_user_id, reason, created_at)
+           SELECT $1, status, 'NOT_SELECTED', $2, $3, NOW()
+           FROM applications WHERE id = $1`,
+          [
+            progress.applicationId, 
+            reviewedBy, 
+            `Rechazado en hito: ${milestone.name}. Notas: ${reviewNotes || 'Sin notas adicionales'}`
+          ]
+        );
+
+        this.logger.warn(
+          `❌ Postulación ${progress.applicationId} RECHAZADA en hito "${milestone.name}". ` +
+          `Todos los hitos siguientes han sido bloqueados.`
+        );
         
-        // Enviar email de rechazo (ÚLTIMO EMAIL - no más notificaciones)
+        // Enviar email de rechazo (ÚLTIMO EMAIL - proceso terminado)
         this.sendMilestoneRejectedEmail(progress.applicationId, milestone).catch(err => {
           this.logger.error(`Error enviando email de rechazo: ${err.message}`);
         });
