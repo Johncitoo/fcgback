@@ -10,6 +10,7 @@ import { AdminManagementController } from './admin-management.controller';
 import { User } from './entities/user.entity';
 import { AdminVerificationCode } from './entities/admin-verification-code.entity';
 import { AdminCreationService } from './admin-creation.service';
+import { Admin2FAService } from './admin-2fa.service';
 import { EmailModule } from '../email/email.module';
 
 @Module({
@@ -25,7 +26,7 @@ import { EmailModule } from '../email/email.module';
     UserAuthController,
     AdminManagementController,
   ],
-  providers: [UsersService, AdminCreationService],
+  providers: [UsersService, AdminCreationService, Admin2FAService],
   exports: [UsersService],
 })
 export class UsersModule {}
