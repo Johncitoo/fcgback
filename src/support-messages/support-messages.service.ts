@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
-
+import { DataSource } from 'typeorm';import { EmailService, EmailCategory } from '../email/email.service';
+import { UsersService } from '../users/users.service';
 export interface CreateSupportMessageDto {
   applicationId: string;
   applicantEmail: string;
@@ -29,7 +29,11 @@ export interface SupportMessage {
 export class SupportMessagesService {
   private readonly logger = new Logger(SupportMessagesService.name);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private emailService: EmailService,
+    private usersService: UsersService,
+  ) {}
 
   /**
    * Crea un nuevo mensaje de soporte desde un postulante.
