@@ -15,7 +15,8 @@ import * as argon2 from 'argon2';
 import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { CurrentUser, JwtPayload } from '../auth/current-user.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { JwtPayload } from '../auth/current-user.decorator';
 import { Admin2FAService } from './admin-2fa.service';
 import { EmailService, EmailCategory } from '../email/email.service';
 
