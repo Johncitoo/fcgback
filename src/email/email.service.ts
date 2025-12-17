@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { TemplateRendererService, TemplateVariables } from './template-renderer.service';
+import { AuditService } from '../common/audit.service';
 
 /**
  * Opciones para envío de email individual.
@@ -98,6 +99,7 @@ export class EmailService {
     private readonly config: ConfigService,
     private readonly dataSource: DataSource,
     private readonly templateRenderer: TemplateRendererService,
+    private readonly auditService: AuditService,
   ) {
     // Account 1 - Transactional
     this.brevoApiKey1 = this.config.get<string>('BREVO_API_KEY_1') || this.config.get<string>('BREVO_API_KEY') || '';
@@ -321,14 +323,40 @@ export class EmailService {
       if (!response.ok) {
         const errorText = await response.text();
         this.logger.error(`[${accountName}] Error al enviar email: ${errorText}`);
+        // Registrar en auditoría el fallo
+        await this.auditService.logEmailSent(
+          options.to,
+          null,
+          category,
+          false,
+          { subject: options.subject, error: errorText },
+        );
         return false;
       }
 
       await this.incrementCounter(category);
       this.logger.log(`✅ [${accountName}] Email enviado a: ${options.to}`);
+      
+      // Registrar en auditoría el envío exitoso
+      await this.auditService.logEmailSent(
+        options.to,
+        null,
+        category,
+        true,
+        { subject: options.subject },
+      );
+      
       return true;
     } catch (error) {
       this.logger.error(`[${accountName}] Error al enviar email: ${error}`);
+      // Registrar en auditoría el fallo
+      await this.auditService.logEmailSent(
+        options.to,
+        null,
+        category,
+        false,
+        { subject: options.subject, error: String(error) },
+      );
       return false;
     }
   }

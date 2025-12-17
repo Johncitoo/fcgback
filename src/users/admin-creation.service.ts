@@ -6,6 +6,7 @@ import { User } from './entities/user.entity';
 import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../email/email.service';
+import { AuditService } from '../common/audit.service';
 
 /**
  * Servicio para gestionar creación de usuarios admin con verificación 2FA.
@@ -35,6 +36,7 @@ export class AdminCreationService {
     private readonly userRepo: Repository<User>,
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -327,6 +329,14 @@ export class AdminCreationService {
     // Marcar código como usado
     verification.used = true;
     await this.verificationRepo.save(verification);
+
+    // Registrar creación en auditoría
+    await this.auditService.logUserCreated(
+      newAdmin.id,
+      'ADMIN',
+      newAdmin.email,
+      requesterId, // El admin que solicitó la creación
+    );
 
     // Enviar email de bienvenida con credenciales
     await this.sendWelcomeEmail(

@@ -228,4 +228,60 @@ export class AuditService {
 
     return { data, total };
   }
+
+  /**
+   * Registra el envío de un email en el log de auditoría.
+   * 
+   * @param toAddress - Dirección de email destino
+   * @param templateKey - Clave de la plantilla usada (opcional)
+   * @param category - Categoría del email (TRANSACTIONAL o MASS)
+   * @param success - Si el envío fue exitoso o falló
+   * @param meta - Información adicional (subject, error, etc.)
+   */
+  async logEmailSent(
+    toAddress: string,
+    templateKey: string | null,
+    category: string,
+    success: boolean,
+    meta?: Record<string, any>,
+  ): Promise<void> {
+    return this.log({
+      action: success ? 'EMAIL_SENT' : 'EMAIL_FAILED',
+      entity: 'email',
+      entityId: toAddress,
+      meta: {
+        templateKey,
+        category,
+        timestamp: new Date().toISOString(),
+        ...meta,
+      },
+    });
+  }
+
+  /**
+   * Registra la creación de un nuevo usuario (postulante, admin o revisor).
+   * 
+   * @param userId - ID del usuario creado
+   * @param role - Rol del usuario (APPLICANT, ADMIN, REVIEWER)
+   * @param email - Email del usuario
+   * @param actorId - ID del usuario que creó este usuario (opcional)
+   */
+  async logUserCreated(
+    userId: string,
+    role: string,
+    email: string,
+    actorId?: string,
+  ): Promise<void> {
+    return this.log({
+      actorUserId: actorId || null,
+      action: 'USER_CREATED',
+      entity: 'user',
+      entityId: userId,
+      meta: {
+        role,
+        email,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
 }

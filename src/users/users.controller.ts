@@ -17,6 +17,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Roles } from '../auth/roles.decorator';
+import { AuditService } from '../common/audit.service';
 
 /**
  * Controller para gestión de usuarios postulantes (applicants).
@@ -44,6 +45,7 @@ export class UsersController {
     private ds: DataSource,
     private jwt: JwtService,
     private cfg: ConfigService,
+    private auditService: AuditService,
   ) {}
 
   /**
@@ -317,6 +319,14 @@ export class UsersController {
     await this.ds.query(
       `UPDATE users SET applicant_id = $1 WHERE id = $2`,
       [applicantId, user.id],
+    );
+
+    // Registrar creación en auditoría (el actorId vendrá del contexto del request)
+    await this.auditService.logUserCreated(
+      user.id,
+      'APPLICANT',
+      user.email,
+      undefined, // TODO: extraer actorId del request context
     );
 
     // Si se proporciona call_id, crear automáticamente una application

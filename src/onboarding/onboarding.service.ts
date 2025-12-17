@@ -254,6 +254,13 @@ export class OnboardingService {
 
         user = userResult[0];
         this.logger.log(`Nuevo usuario creado: ${user.id} para applicant: ${applicantId}`);
+        
+        // Registrar creación en auditoría
+        await this.auditService.logUserCreated(
+          user.id,
+          'APPLICANT',
+          finalEmail,
+        );
       }
 
       // Vincular invitación con applicant y marcar como redimido INMEDIATAMENTE
