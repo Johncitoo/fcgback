@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Logger } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { Public } from '../auth/public.decorator';
 import { SupportMessagesService } from './support-messages.service';
 
 /**
@@ -12,6 +13,7 @@ import { SupportMessagesService } from './support-messages.service';
  * Usa ruta separada 'public-contact' para evitar conflictos con support-messages protegido.
  */
 @Controller('public-contact')
+@Public()
 export class PublicContactController {
   private readonly logger = new Logger(PublicContactController.name);
 
