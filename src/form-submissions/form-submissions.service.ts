@@ -52,6 +52,7 @@ export class FormSubmissionsService {
    *   - milestoneId: ID del hito (opcional)
    *   - answers: Respuestas del formulario (opcional)
    *   - responses: Alias de answers (opcional)
+   * @param userRole - Rol del usuario autenticado (ADMIN, REVIEWER, APPLICANT)
    * @returns Submission creada
    */
   async create(data: {
@@ -60,7 +61,7 @@ export class FormSubmissionsService {
     milestoneId?: string;
     answers?: Record<string, any>;
     responses?: Record<string, any>;
-  }): Promise<FormSubmission> {
+  }, userRole?: string): Promise<FormSubmission> {
     try {
       // Normalizar: 'responses' es un alias de 'answers' (compatibilidad)
       const normalizedData = { ...data };
