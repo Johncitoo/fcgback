@@ -10,11 +10,18 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PasswordChangeService } from './password-change.service';
 
 class ChangePasswordDto {
+  @IsString()
+  @IsNotEmpty()
   token: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8)
   newPassword: string;
 }
 
