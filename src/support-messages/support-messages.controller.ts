@@ -17,10 +17,9 @@ import { SupportMessagesService } from './support-messages.service';
 import type { CreateSupportMessageDto } from './support-messages.service';
 
 /**
- * Controlador para mensajes de soporte/ayuda de postulantes.
+ * Controlador para mensajes de soporte/ayuda de postulantes (requiere autenticación).
  * 
  * Endpoints:
- * - POST /api/support-messages/contact - Contacto público sin autenticación
  * - POST /api/support-messages - Crear nuevo mensaje (APPLICANT, REVIEWER, ADMIN)
  * - GET /api/support-messages - Listar todos (ADMIN)
  * - GET /api/support-messages/application/:id - Mensajes de una app (ADMIN)
@@ -31,20 +30,6 @@ export class SupportMessagesController {
   private readonly logger = new Logger(SupportMessagesController.name);
 
   constructor(private readonly supportMessagesService: SupportMessagesService) {}
-
-  /**
-   * Endpoint público para contacto desde login (sin autenticación).
-   * Para personas que necesitan ayuda antes de iniciar sesión.
-   */
-  @Post('contact')
-  async createContact(@Body() body: { fullName: string; email: string; subject: string; message: string }) {
-    this.logger.log(
-      `📧 Mensaje de contacto público de ${body.fullName} (${body.email}) - ` +
-      `Asunto: "${body.subject}"`
-    );
-    
-    return this.supportMessagesService.createPublicContact(body);
-  }
 
   /**
    * Crea un nuevo mensaje de soporte (requiere autenticación).
