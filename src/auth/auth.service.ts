@@ -548,26 +548,42 @@ export class AuthService {
       throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
     }
 
-    // Hash del token para buscar en BD
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Buscar token válido (no usado y no expirado)
-    const result = await this.dataSource.query(
-      `SELECT pr.id, pr.user_id, u.email, u.full_name
-       FROM password_resets pr
-       JOIN users u ON u.id = pr.user_id
-       WHERE pr.token_hash = $1
-         AND pr.used_at IS NULL
-         AND pr.expires_at > NOW()
+    // Primero intentar buscar en password_change_tokens (botón "Cambiar contraseña" del menú)
+    const changeTokenResult = await this.dataSource.query(
+      `SELECT pct.id, pct.user_id, u.email, u.full_name, 'change' as token_type
+       FROM password_change_tokens pct
+       JOIN users u ON u.id = pct.user_id
+       WHERE pct.token = $1
+         AND pct.used = false
+         AND pct.expires_at > NOW()
        LIMIT 1`,
-      [tokenHash],
+      [token],
     );
 
-    if (!result || result.length === 0) {
-      throw new BadRequestException('Token inválido o expirado');
+    // Si no está en password_change_tokens, buscar en password_resets (flujo "olvidé mi contraseña")
+    let resetData = changeTokenResult && changeTokenResult.length > 0 ? changeTokenResult[0] : null;
+
+    if (!resetData) {
+      // Hash del token para buscar en password_resets
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+      const forgotResult = await this.dataSource.query(
+        `SELECT pr.id, pr.user_id, u.email, u.full_name, 'forgot' as token_type
+         FROM password_resets pr
+         JOIN users u ON u.id = pr.user_id
+         WHERE pr.token_hash = $1
+           AND pr.used_at IS NULL
+           AND pr.expires_at > NOW()
+         LIMIT 1`,
+        [tokenHash],
+      );
+
+      resetData = forgotResult && forgotResult.length > 0 ? forgotResult[0] : null;
     }
 
-    const resetData = result[0];
+    if (!resetData) {
+      throw new BadRequestException('Token inválido o expirado. Solicita un nuevo enlace.');
+    }
 
     // Hashear nueva contraseña
     const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
@@ -578,11 +594,18 @@ export class AuthService {
       [passwordHash, resetData.user_id],
     );
 
-    // Marcar token como usado
-    await this.dataSource.query(
-      `UPDATE password_resets SET used_at = NOW() WHERE id = $1`,
-      [resetData.id],
-    );
+    // Marcar token como usado según el tipo
+    if (resetData.token_type === 'change') {
+      await this.dataSource.query(
+        `UPDATE password_change_tokens SET used = true WHERE id = $1`,
+        [resetData.id],
+      );
+    } else {
+      await this.dataSource.query(
+        `UPDATE password_resets SET used_at = NOW() WHERE id = $1`,
+        [resetData.id],
+      );
+    }
 
     // Invalidar todas las sesiones del usuario por seguridad
     await this.sessions.invalidateAllForUser(resetData.user_id);
