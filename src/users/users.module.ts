@@ -6,20 +6,26 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { AdminUsersController } from './admin-users.controller';
 import { UserAuthController } from './user-auth.controller';
+import { AdminManagementController } from './admin-management.controller';
 import { User } from './entities/user.entity';
-import { Admin2FACode } from './entities/admin-2fa-code.entity';
-import { Admin2FAService } from './admin-2fa.service';
+import { AdminVerificationCode } from './entities/admin-verification-code.entity';
+import { AdminCreationService } from './admin-creation.service';
 import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Admin2FACode]),
+    TypeOrmModule.forFeature([User, AdminVerificationCode]),
     JwtModule,
     ConfigModule,
     EmailModule,
   ],
-  controllers: [UsersController, AdminUsersController, UserAuthController],
-  providers: [UsersService, Admin2FAService],
+  controllers: [
+    UsersController,
+    AdminUsersController,
+    UserAuthController,
+    AdminManagementController,
+  ],
+  providers: [UsersService, AdminCreationService],
   exports: [UsersService],
 })
 export class UsersModule {}
