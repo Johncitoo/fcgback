@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -15,12 +16,23 @@ import { ReviewerCreationService } from './reviewer-creation.service';
 import { UsersService } from './users.service';
 
 class CreateReviewerRequestDto {
+  @IsEmail()
+  @IsNotEmpty()
   email: string;
+
+  @IsString()
+  @IsNotEmpty()
   fullName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8)
   password: string;
 }
 
 class ConfirmReviewerDto {
+  @IsString()
+  @IsNotEmpty()
   code: string;
 }
 
