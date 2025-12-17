@@ -295,9 +295,10 @@ export class MilestonesService {
       }
     }
 
-    // Si se rechaza, cambiar el estado pero mantener el postulante en ese hito (no avanzar)
+    // Si se rechaza, marcar como COMPLETED con review_status REJECTED
+    // El constraint de BD solo permite: PENDING, IN_PROGRESS, COMPLETED, SKIPPED, BLOCKED
     if (reviewStatus === 'REJECTED') {
-      progress.status = 'REJECTED';
+      progress.status = 'COMPLETED'; // Marcar como completado pero con review rechazado
       
       // Obtener el milestone para saber el orderIndex
       const milestone = await this.milestonesRepo.findOne({

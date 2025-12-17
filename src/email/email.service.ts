@@ -323,40 +323,15 @@ export class EmailService {
       if (!response.ok) {
         const errorText = await response.text();
         this.logger.error(`[${accountName}] Error al enviar email: ${errorText}`);
-        // Registrar en auditoría el fallo
-        await this.auditService.logEmailSent(
-          options.to,
-          null,
-          category,
-          false,
-          { subject: options.subject, error: errorText },
-        );
         return false;
       }
 
       await this.incrementCounter(category);
       this.logger.log(`✅ [${accountName}] Email enviado a: ${options.to}`);
       
-      // Registrar en auditoría el envío exitoso
-      await this.auditService.logEmailSent(
-        options.to,
-        null,
-        category,
-        true,
-        { subject: options.subject },
-      );
-      
       return true;
     } catch (error) {
       this.logger.error(`[${accountName}] Error al enviar email: ${error}`);
-      // Registrar en auditoría el fallo
-      await this.auditService.logEmailSent(
-        options.to,
-        null,
-        category,
-        false,
-        { subject: options.subject, error: String(error) },
-      );
       return false;
     }
   }

@@ -67,18 +67,23 @@ export class ApplicantsStatsService {
   async getAgeDistributionByCall(callId: string) {
     const result = await this.ds.query(
       `SELECT 
-        CASE 
-          WHEN ap.birth_date IS NULL THEN 'Sin fecha'
-          WHEN DATE_PART('year', AGE(ap.birth_date)) < 18 THEN 'Menor de 18'
-          WHEN DATE_PART('year', AGE(ap.birth_date)) BETWEEN 18 AND 25 THEN '18-25 años'
-          WHEN DATE_PART('year', AGE(ap.birth_date)) BETWEEN 26 AND 35 THEN '26-35 años'
-          WHEN DATE_PART('year', AGE(ap.birth_date)) BETWEEN 36 AND 50 THEN '36-50 años'
-          ELSE 'Mayor de 50'
-        END as age_range,
-        COUNT(DISTINCT ap.id) as count
-       FROM applicants ap
-       INNER JOIN applications a ON a.applicant_id = ap.id
-       WHERE a.call_id = $1
+        age_range,
+        COUNT(*) as count
+       FROM (
+         SELECT 
+           CASE 
+             WHEN ap.birth_date IS NULL THEN 'Sin fecha'
+             WHEN DATE_PART('year', AGE(ap.birth_date)) < 18 THEN 'Menor de 18'
+             WHEN DATE_PART('year', AGE(ap.birth_date)) BETWEEN 18 AND 25 THEN '18-25 años'
+             WHEN DATE_PART('year', AGE(ap.birth_date)) BETWEEN 26 AND 35 THEN '26-35 años'
+             WHEN DATE_PART('year', AGE(ap.birth_date)) BETWEEN 36 AND 50 THEN '36-50 años'
+             ELSE 'Mayor de 50'
+           END as age_range,
+           ap.id
+         FROM applicants ap
+         INNER JOIN applications a ON a.applicant_id = ap.id
+         WHERE a.call_id = $1
+       ) subquery
        GROUP BY age_range
        ORDER BY 
          CASE age_range
