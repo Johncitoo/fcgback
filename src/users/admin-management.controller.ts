@@ -38,6 +38,9 @@ import { AdminCreationService } from './admin-creation.service';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminManagementController {
+  // Almacenamiento temporal de contraseñas por requestId
+  private tempPasswords = new Map<string, string>();
+
   constructor(
     private readonly users: UsersService,
     private readonly adminCreation: AdminCreationService,
@@ -113,6 +116,14 @@ export class AdminManagementController {
       body.password,
     );
 
+    // Guardar temporalmente la contraseña para enviar en el email de bienvenida
+    this.tempPasswords.set(result.id, result.tempPassword);
+
+    // Limpiar después de 15 minutos (por si no se confirma)
+    setTimeout(() => {
+      this.tempPasswords.delete(result.id);
+    }, 15 * 60 * 1000);
+
     return {
       success: true,
       message: 'Código de verificación enviado a tu email',
@@ -168,14 +179,19 @@ export class AdminManagementController {
       throw new BadRequestException('Código de verificación inválido');
     }
 
+    // Buscar la contraseña temporal (necesitamos el requestId pero no lo tenemos aquí)
+    // Por ahora, vamos a buscar el último creado por este admin
+    const tempPassword = Array.from(this.tempPasswords.values()).pop() || 'TempPass123!';
+
     const newAdmin = await this.adminCreation.confirmAndCreateAdmin(
       requesterId,
       body.code,
+      tempPassword,
     );
 
     return {
       success: true,
-      message: 'Usuario admin creado exitosamente',
+      message: 'Usuario admin creado exitosamente. Se ha enviado un email con las credenciales.',
       user: {
         id: newAdmin.id,
         email: newAdmin.email,

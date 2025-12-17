@@ -57,8 +57,8 @@ export class PasswordChangeService {
     token: string,
   ): Promise<void> {
     try {
-      const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'https://fundacioncarmengoudie.cl';
-      const changePasswordUrl = `${frontendUrl}/change-password/${token}`;
+      const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'https://fcgfront.vercel.app';
+      const changePasswordUrl = `${frontendUrl}/auth/reset-password?token=${token}`;
       const subject = 'Cambio de Contraseña - Fundación Carmen Goudie';
 
       const html = `

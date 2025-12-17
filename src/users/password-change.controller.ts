@@ -76,4 +76,14 @@ export class PasswordChangeController {
       message: 'Tu contraseña ha sido cambiada exitosamente',
     };
   }
+
+  @Get('validate/:token')
+  @HttpCode(HttpStatus.OK)
+  async validateChangeToken(@Param('token') token: string) {
+    this.logger.log(`Validando token de cambio de contraseña desde password-change`);
+
+    const validation = await this.passwordChangeService.validateToken(token);
+
+    return validation;
+  }
 }
