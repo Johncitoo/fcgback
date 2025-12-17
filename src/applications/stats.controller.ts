@@ -110,4 +110,22 @@ export class StatsController {
   async getSubmissionTimeline(@Param('callId') callId: string) {
     return this.apps.getSubmissionTimeline(callId);
   }
+
+  /**
+   * Cuenta el número total de postulantes ÚNICOS en una convocatoria.
+   * 
+   * Un postulante (applicant) puede tener solo UNA application por convocatoria.
+   * Este endpoint cuenta cuántos applicants tienen al menos una application en esta call.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Objeto con { count: number }
+   * 
+   * @example
+   * GET /api/admin/stats/uuid-call-123/applicants-count
+   * Response: { count: 12 }
+   */
+  @Get(':callId/applicants-count')
+  async getApplicantsCount(@Param('callId') callId: string) {
+    return this.apps.getApplicantsCount(callId);
+  }
 }

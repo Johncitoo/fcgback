@@ -759,4 +759,24 @@ export class ApplicationsService {
     );
     return result;
   }
+
+  /**
+   * Cuenta el número de postulantes únicos (applicants) que tienen applications en una convocatoria.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Objeto con { count: number }
+   * 
+   * @example
+   * const result = await getApplicantsCount('uuid-call');
+   * // { count: 12 }
+   */
+  async getApplicantsCount(callId: string) {
+    const result = await this.ds.query(
+      `SELECT COUNT(DISTINCT applicant_id) as count
+       FROM applications
+       WHERE call_id = $1`,
+      [callId],
+    );
+    return { count: result[0]?.count || 0 };
+  }
 }

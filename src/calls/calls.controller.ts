@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CallsService } from './calls.service';
+import { CallsSchedulerService } from './calls-scheduler.service';
 import { Roles } from '../auth/roles.decorator';
 import { CreateCallDto } from './dto/create-call.dto';
 import { UpdateCallDto } from './dto/update-call.dto';
@@ -20,7 +21,10 @@ import { RolesGuard } from '../auth/roles.guard';
 @Controller('calls')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CallsController {
-  constructor(private calls: CallsService) {}
+  constructor(
+    private calls: CallsService,
+    private scheduler: CallsSchedulerService,
+  ) {}
 
   /**
    * Lista todas las convocatorias con filtros y paginación.
@@ -115,5 +119,26 @@ export class CallsController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body() body: UpdateCallDto) {
     return this.calls.updateCall(id, body);
+  }
+
+  /**
+   * Ejecuta verificación y actualización automática de estados de convocatorias.
+   * 
+   * Revisa todas las convocatorias con autoClose habilitado y:
+   * - Activa las que hayan alcanzado su start_date
+   * - Cierra las que hayan superado su end_date
+   * 
+   * Este endpoint puede ser llamado manualmente o desde un cron externo.
+   * 
+   * @returns Estadísticas de actualizaciones realizadas
+   * 
+   * @example
+   * POST /api/calls/check-statuses
+   * Response: { activated: 2, closed: 1, checked: 45 }
+   */
+  @Roles('ADMIN')
+  @Post('check-statuses')
+  async checkStatuses() {
+    return this.scheduler.checkAndUpdateCallStatuses();
   }
 }
