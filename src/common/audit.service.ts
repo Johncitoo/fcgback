@@ -273,7 +273,7 @@ export class AuditService {
     actorId?: string,
   ): Promise<void> {
     return this.log({
-      actorUserId: actorId || null,
+      actorUserId: actorId,
       action: 'USER_CREATED',
       entity: 'user',
       entityId: userId,
