@@ -206,6 +206,10 @@ export class MilestonesService {
         'm.who_can_fill AS "whoCanFill"',
         'm.status AS "milestoneStatus"',
         'm.form_id AS "formId"',
+        'm.start_date AS "startDate"',
+        'm.due_date AS "dueDate"',
+        'CASE WHEN m.due_date IS NOT NULL AND NOW() > m.due_date THEN true ELSE false END AS "isExpired"',
+        'CASE WHEN m.start_date IS NOT NULL AND NOW() < m.start_date THEN true ELSE false END AS "notStarted"',
       ])
       .where('mp.application_id = :applicationId', { applicationId })
       .orderBy('m.order_index', 'ASC')
