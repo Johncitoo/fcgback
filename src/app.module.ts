@@ -32,6 +32,7 @@ import { FormSubmissionsModule } from './form-submissions/form-submissions.modul
 import { AuditModule } from './audit/audit.module';
 import { ApplicantsModule } from './applicants/applicants.module';
 import { SupportMessagesModule } from './support-messages/support-messages.module';
+import { SelectionModule } from './selection/selection.module';
 
 @Module({
   imports: [
@@ -107,6 +108,7 @@ import { SupportMessagesModule } from './support-messages/support-messages.modul
     AuditModule,
     ApplicantsModule,
     SupportMessagesModule,
+    SelectionModule,
   ],
   controllers: [AppController],
   providers: [
