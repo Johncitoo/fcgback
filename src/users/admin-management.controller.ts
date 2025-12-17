@@ -85,7 +85,7 @@ export class AdminManagementController {
       password: string;
     },
   ) {
-    const requesterId = req.user?.userId;
+    const requesterId = req.user?.sub; // JWT payload tiene 'sub' no 'userId'
     
     if (!requesterId) {
       throw new UnauthorizedException('Usuario no autenticado');
@@ -158,7 +158,7 @@ export class AdminManagementController {
     @Req() req: any,
     @Body() body: { code: string },
   ) {
-    const requesterId = req.user?.userId;
+    const requesterId = req.user?.sub; // JWT payload tiene 'sub' no 'userId'
     
     if (!requesterId) {
       throw new UnauthorizedException('Usuario no autenticado');
