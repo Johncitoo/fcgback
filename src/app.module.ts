@@ -31,6 +31,7 @@ import { MilestonesModule } from './milestones/milestones.module';
 import { FormSubmissionsModule } from './form-submissions/form-submissions.module';
 import { AuditModule } from './audit/audit.module';
 import { ApplicantsModule } from './applicants/applicants.module';
+import { SupportMessagesModule } from './support-messages/support-messages.module';
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { ApplicantsModule } from './applicants/applicants.module';
     FormSubmissionsModule,
     AuditModule,
     ApplicantsModule,
+    SupportMessagesModule,
   ],
   controllers: [AppController],
   providers: [
