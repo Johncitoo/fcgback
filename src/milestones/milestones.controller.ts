@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Req } from '@nestjs/common';
 import { MilestonesService } from './milestones.service';
 import { Roles } from '../auth/roles.decorator';
 import { CreateMilestoneDto } from './dto/create-milestone.dto';
@@ -131,12 +131,15 @@ export class MilestonesController {
   @Patch('progress/:progressId/review')
   reviewMilestone(
     @Param('progressId') progressId: string,
-    @Body() data: ReviewMilestoneDto
+    @Req() req: any,
+    @Body() data: ReviewMilestoneDto,
   ) {
+    // Usar el usuario autenticado del JWT en lugar del reviewedBy del body
+    const reviewedBy = req.user.sub;
     return this.milestonesService.reviewMilestone(
       progressId,
       data.reviewStatus,
-      data.reviewedBy,
+      reviewedBy,
       data.reviewNotes
     );
   }
