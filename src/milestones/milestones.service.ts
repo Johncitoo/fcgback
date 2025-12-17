@@ -331,7 +331,7 @@ export class MilestonesService {
         );
 
         // 2. Bloquear todos los hitos siguientes (status = BLOCKED)
-        await this.ds.query(
+        const blockedCount = await this.ds.query(
           `UPDATE milestone_progress mp
            SET status = 'BLOCKED'
            FROM milestones m
@@ -339,8 +339,13 @@ export class MilestonesService {
            AND mp.application_id = $1
            AND m.call_id = $2
            AND m.order_index > $3
-           AND mp.status IN ('PENDING', 'IN_PROGRESS')`,
+           AND mp.status IN ('PENDING', 'IN_PROGRESS')
+           RETURNING mp.id`,
           [progress.applicationId, milestone.callId, milestone.orderIndex]
+        );
+        
+        this.logger.log(
+          `✅ Bloqueados ${blockedCount.length} hitos subsecuentes al hito "${milestone.name}" (orderIndex: ${milestone.orderIndex})`
         );
 
         // 3. Registrar en el historial de estados
@@ -357,8 +362,8 @@ export class MilestonesService {
         );
 
         this.logger.warn(
-          `❌ Postulación ${progress.applicationId} RECHAZADA en hito "${milestone.name}". ` +
-          `Todos los hitos siguientes han sido bloqueados.`
+          `❌ Postulación ${progress.applicationId} RECHAZADA en hito "${milestone.name}" (orderIndex: ${milestone.orderIndex}). ` +
+          `Application status → NOT_SELECTED. Hitos bloqueados: ${blockedCount.length}`
         );
         
         // Enviar email de rechazo (ÚLTIMO EMAIL - proceso terminado)
