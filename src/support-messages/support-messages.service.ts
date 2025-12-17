@@ -105,6 +105,67 @@ export class SupportMessagesService {
   }
 
   /**
+   * Crea un mensaje de contacto público (sin applicationId).
+   * Para personas que necesitan ayuda antes de iniciar sesión.
+   */
+  async createPublicContact(data: { fullName: string; email: string; subject: string; message: string }): Promise<any> {
+    this.logger.log(`📧 Mensaje de contacto público de ${data.fullName} (${data.email}): ${data.subject}`);
+
+    // Obtener todos los administradores activos
+    const admins = await this.dataSource.query(
+      `SELECT email, full_name FROM users WHERE role = 'ADMIN' AND is_active = true`
+    );
+
+    if (admins.length > 0) {
+      this.logger.log(`📧 Enviando notificación a ${admins.length} administrador(es)`);
+
+      // Enviar email a cada administrador
+      const emailPromises = admins.map(admin => {
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">📧 Nuevo Mensaje de Contacto</h2>
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>De:</strong> ${data.fullName}</p>
+              <p><strong>Email:</strong> ${data.email}</p>
+              <p><strong>Asunto:</strong> ${data.subject}</p>
+            </div>
+            <div style="background: white; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+              <h3 style="margin-top: 0;">Mensaje:</h3>
+              <p style="white-space: pre-wrap;">${data.message}</p>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+              Este mensaje fue enviado desde la página de inicio de sesión.<br>
+              La persona aún no ha iniciado sesión en el sistema.
+            </p>
+          </div>
+        `;
+
+        return this.emailService.sendEmail(
+          {
+            to: admin.email,
+            subject: `📧 Contacto: ${data.subject}`,
+            htmlContent,
+          },
+          EmailCategory.TRANSACTIONAL
+        ).catch(error => {
+          this.logger.error(`❌ Error enviando email a ${admin.email}: ${error.message}`);
+          return false;
+        });
+      });
+
+      await Promise.all(emailPromises);
+      this.logger.log(`✅ Notificaciones enviadas a administradores`);
+    } else {
+      this.logger.warn(`⚠️ No hay administradores activos para notificar`);
+    }
+
+    return {
+      success: true,
+      message: 'Tu mensaje ha sido enviado. Los administradores te contactarán pronto.',
+    };
+  }
+
+  /**
    * Obtiene todos los mensajes de soporte (para admins).
    * Puede filtrar por status.
    */
