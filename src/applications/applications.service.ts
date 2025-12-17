@@ -779,4 +779,47 @@ export class ApplicationsService {
     );
     return { count: result[0]?.count || 0 };
   }
+
+  /**
+   * Obtiene distribución de postulantes por milestone actual.
+   * 
+   * Retorna cuántos postulantes están en cada hito de la convocatoria.
+   * Útil para visualizar el flujo de postulaciones y detectar cuellos de botella.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array con estadísticas por milestone
+   * 
+   * @example
+   * const result = await getMilestoneDistribution('uuid-call');
+   * // [{ milestone_id, milestone_name, milestone_order, count, approved, rejected, pending }]
+   */
+  async getMilestoneDistribution(callId: string) {
+    const result = await this.ds.query(
+      `SELECT 
+        m.id as milestone_id,
+        m.name as milestone_name,
+        m.milestone_order,
+        COUNT(DISTINCT a.applicant_id) as total_count,
+        COUNT(DISTINCT CASE WHEN mp.status = 'APPROVED' THEN a.applicant_id END) as approved,
+        COUNT(DISTINCT CASE WHEN mp.status = 'REJECTED' THEN a.applicant_id END) as rejected,
+        COUNT(DISTINCT CASE WHEN mp.status IN ('PENDING', 'SUBMITTED') THEN a.applicant_id END) as pending
+       FROM milestones m
+       LEFT JOIN milestone_progress mp ON mp.milestone_id = m.id
+       LEFT JOIN applications a ON a.id = mp.application_id
+       WHERE m.call_id = $1
+       GROUP BY m.id, m.name, m.milestone_order
+       ORDER BY m.milestone_order ASC`,
+      [callId],
+    );
+    
+    return result.map(row => ({
+      milestone_id: row.milestone_id,
+      milestone_name: row.milestone_name,
+      milestone_order: parseInt(row.milestone_order),
+      total_count: parseInt(row.total_count) || 0,
+      approved: parseInt(row.approved) || 0,
+      rejected: parseInt(row.rejected) || 0,
+      pending: parseInt(row.pending) || 0,
+    }));
+  }
 }

@@ -128,4 +128,20 @@ export class StatsController {
   async getApplicantsCount(@Param('callId') callId: string) {
     return this.apps.getApplicantsCount(callId);
   }
+
+  /**
+   * Obtiene distribución de postulantes por milestone.
+   * 
+   * Muestra cuántos postulantes están en cada hito y sus estados.
+   * 
+   * @param callId - ID de la convocatoria
+   * @returns Array con estadísticas por milestone
+   * 
+   * @example
+   * GET /api/admin/stats/uuid-call-123/milestone-distribution
+   */
+  @Get(':callId/milestone-distribution')
+  async getMilestoneDistribution(@Param('callId') callId: string) {
+    return this.apps.getMilestoneDistribution(callId);
+  }
 }
