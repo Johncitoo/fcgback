@@ -65,7 +65,7 @@ export class SupportMessagesService {
       const emailPromises = admins.map(admin => {
         const htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2563eb;">🆘 Nueva Solicitud de Ayuda</h2>
+            <h2 style="color: #2563eb;">Nueva Solicitud de Ayuda</h2>
             <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <p><strong>De:</strong> ${dto.applicantEmail}</p>
               <p><strong>ID Postulación:</strong> ${dto.applicationId}</p>
@@ -85,7 +85,7 @@ export class SupportMessagesService {
         return this.emailService.sendEmail(
           {
             to: admin.email,
-            subject: `🆘 Solicitud de ayuda: ${dto.subject}`,
+            subject: `Solicitud de ayuda: ${dto.subject}`,
             htmlContent,
           },
           EmailCategory.TRANSACTIONAL
@@ -123,7 +123,7 @@ export class SupportMessagesService {
       const emailPromises = admins.map(admin => {
         const htmlContent = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2563eb;">📧 Nuevo Mensaje de Contacto</h2>
+            <h2 style="color: #2563eb;">Nuevo Mensaje de Contacto</h2>
             <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <p><strong>De:</strong> ${data.fullName}</p>
               <p><strong>Email:</strong> ${data.email}</p>
@@ -143,7 +143,7 @@ export class SupportMessagesService {
         return this.emailService.sendEmail(
           {
             to: admin.email,
-            subject: `📧 Contacto: ${data.subject}`,
+            subject: `Contacto: ${data.subject}`,
             htmlContent,
           },
           EmailCategory.TRANSACTIONAL
