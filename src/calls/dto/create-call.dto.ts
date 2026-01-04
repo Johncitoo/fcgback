@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsInt, IsDateString, IsEnum, IsUUID, MinLength, MaxLength, Min } from 'class-validator';
+import { IsString, IsOptional, IsInt, IsDateString, IsEnum, IsUUID, IsBoolean, MinLength, MaxLength, Min } from 'class-validator';
 
 export class CreateCallDto {
   @IsString()
@@ -26,6 +26,10 @@ export class CreateCallDto {
   @IsOptional()
   @IsEnum(['DRAFT', 'OPEN', 'CLOSED'])
   status?: 'DRAFT' | 'OPEN' | 'CLOSED';
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 
   @IsOptional()
   @IsUUID()
