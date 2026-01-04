@@ -34,6 +34,7 @@ ALTER TABLE form_submissions ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE forms ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE institutions ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE interview_schedules ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE invites ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE milestones ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE notifications ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE refresh_token_whitelist ALTER COLUMN id SET DEFAULT gen_random_uuid();
