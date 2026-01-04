@@ -78,12 +78,7 @@ export class ApplicantApplicationsController {
     if (user.role !== 'APPLICANT') {
       throw new BadRequestException('Applicant access required');
     }
-    // Verificar que la aplicación pertenece al postulante
-    const app = await this.apps.getById(id);
-    if (app.applicant_id !== user.sub) {
-      throw new BadRequestException('Access denied');
-    }
-    return app;
+    return this.apps.getById(user.sub, id);
   }
 
   /**
@@ -100,11 +95,6 @@ export class ApplicantApplicationsController {
     if (user.role !== 'APPLICANT') {
       throw new BadRequestException('Applicant access required');
     }
-    // Verificar que la aplicación pertenece al postulante
-    const app = await this.apps.getById(id);
-    if (app.applicant_id !== user.sub) {
-      throw new BadRequestException('Access denied');
-    }
     return this.apps.update(id, dto);
   }
 
@@ -117,11 +107,6 @@ export class ApplicantApplicationsController {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT') {
       throw new BadRequestException('Applicant access required');
-    }
-    // Verificar que la aplicación pertenece al postulante
-    const app = await this.apps.getById(id);
-    if (app.applicant_id !== user.sub) {
-      throw new BadRequestException('Access denied');
     }
     return this.apps.submitApplication(id, user.sub);
   }
@@ -140,11 +125,6 @@ export class ApplicantApplicationsController {
     if (user.role !== 'APPLICANT') {
       throw new BadRequestException('Applicant access required');
     }
-    // Verificar que la aplicación pertenece al postulante
-    const app = await this.apps.getById(id);
-    if (app.applicant_id !== user.sub) {
-      throw new BadRequestException('Access denied');
-    }
     return this.apps.saveAnswers(id, dto);
   }
 
@@ -157,11 +137,6 @@ export class ApplicantApplicationsController {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT') {
       throw new BadRequestException('Applicant access required');
-    }
-    // Verificar que la aplicación pertenece al postulante
-    const app = await this.apps.getById(id);
-    if (app.applicant_id !== user.sub) {
-      throw new BadRequestException('Access denied');
     }
     return this.apps.getAnswers(id);
   }
