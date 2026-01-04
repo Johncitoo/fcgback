@@ -20,7 +20,7 @@ import { UpdateApplicationDto } from './dto/update-application.dto';
 import { SaveAnswersDto } from './dto/save-answers.dto';
 import { cleanupDuplicateApplications } from './cleanup-duplicates';
 
-@Controller('admin/applications')
+@Controller('applications')
 @Roles('ADMIN', 'REVIEWER') // Todo el controlador requiere admin o revisor
 export class ApplicationsController {
   constructor(
