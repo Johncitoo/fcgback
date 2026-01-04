@@ -1,0 +1,43 @@
+-- Fix UUID defaults para TODAS las tablas
+-- Aplica gen_random_uuid() (PostgreSQL 10+ nativo) a todas las columnas id de tipo UUID
+
+ALTER TABLE admin_2fa_codes ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE admin_verification_codes ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE applicants ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE application_notes ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE application_status_history ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE applications ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE audit_logs ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE call_document_requirements ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE call_institution_policies ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE calls ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE criteria ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE documents ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE email_batches ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE email_logs ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE email_quota_tracking ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE email_recipients ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE email_templates ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE files_metadata ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE form_fields ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE form_responses ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE form_sections ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE form_submissions ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE forms ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE institutions ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE interview_participants ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE interviews ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE invites ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE milestone_progress ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE milestones ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE password_change_tokens ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE password_resets ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE password_set_tokens ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE ranking_results ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE review_assignments ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE reviewer_verification_codes ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE scores ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE scoring_runs ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE support_messages ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE user_sessions ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE users ALTER COLUMN id SET DEFAULT gen_random_uuid();
