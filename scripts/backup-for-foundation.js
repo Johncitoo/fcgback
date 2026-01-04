@@ -22,7 +22,8 @@ async function createBackup() {
     sqlOutput += `-- ================================================================\n`;
     sqlOutput += `-- BACKUP PARA SERVIDOR FUNDACIÓN\n`;
     sqlOutput += `-- Fecha: ${new Date().toISOString()}\n`;
-    sqlOutput += `-- Compatibilidad: PostgreSQL sin extensiones citext/uuid-ossp\n`;
+    sqlOutput += `-- Compatibilidad: PostgreSQL 10+ sin extensiones citext/uuid-ossp\n`;
+    sqlOutput += `-- Usa gen_random_uuid() nativo en lugar de uuid-ossp\n`;
     sqlOutput += `-- ================================================================\n\n`;
     sqlOutput += `SET client_encoding = 'UTF8';\n`;
     sqlOutput += `SET standard_conforming_strings = on;\n\n`;
@@ -120,11 +121,16 @@ async function createBackup() {
         
         if (col.is_nullable === 'NO') def += ' NOT NULL';
         
-        // Eliminar DEFAULT uuid_generate_v4() y gen_random_uuid()
-        if (col.column_default && 
-            !col.column_default.includes('uuid_generate') && 
-            !col.column_default.includes('gen_random_uuid')) {
-          def += ` DEFAULT ${col.column_default}`;
+        // Reemplazar DEFAULT uuid_generate_v4() por gen_random_uuid() (nativo en PostgreSQL 10+)
+        if (col.column_default) {
+          if (col.column_default.includes('uuid_generate_v4') || 
+              col.column_default.includes('gen_random_uuid')) {
+            // Reemplazar con gen_random_uuid() que es nativo
+            def += ' DEFAULT gen_random_uuid()';
+          } else {
+            // Mantener otros defaults como now(), etc.
+            def += ` DEFAULT ${col.column_default}`;
+          }
         }
         
         columns.push(def);
