@@ -71,6 +71,7 @@ export class FormSubmissionsService {
       }
       
       this.logger.log(`Creating submission for app ${data.applicationId}, milestone ${data.milestoneId}`);
+      this.logger.log(`Answers received: ${JSON.stringify(normalizedData.answers)}`);
       
       // VALIDACIÓN DE LINEALIDAD: Verificar que el hito esté IN_PROGRESS
       // EXCEPCIÓN: ADMINS pueden completar hitos con who_can_fill=['ADMIN'] sin validar linealidad
@@ -191,6 +192,7 @@ export class FormSubmissionsService {
       }
       
       this.logger.log(`Updating submission ${id} with data keys: ${Object.keys(normalizedData).join(', ')}`);
+      this.logger.log(`Answers to update: ${JSON.stringify(normalizedData.answers)}`);
       
       await this.submissionsRepo.update(id, normalizedData);
       return this.findOne(id);
