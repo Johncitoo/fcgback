@@ -1,17 +1,26 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   Column,
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
 @Entity('form_submissions')
 export class FormSubmission {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column({ type: 'uuid', name: 'application_id' })
   applicationId: string;

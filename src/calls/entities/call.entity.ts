@@ -1,10 +1,12 @@
 import {
   Entity,
   Column,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
 export enum CallStatus {
   DRAFT = 'DRAFT',
@@ -15,8 +17,15 @@ export enum CallStatus {
 
 @Entity('calls')
 export class Call {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column({ type: 'varchar', length: 255 })
   name: string;

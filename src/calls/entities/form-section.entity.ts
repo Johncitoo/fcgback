@@ -1,16 +1,25 @@
 import {
   Entity,
   Column,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   ManyToOne,
   JoinColumn,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { Call } from './call.entity';
 
 @Entity('form_sections')
 export class FormSection {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column({ name: 'call_id', type: 'uuid' })
   callId: string;

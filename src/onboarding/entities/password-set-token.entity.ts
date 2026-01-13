@@ -3,16 +3,25 @@ import {
   CreateDateColumn,
   Entity,
   Index,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   ManyToOne,
   JoinColumn,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('password_set_tokens')
 export class PasswordSetToken {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column('uuid', { name: 'user_id' })
   @Index('idx_pst_user')

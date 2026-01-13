@@ -1,11 +1,13 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   Column,
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { User } from '../users/entities/user.entity';
 
 /**
@@ -24,8 +26,15 @@ import { User } from '../users/entities/user.entity';
  */
 @Entity('invites')
 export class Invite {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column({ name: 'call_id' })
   callId: string;

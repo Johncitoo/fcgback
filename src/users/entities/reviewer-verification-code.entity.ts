@@ -1,19 +1,28 @@
 import {
   Entity,
   Column,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { User } from './user.entity';
 
 @Entity('reviewer_verification_codes')
 @Index(['code', 'requesterUserId'], { where: 'used = false' })
 export class ReviewerVerificationCode {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column({ type: 'varchar', length: 6 })
   code: string;

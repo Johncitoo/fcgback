@@ -1,10 +1,12 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
 export enum DocumentType {
   GRADES = 'GRADES',
@@ -23,8 +25,15 @@ export enum ValidationStatus {
 
 @Entity('documents')
 export class Document {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column('uuid', { name: 'application_id' })
   applicationId: string;

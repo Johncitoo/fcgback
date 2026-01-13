@@ -5,14 +5,23 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('user_sessions')
 export class UserSession {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id!: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Index()
   @Column({ type: 'uuid', name: 'user_id' })

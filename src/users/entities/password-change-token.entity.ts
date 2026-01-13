@@ -1,12 +1,14 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   Column,
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
   Index,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { User } from './user.entity';
 
 @Entity('password_change_tokens')
@@ -14,8 +16,15 @@ import { User } from './user.entity';
 @Index(['userId'])
 @Index(['expiresAt'], { where: 'used = false' })
 export class PasswordChangeToken {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column({ type: 'uuid', name: 'user_id' })
   userId: string;

@@ -1,10 +1,12 @@
 import {
   Entity,
   Column,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   CreateDateColumn,
   Index,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Entidad para códigos de verificación 2FA en operaciones administrativas.
@@ -21,8 +23,15 @@ import {
 @Entity('admin_2fa_codes')
 @Index(['adminEmail', 'code'])
 export class Admin2FACode {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   /**
    * Email del admin que está realizando la acción

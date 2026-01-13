@@ -69,12 +69,17 @@ import { SelectionModule } from './selection/selection.module';
         const url = cfg.get<string>('DATABASE_URL');
         if (!url) throw new Error('DATABASE_URL not set');
 
-        // 🔒 SEGURIDAD: SSL habilitado en producción con validación de certificado
+        // 🔒 SEGURIDAD: SSL configurado para Supabase
         const nodeEnv = cfg.get<string>('NODE_ENV') ?? 'development';
-        const ssl =
-          (cfg.get<string>('DATABASE_SSL') ?? '').toLowerCase() === 'true'
-            ? { rejectUnauthorized: nodeEnv === 'production' } // ✅ true en prod, false en dev
-            : false;
+        const isSupabase = url.includes('supabase.co');
+        
+        // Supabase SIEMPRE requiere SSL con rejectUnauthorized: false
+        let ssl: any = false;
+        if (cfg.get<string>('DATABASE_SSL')?.toLowerCase() === 'true' || isSupabase) {
+          ssl = {
+            rejectUnauthorized: false, // Supabase usa certificados auto-firmados
+          };
+        }
 
         return {
           type: 'postgres', // IMPORTANTE: fija el driver
@@ -83,6 +88,13 @@ import { SelectionModule } from './selection/selection.module';
           autoLoadEntities: true, // carga entidades de todos los módulos
           synchronize: false, // usamos SQL/init/migraciones
           keepConnectionAlive: true, // evita reconexiones en hot-reload
+          // Configuraciones adicionales para Supabase
+          extra: {
+            // Supabase recomienda estas configuraciones
+            max: 10, // máximo de conexiones en el pool
+            idleTimeoutMillis: 30000, // tiempo de espera antes de cerrar conexiones inactivas
+            connectionTimeoutMillis: 10000, // timeout de conexión
+          },
           // logging: true,               // habilítalo para depurar SQL
         };
       },

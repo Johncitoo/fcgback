@@ -5,8 +5,10 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
+  BeforeInsert,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { User } from './user.entity';
 
 /**
@@ -27,8 +29,15 @@ import { User } from './user.entity';
  */
 @Entity('admin_verification_codes')
 export class AdminVerificationCode {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id!: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Column({ type: 'varchar', length: 6 })
   code!: string;

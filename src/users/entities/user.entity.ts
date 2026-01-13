@@ -3,19 +3,28 @@ import {
   CreateDateColumn,
   Entity,
   Index,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   UpdateDateColumn,
   OneToMany,
+  BeforeInsert,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { v4 as uuidv4 } from 'uuid';
 import { UserSession } from '../entities/user-session.entity';
 
 export type UserRole = 'ADMIN' | 'REVIEWER' | 'APPLICANT';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn('uuid')
   id!: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @Index({ unique: true })
   @Column({ type: 'citext' })
