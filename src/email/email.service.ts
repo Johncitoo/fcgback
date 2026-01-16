@@ -127,8 +127,8 @@ export class EmailService {
   private async initializeTodayQuota(): Promise<void> {
     try {
       const result = await this.dataSource.query(
-        `INSERT INTO email_quota_tracking (tracking_date, account1_count, account2_count)
-         VALUES (CURRENT_DATE, 0, 0)
+        `INSERT INTO email_quota_tracking (id, tracking_date, account1_count, account2_count)
+         VALUES (gen_random_uuid(), CURRENT_DATE, 0, 0)
          ON CONFLICT (tracking_date) DO NOTHING
          RETURNING id`,
       );

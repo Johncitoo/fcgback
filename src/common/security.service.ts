@@ -175,8 +175,8 @@ export class SecurityService {
       console.warn(`Account locked: ${email} from IP ${ip} - ${failedCount} failed attempts`);
       
       await this.dataSource.query(
-        `INSERT INTO audit_logs (action, entity, meta, created_at)
-         VALUES ($1, $2, $3, NOW())`,
+        `INSERT INTO audit_logs (id, action, entity, meta, created_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, NOW())`,
         [
           'ACCOUNT_LOCKED',
           'user',
@@ -201,8 +201,8 @@ export class SecurityService {
       // Estructura correcta de audit_logs en Railway:
       // id, actor_user_id, action, entity, entity_id, meta, created_at
       await this.dataSource.query(
-        `INSERT INTO audit_logs (action, entity, meta, created_at)
-         VALUES ($1, $2, $3, NOW())`,
+        `INSERT INTO audit_logs (id, action, entity, meta, created_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, NOW())`,
         [
           success ? 'LOGIN_SUCCESS' : 'LOGIN_FAILED',
           'user',
