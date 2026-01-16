@@ -46,8 +46,8 @@ export class MilestonesService {
     
     // Usar SQL directo con parámetros (mismo patrón que update - probado y seguro)
     const result = await this.ds.query(
-      `INSERT INTO milestones (call_id, form_id, name, description, order_index, required, who_can_fill, start_date, due_date, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      `INSERT INTO milestones (id, call_id, form_id, name, description, order_index, required, who_can_fill, start_date, due_date, status, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
        RETURNING *`,
       [
         data.callId,
@@ -68,8 +68,9 @@ export class MilestonesService {
     // 🔥 AUTO-INICIALIZAR: Crear milestone_progress para todas las postulaciones existentes de esta convocatoria
     try {
       await this.ds.query(
-        `INSERT INTO milestone_progress (application_id, milestone_id, status, created_at, updated_at)
+        `INSERT INTO milestone_progress (id, application_id, milestone_id, status, created_at, updated_at)
          SELECT 
+           gen_random_uuid() AS id,
            a.id AS application_id,
            $1 AS milestone_id,
            'PENDING' AS status,

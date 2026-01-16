@@ -55,8 +55,8 @@ export class AuditService {
   async log(data: AuditLogData): Promise<void> {
     try {
       await this.dataSource.query(
-        `INSERT INTO audit_logs (actor_user_id, action, entity, entity_id, meta)
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO audit_logs (id, actor_user_id, action, entity, entity_id, meta)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)`,
         [
           data.actorUserId || null,
           data.action,
