@@ -138,10 +138,10 @@ export class InstitutionsController {
 
     const result = await this.ds.query(
       `INSERT INTO institutions (
-        name, code, commune, province, region, type,
+        id, name, code, commune, province, region, type,
         email, phone, address, director_name, website, notes
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         body.name,
