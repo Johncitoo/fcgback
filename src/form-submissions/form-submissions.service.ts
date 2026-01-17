@@ -92,32 +92,40 @@ export class FormSubmissionsService {
           const isAdminMilestone = whoCanFill.includes('ADMIN') && userRole === 'ADMIN';
           
           if (!isAdminMilestone) {
-            // Validar que el hito esté IN_PROGRESS (linealidad)
-            if (progress.status !== 'IN_PROGRESS' && progress.status !== 'COMPLETED') {
-              // Fallback: si no hay ningún IN_PROGRESS, permitir SOLO el primer hito
-              const progressState = await this.dataSource.query(
-                `SELECT 
-                  MIN(m.order_index) as min_order,
-                  SUM(CASE WHEN mp.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress_count
-                 FROM milestone_progress mp
-                 INNER JOIN milestones m ON m.id = mp.milestone_id
-                 WHERE mp.application_id = $1`,
-                [data.applicationId],
+            if (progress.status === 'BLOCKED') {
+              throw new BadRequestException('Este hito no está disponible. Solo puedes completar el hito actual.');
+            }
+
+            // Determinar hito actual: si hay IN_PROGRESS, ese es el actual; si no, el de menor order_index en PENDING
+            const currentState = await this.dataSource.query(
+              `SELECT 
+                mp.milestone_id,
+                mp.status,
+                m.order_index
+               FROM milestone_progress mp
+               INNER JOIN milestones m ON m.id = mp.milestone_id
+               WHERE mp.application_id = $1
+               ORDER BY 
+                 CASE WHEN mp.status = 'IN_PROGRESS' THEN 0 ELSE 1 END,
+                 m.order_index ASC`,
+              [data.applicationId],
+            );
+
+            const currentMilestone = currentState?.find((row: any) => row.status === 'IN_PROGRESS')
+              || currentState?.find((row: any) => row.status === 'PENDING');
+
+            const isCurrentMilestone = currentMilestone && currentMilestone.milestone_id === progress.milestone_id;
+
+            if (!isCurrentMilestone && progress.status !== 'COMPLETED') {
+              throw new BadRequestException('Este hito no está disponible. Solo puedes completar el hito actual.');
+            }
+
+            // Si es el hito actual pero está PENDING, normalizar a IN_PROGRESS (para autosave)
+            if (isCurrentMilestone && progress.status === 'PENDING') {
+              await this.progressRepo.update(
+                { applicationId: data.applicationId, milestoneId: data.milestoneId },
+                { status: 'IN_PROGRESS' },
               );
-
-              const minOrder = progressState?.[0]?.min_order;
-              const inProgressCount = Number(progressState?.[0]?.in_progress_count || 0);
-              const isFirstMilestone = minOrder !== null && Number(progress.order_index) === Number(minOrder);
-
-              if (inProgressCount === 0 && isFirstMilestone) {
-                // Normalizar estado para evitar futuras inconsistencias
-                await this.progressRepo.update(
-                  { applicationId: data.applicationId, milestoneId: data.milestoneId },
-                  { status: 'IN_PROGRESS' },
-                );
-              } else {
-                throw new BadRequestException('Este hito no está disponible. Solo puedes completar el hito actual.');
-              }
             }
           }
           
