@@ -75,14 +75,14 @@ export class InvitesController {
     values.push(limitNum, offsetNum);
 
     const query = `
-      SELECT DISTINCT ON (COALESCE(i.meta->>'email', i.email), i.call_id)
+      SELECT DISTINCT ON (i.meta->>'email', i.call_id)
         i.id,
         i.call_id as "callId",
         i.institution_id as "institutionId",
         i.expires_at as "expiresAt",
         i.used_at as "usedAt",
         i.created_at as "createdAt",
-        COALESCE(i.meta->>'email', i.email) as "email",
+        i.meta->>'email' as "email",
         COALESCE(i.meta->>'firstName', a.first_name) as "firstName",
         COALESCE(i.meta->>'lastName', a.last_name) as "lastName",
         CASE WHEN i.used_at IS NOT NULL THEN true ELSE false END as "used",
@@ -94,10 +94,10 @@ export class InvitesController {
         c.year as "callYear"
       FROM invites i
       LEFT JOIN calls c ON c.id = i.call_id
-      LEFT JOIN users u ON u.email = COALESCE(i.meta->>'email', i.email)
+      LEFT JOIN users u ON u.email = i.meta->>'email'
       LEFT JOIN applicants a ON a.id = u.applicant_id
       ${whereClause}
-      ORDER BY COALESCE(i.meta->>'email', i.email), i.call_id, i.created_at DESC
+      ORDER BY i.meta->>'email', i.call_id, i.created_at DESC
       LIMIT $${idx++} OFFSET $${idx++}
     `;
 
@@ -425,15 +425,15 @@ export class InvitesController {
         `
         SELECT 
           i.id,
-          COALESCE(i.meta->>'email', i.email) as email,
+          i.meta->>'email' as email,
           COALESCE(i.meta->>'firstName', a.first_name) as "firstName",
           COALESCE(i.meta->>'lastName', a.last_name) as "lastName"
         FROM invites i
-        LEFT JOIN users u ON u.email = COALESCE(i.meta->>'email', i.email)
+        LEFT JOIN users u ON u.email = i.meta->>'email'
         LEFT JOIN applicants a ON a.id = u.applicant_id
         WHERE i.call_id = $1
           AND i.email_sent = false
-          AND COALESCE(i.meta->>'email', i.email) IS NOT NULL
+          AND i.meta->>'email' IS NOT NULL
         ORDER BY i.created_at ASC
         ${maxEmails ? `LIMIT ${maxEmails}` : ''}
         `,
@@ -445,16 +445,16 @@ export class InvitesController {
         `
         SELECT 
           i.id,
-          COALESCE(i.meta->>'email', i.email) as email,
+          i.meta->>'email' as email,
           COALESCE(i.meta->>'firstName', a.first_name) as "firstName",
           COALESCE(i.meta->>'lastName', a.last_name) as "lastName"
         FROM invites i
-        LEFT JOIN users u ON u.email = COALESCE(i.meta->>'email', i.email)
+        LEFT JOIN users u ON u.email = i.meta->>'email'
         INNER JOIN applicants a ON a.id = u.applicant_id
         WHERE i.call_id = $1
           AND i.email_sent = false
           AND a.id = ANY($2)
-          AND COALESCE(i.meta->>'email', i.email) IS NOT NULL
+          AND i.meta->>'email' IS NOT NULL
         ORDER BY i.created_at ASC
         ${maxEmails ? `LIMIT ${maxEmails}` : ''}
         `,
@@ -479,7 +479,7 @@ export class InvitesController {
           WHERE NOT EXISTS (
             SELECT 1 FROM invites i 
             WHERE i.call_id = $1 
-            AND COALESCE(i.meta->>'email', i.email) = u.email
+            AND i.meta->>'email' = u.email
           )
           AND u.is_active = true
           ORDER BY a.created_at DESC
@@ -502,7 +502,7 @@ export class InvitesController {
             AND NOT EXISTS (
               SELECT 1 FROM invites i 
               WHERE i.call_id = $2 
-              AND COALESCE(i.meta->>'email', i.email) = u.email
+              AND i.meta->>'email' = u.email
             )
           ORDER BY a.created_at DESC
           ${maxEmails ? `LIMIT ${maxEmails}` : ''}
