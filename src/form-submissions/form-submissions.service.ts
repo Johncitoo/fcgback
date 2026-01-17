@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { FormSubmission } from './entities/form-submission.entity';
@@ -94,7 +94,30 @@ export class FormSubmissionsService {
           if (!isAdminMilestone) {
             // Validar que el hito esté IN_PROGRESS (linealidad)
             if (progress.status !== 'IN_PROGRESS' && progress.status !== 'COMPLETED') {
-              throw new Error('Este hito no está disponible. Solo puedes completar el hito actual.');
+              // Fallback: si no hay ningún IN_PROGRESS, permitir SOLO el primer hito
+              const progressState = await this.dataSource.query(
+                `SELECT 
+                  MIN(m.order_index) as min_order,
+                  SUM(CASE WHEN mp.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress_count
+                 FROM milestone_progress mp
+                 INNER JOIN milestones m ON m.id = mp.milestone_id
+                 WHERE mp.application_id = $1`,
+                [data.applicationId],
+              );
+
+              const minOrder = progressState?.[0]?.min_order;
+              const inProgressCount = Number(progressState?.[0]?.in_progress_count || 0);
+              const isFirstMilestone = minOrder !== null && Number(progress.order_index) === Number(minOrder);
+
+              if (inProgressCount === 0 && isFirstMilestone) {
+                // Normalizar estado para evitar futuras inconsistencias
+                await this.progressRepo.update(
+                  { applicationId: data.applicationId, milestoneId: data.milestoneId },
+                  { status: 'IN_PROGRESS' },
+                );
+              } else {
+                throw new BadRequestException('Este hito no está disponible. Solo puedes completar el hito actual.');
+              }
             }
           }
           
@@ -103,7 +126,7 @@ export class FormSubmissionsService {
             const dueDate = new Date(progress.due_date);
             const now = new Date();
             if (now > dueDate) {
-              throw new Error('La fecha límite para este hito ha expirado. No se pueden enviar más formularios.');
+              throw new BadRequestException('La fecha límite para este hito ha expirado. No se pueden enviar más formularios.');
             }
           }
         }
