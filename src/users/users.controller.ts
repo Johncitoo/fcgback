@@ -281,9 +281,9 @@ export class UsersController {
     // Insertar en applicants
     const applicantResult = await this.ds.query(
       `INSERT INTO applicants (
-        rut_number, rut_dv, first_name, last_name, email, phone,
+        id, rut_number, rut_dv, first_name, last_name, email, phone,
         birth_date, address, commune, region, institution_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING id`,
       [
         rutNumber,

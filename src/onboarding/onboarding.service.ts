@@ -233,8 +233,8 @@ export class OnboardingService {
         }
 
         const applicantResult = await queryRunner.manager.query(
-          `INSERT INTO applicants (rut_number, rut_dv, first_name, last_name, email)
-           VALUES ($1, $2, $3, $4, $5)
+          `INSERT INTO applicants (id, rut_number, rut_dv, first_name, last_name, email)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
            RETURNING id`,
           [tempRut, dv, 'Postulante', 'Pendiente', finalEmail],
         );
