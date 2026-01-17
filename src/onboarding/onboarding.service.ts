@@ -318,8 +318,8 @@ export class OnboardingService {
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
 
       await queryRunner.manager.query(
-        `INSERT INTO password_set_tokens (user_id, token_hash, expires_at)
-         VALUES ($1, $2, $3)`,
+        `INSERT INTO password_set_tokens (id, user_id, token_hash, expires_at)
+         VALUES (gen_random_uuid(), $1, $2, $3)`,
         [user.id, tokenHash, expiresAt],
       );
 

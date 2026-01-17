@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { Milestone } from './entities/milestone.entity';
 import { MilestoneProgress } from '../milestone-progress/entities/milestone-progress.entity';
 import { EmailService } from '../email/email.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class MilestonesService {
@@ -256,6 +257,7 @@ export class MilestonesService {
         const status = i === 0 ? 'IN_PROGRESS' : 'PENDING';
         
         await this.progressRepo.save({
+          id: uuidv4(),
           applicationId,
           milestoneId: milestone.id,
           status,
