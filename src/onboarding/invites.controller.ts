@@ -75,16 +75,16 @@ export class InvitesController {
     values.push(limitNum, offsetNum);
 
     const query = `
-      SELECT DISTINCT ON (i.meta->>'email', i.call_id)
+      SELECT DISTINCT ON (COALESCE(i.meta->>'email', i.email), i.call_id)
         i.id,
         i.call_id as "callId",
         i.institution_id as "institutionId",
         i.expires_at as "expiresAt",
         i.used_at as "usedAt",
         i.created_at as "createdAt",
-        i.meta->>'email' as "email",
-        i.meta->>'firstName' as "firstName",
-        i.meta->>'lastName' as "lastName",
+        COALESCE(i.meta->>'email', i.email) as "email",
+        COALESCE(i.meta->>'firstName', a.first_name) as "firstName",
+        COALESCE(i.meta->>'lastName', a.last_name) as "lastName",
         CASE WHEN i.used_at IS NOT NULL THEN true ELSE false END as "used",
         i.code_hash as "code_hash",
         i.email_sent as "emailSent",
@@ -94,8 +94,10 @@ export class InvitesController {
         c.year as "callYear"
       FROM invites i
       LEFT JOIN calls c ON c.id = i.call_id
+      LEFT JOIN users u ON u.email = COALESCE(i.meta->>'email', i.email)
+      LEFT JOIN applicants a ON a.id = u.applicant_id
       ${whereClause}
-      ORDER BY i.meta->>'email', i.call_id, i.created_at DESC
+      ORDER BY COALESCE(i.meta->>'email', i.email), i.call_id, i.created_at DESC
       LIMIT $${idx++} OFFSET $${idx++}
     `;
 
@@ -281,7 +283,7 @@ export class InvitesController {
       try {
         // Verificar si ya existe invitación para este email y convocatoria
         const existing = await this.ds.query(
-          `SELECT id FROM invites WHERE call_id = $1 AND LOWER(email) = $2 LIMIT 1`,
+          `SELECT id FROM invites WHERE call_id = $1 AND LOWER(COALESCE(meta->>'email', email)) = $2 LIMIT 1`,
           [body.callId, trimmedEmail],
         );
 
@@ -423,13 +425,15 @@ export class InvitesController {
         `
         SELECT 
           i.id,
-          i.meta->>'email' as email,
-          i.meta->>'firstName' as "firstName",
-          i.meta->>'lastName' as "lastName"
+          COALESCE(i.meta->>'email', i.email) as email,
+          COALESCE(i.meta->>'firstName', a.first_name) as "firstName",
+          COALESCE(i.meta->>'lastName', a.last_name) as "lastName"
         FROM invites i
+        LEFT JOIN users u ON u.email = COALESCE(i.meta->>'email', i.email)
+        LEFT JOIN applicants a ON a.id = u.applicant_id
         WHERE i.call_id = $1
           AND i.email_sent = false
-          AND i.meta->>'email' IS NOT NULL
+          AND COALESCE(i.meta->>'email', i.email) IS NOT NULL
         ORDER BY i.created_at ASC
         ${maxEmails ? `LIMIT ${maxEmails}` : ''}
         `,
@@ -441,15 +445,16 @@ export class InvitesController {
         `
         SELECT 
           i.id,
-          i.meta->>'email' as email,
-          i.meta->>'firstName' as "firstName",
-          i.meta->>'lastName' as "lastName"
+          COALESCE(i.meta->>'email', i.email) as email,
+          COALESCE(i.meta->>'firstName', a.first_name) as "firstName",
+          COALESCE(i.meta->>'lastName', a.last_name) as "lastName"
         FROM invites i
-        INNER JOIN applicants a ON (i.meta->>'email')::text = (SELECT email FROM users WHERE applicant_id = a.id LIMIT 1)
+        LEFT JOIN users u ON u.email = COALESCE(i.meta->>'email', i.email)
+        INNER JOIN applicants a ON a.id = u.applicant_id
         WHERE i.call_id = $1
           AND i.email_sent = false
           AND a.id = ANY($2)
-          AND i.meta->>'email' IS NOT NULL
+          AND COALESCE(i.meta->>'email', i.email) IS NOT NULL
         ORDER BY i.created_at ASC
         ${maxEmails ? `LIMIT ${maxEmails}` : ''}
         `,
@@ -474,7 +479,7 @@ export class InvitesController {
           WHERE NOT EXISTS (
             SELECT 1 FROM invites i 
             WHERE i.call_id = $1 
-            AND (i.meta->>'email')::text = u.email
+            AND COALESCE(i.meta->>'email', i.email) = u.email
           )
           AND u.is_active = true
           ORDER BY a.created_at DESC
@@ -497,7 +502,7 @@ export class InvitesController {
             AND NOT EXISTS (
               SELECT 1 FROM invites i 
               WHERE i.call_id = $2 
-              AND (i.meta->>'email')::text = u.email
+              AND COALESCE(i.meta->>'email', i.email) = u.email
             )
           ORDER BY a.created_at DESC
           ${maxEmails ? `LIMIT ${maxEmails}` : ''}
