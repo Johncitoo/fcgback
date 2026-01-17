@@ -22,7 +22,7 @@ import { Roles } from '../auth/roles.decorator';
  * - Envío masivo a postulantes sin invitar
  * 
  * Características:
- * - Generación automática de códigos formato TEST-XXXXXXXX
+ * - Generación automática de códigos formato FCG-XXXXXXXX
  * - Integración con OnboardingService para lógica de negocio
  * - Envío de emails automático en creación y regeneración
  * - Filtrado de postulantes ya invitados en envío masivo
@@ -181,14 +181,14 @@ export class InvitesController {
   }
 
   /**
-   * Genera código de invitación aleatorio formato TEST-XXXXXXXX.
+  * Genera código de invitación aleatorio formato FCG-XXXXXXXX.
    * Usa caracteres A-Z y 0-9.
    * 
-   * @returns Código de 13 caracteres (TEST- + 8 random)
+  * @returns Código de 12 caracteres (FCG- + 8 random)
    */
   private generateInviteCode(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = 'TEST-';
+    let code = 'FCG-';
     for (let i = 0; i < 8; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
