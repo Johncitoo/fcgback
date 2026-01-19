@@ -19,6 +19,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import type { JwtPayload } from '../auth/current-user.decorator';
 import { Admin2FAService } from './admin-2fa.service';
 import { EmailService, EmailCategory } from '../email/email.service';
+import { EmailTemplateHelper } from '../email/email-template.helper';
 
 /**
  * Controller para administración de usuarios por parte de ADMIN.
@@ -92,37 +93,26 @@ export class AdminUsersController {
     );
 
     // Enviar email con código al ADMIN (no al usuario nuevo)
+    const content = `
+      ${EmailTemplateHelper.greeting()}
+      ${EmailTemplateHelper.paragraph(`Has solicitado crear un nuevo usuario <strong>${body.role}</strong> en el sistema.`)}
+      ${EmailTemplateHelper.codeBox('Código de verificación', code)}
+      ${EmailTemplateHelper.paragraph('<span style="color: #6b7280; font-size: 12px;">Este código expira en 10 minutos</span>')}
+      ${EmailTemplateHelper.warningNote('Detalles del usuario a crear', `
+        <ul style="margin: 5px 0; padding-left: 20px;">
+          <li><strong>Email:</strong> ${body.email}</li>
+          <li><strong>Nombre:</strong> ${body.fullName}</li>
+          <li><strong>Rol:</strong> ${body.role}</li>
+        </ul>
+      `)}
+      ${EmailTemplateHelper.paragraph('<span style="color: #6b7280; font-size: 12px;">Si no solicitaste esto, ignora este correo.</span>')}
+    `;
+
     await this.emailService.sendEmail(
       {
         to: admin.email,
-        subject: '🔐 Código de Verificación - Creación de Usuario',
-        htmlContent: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #1e40af;">Código de Verificación</h2>
-            <p>Has solicitado crear un nuevo usuario <strong>${body.role}</strong> en el sistema.</p>
-            
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-              <p style="margin: 0; color: #6b7280; font-size: 14px;">Tu código de verificación es:</p>
-              <p style="font-size: 32px; font-weight: bold; color: #1e40af; letter-spacing: 8px; margin: 10px 0;">
-                ${code}
-              </p>
-              <p style="margin: 0; color: #6b7280; font-size: 12px;">Este código expira en 10 minutos</p>
-            </div>
-            
-            <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
-              <p style="margin: 0; color: #92400e;"><strong>⚠️ Detalles del usuario a crear:</strong></p>
-              <ul style="margin: 10px 0;">
-                <li><strong>Email:</strong> ${body.email}</li>
-                <li><strong>Nombre:</strong> ${body.fullName}</li>
-                <li><strong>Rol:</strong> ${body.role}</li>
-              </ul>
-            </div>
-            
-            <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">
-              Si no solicitaste esto, ignora este correo.
-            </p>
-          </div>
-        `,
+        subject: 'Código de Verificación - Creación de Usuario',
+        htmlContent: EmailTemplateHelper.wrapEmail(content),
         textContent: `
 Código de Verificación
 

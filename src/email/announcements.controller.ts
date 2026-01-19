@@ -2,6 +2,7 @@ import { Controller, Post, Body, Get, Param } from '@nestjs/common';
 import { Roles } from '../auth/roles.decorator';
 import { EmailService, EmailCategory } from './email.service';
 import { DataSource } from 'typeorm';
+import { EmailTemplateHelper } from './email-template.helper';
 
 /**
  * DTO para envío de anuncio.
@@ -416,32 +417,11 @@ export class AnnouncementsController {
    * const html = this.buildAnnouncementEmail('Juan Pérez', 'Aviso', 'Mensaje de prueba');
    */
   private buildAnnouncementEmail(recipientName: string, subject: string, message: string): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #0369a1; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">Fundación Carmen Goudie</h1>
-        </div>
-        
-        <div style="background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb;">
-          <h2 style="color: #0369a1; margin-top: 0;">Hola ${recipientName},</h2>
-          
-          <div style="background-color: white; padding: 20px; border-left: 4px solid #0369a1; margin: 20px 0;">
-            ${message.replace(/\n/g, '<br>')}
-          </div>
-        </div>
-        
-        <div style="background-color: #f3f4f6; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; margin-top: 20px;">
-          <p style="margin: 5px 0;">© ${new Date().getFullYear()} Fundación Carmen Goudie</p>
-          <p style="margin: 5px 0;">Este es un correo automático, por favor no respondas a este mensaje.</p>
-        </div>
-      </body>
-      </html>
+    const content = `
+      ${EmailTemplateHelper.greeting(recipientName)}
+      ${EmailTemplateHelper.messageBox(message)}
     `;
+
+    return EmailTemplateHelper.wrapEmail(content);
   }
 }

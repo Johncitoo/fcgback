@@ -7,6 +7,7 @@ import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../email/email.service';
+import { EmailTemplateHelper } from '../email/email-template.helper';
 
 @Injectable()
 export class PasswordChangeService {
@@ -61,62 +62,23 @@ export class PasswordChangeService {
       const changePasswordUrl = `${frontendUrl}/auth/reset-password?token=${token}`;
       const subject = 'Cambio de Contraseña - Fundación Carmen Goudie';
 
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
-            .button { display: inline-block; padding: 14px 28px; background: #7c3aed; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
-            .button:hover { background: #6d28d9; }
-            .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
-            .info { background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px; }
-            .footer { text-align: center; padding: 20px; color: #64748b; font-size: 14px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1 style="margin: 0;">🔐 Cambio de Contraseña</h1>
-            </div>
-            <div class="content">
-              <p>Hola <strong>${fullName}</strong>,</p>
-              <p>Has solicitado cambiar tu contraseña en el Sistema de Gestión de la Fundación Carmen Goudie.</p>
-              
-              <p>Para establecer una nueva contraseña, haz clic en el siguiente botón:</p>
-              
-              <div style="text-align: center;">
-                <a href="${changePasswordUrl}" class="button">Cambiar Mi Contraseña</a>
-              </div>
-              
-              <div class="info">
-                <strong>🔗 O copia este enlace en tu navegador:</strong><br>
-                <a href="${changePasswordUrl}" style="color: #3b82f6; word-break: break-all;">${changePasswordUrl}</a>
-              </div>
-              
-              <div class="warning">
-                <strong>⏱️ Importante:</strong><br>
-                • Este enlace expirará en <strong>1 hora</strong><br>
-                • Solo puede ser utilizado <strong>una vez</strong><br>
-                • Si no solicitaste este cambio, ignora este email
-              </div>
-              
-              <p style="color: #64748b; font-size: 14px; margin-top: 30px;">
-                Si no solicitaste cambiar tu contraseña, tu cuenta está segura y puedes ignorar este mensaje.
-              </p>
-            </div>
-            <div class="footer">
-              <p>Fundación Carmen Goudie - Sistema de Gestión</p>
-              <p style="font-size: 12px;">Este es un email automático, por favor no responder.</p>
-            </div>
-          </div>
-        </body>
-        </html>
+      const content = `
+        ${EmailTemplateHelper.greeting(fullName)}
+        ${EmailTemplateHelper.paragraph('Has solicitado cambiar tu contraseña en el Sistema de Gestión de la Fundación Carmen Goudie.')}
+        ${EmailTemplateHelper.paragraph('Para establecer una nueva contraseña, haz clic en el siguiente botón:')}
+        ${EmailTemplateHelper.button('Cambiar Mi Contraseña', changePasswordUrl)}
+        ${EmailTemplateHelper.linkFallback(changePasswordUrl)}
+        ${EmailTemplateHelper.warningNote('Importante', `
+          <ul style="margin: 5px 0; padding-left: 20px;">
+            <li>Este enlace expirará en <strong>1 hora</strong></li>
+            <li>Solo puede ser utilizado <strong>una vez</strong></li>
+            <li>Si no solicitaste este cambio, ignora este email</li>
+          </ul>
+        `)}
+        ${EmailTemplateHelper.paragraph('<span style="color: #6b7280; font-size: 14px;">Si no solicitaste cambiar tu contraseña, tu cuenta está segura y puedes ignorar este mensaje.</span>')}
       `;
+
+      const html = EmailTemplateHelper.wrapEmail(content);
 
       await this.emailService.sendEmail({
         to: userEmail,
@@ -124,7 +86,7 @@ export class PasswordChangeService {
         htmlContent: html,
       });
 
-      this.logger.log(`✅ Email de cambio de contraseña enviado a ${userEmail}`);
+      this.logger.log(`Email de cambio de contraseña enviado a ${userEmail}`);
     } catch (error) {
       this.logger.error(`Error enviando email de cambio de contraseña:`, error);
       throw new BadRequestException('Error al enviar el email');
