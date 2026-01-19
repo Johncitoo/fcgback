@@ -55,12 +55,18 @@ async function bootstrap() {
     level: 6, // Balance entre compresión y CPU
   }));
   
-  console.log('✓ FCG Backend iniciando - v1.0.2 (CORS ABIERTO PARA TESTEO)');
+  console.log('✓ FCG Backend iniciando - v1.0.3 (Producción Namecheap)');
 
-  // ⚠️ CORS ABIERTO TEMPORALMENTE PARA TESTING
-  // TODO: Volver a restringir antes de producción final en Namecheap
+  // CORS configurado para producción (Namecheap/cPanel)
   app.enableCors({
-    origin: true, // Permite CUALQUIER origen
+    origin: [
+      'https://postulaciones.fundacioncarmengoudie.cl',
+      'https://fundacioncarmengoudie.cl',
+      'https://www.fundacioncarmengoudie.cl',
+      // Desarrollo local
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'Cache-Control', 'Pragma'],
@@ -96,7 +102,7 @@ async function bootstrap() {
   await app.listen(port);
   
   console.log(`🚀 Application is running on: http://localhost:${port}/api`);
-  console.log(`⚠️  CORS: ABIERTO PARA TESTEO (permitiendo todos los orígenes)`);
+  console.log(`🌐 CORS: Configurado para producción (postulaciones.fundacioncarmengoudie.cl)`);
   console.log(`🔒 Security: Helmet + HPP + Compression enabled`);
   console.log(`🛡️  Guards: JWT Auth + Roles + Rate Limiting globally enforced`);
   console.log(`🔐 Environment: ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}`);
