@@ -188,11 +188,16 @@ export class ApplicationsController {
    * Body: { "academic": { "institution": "Universidad de Chile" } }
    */
   @Patch(':id')
-  @Roles('APPLICANT')
+  @Roles('APPLICANT', 'ADMIN', 'REVIEWER')
   async patch(@Req() req: any, @Param('id') id: string, @Body() body: UpdateApplicationDto) {
     const user = this.getUserFromAuth(req);
-    if (user.role !== 'APPLICANT')
-      throw new BadRequestException('Applicant only');
+    
+    // Si es ADMIN o REVIEWER, permitir actualizar score y notes sin verificar ownership
+    if (user.role === 'ADMIN' || user.role === 'REVIEWER') {
+      return this.apps.adminPatch(id, body);
+    }
+    
+    // Para APPLICANT, verificar ownership y usar el patch normal
     return this.apps.patch(user.sub, id, body);
   }
 

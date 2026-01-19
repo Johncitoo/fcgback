@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -273,6 +274,40 @@ export class EmailTemplatesController {
     }
 
     return { ok: true, updated: true };
+  }
+
+  /**
+   * DELETE /api/email/templates/:id
+   * 
+   * Elimina una plantilla de email (solo si es editable).
+   * Las plantillas del sistema (is_editable = false) no pueden ser eliminadas.
+   * 
+   * @param id - UUID de la plantilla a eliminar
+   * @returns Objeto con success: true si se eliminó correctamente
+   * @throws BadRequestException si no existe o no es editable
+   */
+  @Delete(':id')
+  async delete(@Param('id') id: string) {
+    // Verificar si la plantilla existe y es editable
+    const checkResult = await this.ds.query(
+      `SELECT is_editable as "isEditable" FROM email_templates WHERE id = $1`,
+      [id],
+    );
+
+    if (!checkResult || checkResult.length === 0) {
+      throw new BadRequestException('Template not found');
+    }
+
+    if (checkResult[0].isEditable === false) {
+      throw new BadRequestException('System templates cannot be deleted');
+    }
+
+    await this.ds.query(
+      `DELETE FROM email_templates WHERE id = $1`,
+      [id],
+    );
+
+    return { success: true, message: 'Template deleted successfully' };
   }
 
   /**

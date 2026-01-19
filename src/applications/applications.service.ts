@@ -401,6 +401,51 @@ export class ApplicationsService {
   }
 
   /**
+   * Actualiza campos administrativos de una aplicación (ADMIN/REVIEWER only).
+   * Permite actualizar score y notes sin verificar ownership.
+   * 
+   * @param id - ID de la aplicación
+   * @param dto - Campos a actualizar (score, notes)
+   * @returns La aplicación actualizada con todos sus campos
+   * 
+   * @example
+   * await adminPatch('uuid-app', { score: 85, notes: 'Excelente postulación' });
+   */
+  async adminPatch(id: string, dto: any) {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    const push = (col: string, val: any) => {
+      fields.push(`${col} = $${idx++}`);
+      values.push(val);
+    };
+
+    if (dto.score !== undefined) push('total_score', dto.score);
+    if (dto.notes !== undefined) push('notes', dto.notes);
+
+    // También permitir campos de aplicante si vienen
+    if (dto.academic !== undefined) push('academic', dto.academic);
+    if (dto.household !== undefined) push('household', dto.household);
+    if (dto.participation !== undefined) push('participation', dto.participation);
+    if (dto.texts !== undefined) push('texts', dto.texts);
+    if (dto.builderExtra !== undefined) push('builder_extra', dto.builderExtra);
+
+    if (!fields.length) return { ok: true, updated: false };
+
+    const sql = `UPDATE applications SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
+    values.push(id);
+
+    const result = await this.ds.query(sql, values);
+    
+    if (!result.length) {
+      throw new NotFoundException(`Application ${id} not found`);
+    }
+    
+    return result[0];
+  }
+
+  /**
    * Envía una aplicación para revisión.
    * Valida que esté en estado permitido y que tenga las secciones requeridas.
    * Registra el cambio de estado en el historial y auditoría.
