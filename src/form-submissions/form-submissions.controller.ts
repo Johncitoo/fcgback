@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { FormSubmissionsService } from './form-submissions.service';
 import { Roles } from '../auth/roles.decorator';
 import { CreateFormSubmissionDto } from './dto/create-form-submission.dto';
@@ -19,6 +20,8 @@ import { SubmitFormDto } from './dto/submit-form.dto';
  * @path /form-submissions
  * @roles ADMIN, REVIEWER - La mayoría de endpoints requieren staff (salvo overrides específicos)
  */
+@ApiTags('Form Submissions')
+@ApiBearerAuth('JWT-auth')
 @Controller('form-submissions')
 @Roles('ADMIN', 'REVIEWER')
 export class FormSubmissionsController {
@@ -37,6 +40,8 @@ export class FormSubmissionsController {
    */
   @Post()
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Crear submission', description: 'Crea una nueva respuesta de formulario como borrador' })
+  @ApiResponse({ status: 201, description: 'Submission creada' })
   create(@Body() data: CreateFormSubmissionDto, @Req() req: any) {
     const userRole = req.user?.role;
     return this.submissionsService.create(data, userRole);
@@ -53,6 +58,9 @@ export class FormSubmissionsController {
    */
   @Get('application/:applicationId')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Listar por aplicación', description: 'Obtiene todas las submissions de una aplicación' })
+  @ApiParam({ name: 'applicationId', description: 'ID de la aplicación' })
+  @ApiResponse({ status: 200, description: 'Lista de submissions' })
   findByApplication(@Param('applicationId') applicationId: string) {
     return this.submissionsService.findByApplication(applicationId);
   }
@@ -68,6 +76,9 @@ export class FormSubmissionsController {
    */
   @Get('milestone/:milestoneId')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Listar por hito', description: 'Obtiene todas las submissions de un hito' })
+  @ApiParam({ name: 'milestoneId', description: 'ID del hito' })
+  @ApiResponse({ status: 200, description: 'Lista de submissions' })
   findByMilestone(@Param('milestoneId') milestoneId: string) {
     return this.submissionsService.findByMilestone(milestoneId);
   }
@@ -83,6 +94,9 @@ export class FormSubmissionsController {
    */
   @Get(':id')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Obtener submission', description: 'Obtiene una submission específica por ID' })
+  @ApiParam({ name: 'id', description: 'ID de la form_submission' })
+  @ApiResponse({ status: 200, description: 'Submission con respuestas' })
   findOne(@Param('id') id: string) {
     return this.submissionsService.findOne(id);
   }
@@ -100,6 +114,9 @@ export class FormSubmissionsController {
    */
   @Patch(':id')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Actualizar submission', description: 'Actualiza las respuestas de una submission' })
+  @ApiParam({ name: 'id', description: 'ID de la form_submission' })
+  @ApiResponse({ status: 200, description: 'Submission actualizada' })
   update(@Param('id') id: string, @Body() data: UpdateFormSubmissionDto) {
     return this.submissionsService.update(id, data);
   }
@@ -118,6 +135,9 @@ export class FormSubmissionsController {
    */
   @Post(':id/submit')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Enviar submission', description: 'Envía la submission para revisión' })
+  @ApiParam({ name: 'id', description: 'ID de la form_submission' })
+  @ApiResponse({ status: 200, description: 'Submission enviada' })
   submit(@Param('id') id: string, @Body() data: SubmitFormDto) {
     return this.submissionsService.submit(id, data.userId);
   }
@@ -133,6 +153,9 @@ export class FormSubmissionsController {
    * DELETE /api/form-submissions/uuid-123
    */
   @Delete(':id')
+  @ApiOperation({ summary: 'Eliminar submission', description: 'Elimina (soft delete) una submission' })
+  @ApiParam({ name: 'id', description: 'ID de la form_submission' })
+  @ApiResponse({ status: 200, description: 'Submission eliminada' })
   remove(@Param('id') id: string) {
     return this.submissionsService.softDelete(id);
   }

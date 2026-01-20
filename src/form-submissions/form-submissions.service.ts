@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { FormSubmission } from './entities/form-submission.entity';
 import { MilestoneProgress } from '../milestone-progress/entities/milestone-progress.entity';
 import { EmailService } from '../email/email.service';
@@ -393,9 +394,9 @@ export class FormSubmissionsService {
       expiresAt.setHours(expiresAt.getHours() + 48); // 48 horas para cambiar contraseña
 
       await this.dataSource.query(`
-        INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at)
-        VALUES ($1, $2, $3, NOW())
-      `, [userId, token, expiresAt]);
+        INSERT INTO password_reset_tokens (id, user_id, token, expires_at, created_at)
+        VALUES ($1, $2, $3, $4, NOW())
+      `, [uuidv4(), userId, token, expiresAt]);
 
       // Enviar email
       await this.emailService.sendPasswordSetEmail(

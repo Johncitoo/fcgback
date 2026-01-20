@@ -73,7 +73,7 @@ export const SECURITY_CONFIG = {
     '✅ JWT Auth + Roles',
     '✅ ValidationPipe (DTOs)',
     '✅ CORS Whitelist',
-    '✅ Argon2 Password Hashing',
+    '✅ Bcrypt Password Hashing',
     '✅ File Validation (Magic Numbers)',
     '✅ Suspicious Activity Detection',
     '✅ Audit Logging',

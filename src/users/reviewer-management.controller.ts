@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -36,6 +37,20 @@ class ConfirmReviewerDto {
   code: string;
 }
 
+/**
+ * Controlador para creación de usuarios REVIEWER por ADMIN.
+ * 
+ * Flujo con 2FA:
+ * 1. ADMIN solicita crear REVIEWER (/request)
+ * 2. Se envía código 2FA al email del ADMIN
+ * 3. ADMIN confirma con código (/confirm)
+ * 4. Se crea el REVIEWER y se notifica por email
+ * 
+ * @path /admin/reviewers
+ * @roles ADMIN
+ */
+@ApiTags('Reviewer Management')
+@ApiBearerAuth('JWT-auth')
 @Controller('admin/reviewers')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -49,6 +64,9 @@ export class ReviewerManagementController {
 
   @Post('request')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Solicitar creación', description: 'Inicia proceso de creación de REVIEWER con 2FA' })
+  @ApiResponse({ status: 200, description: 'Código 2FA enviado' })
+  @ApiResponse({ status: 400, description: 'Email ya existe' })
   async requestReviewerCreation(
     @Request() req,
     @Body() dto: CreateReviewerRequestDto,
@@ -82,6 +100,9 @@ export class ReviewerManagementController {
 
   @Post('confirm')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Confirmar creación', description: 'Confirma creación de REVIEWER con código 2FA' })
+  @ApiResponse({ status: 201, description: 'REVIEWER creado' })
+  @ApiResponse({ status: 400, description: 'Código inválido o expirado' })
   async confirmReviewerCreation(
     @Request() req,
     @Body() dto: ConfirmReviewerDto,

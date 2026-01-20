@@ -9,9 +9,11 @@ import {
   BadRequestException,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { DataSource } from 'typeorm';
-import * as argon2 from 'argon2';
+import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcryptjs';
 import { Roles } from '../auth/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -35,6 +37,8 @@ import { EmailTemplateHelper } from '../email/email-template.helper';
  * @path /admin/users
  * @roles ADMIN - Solo administradores pueden gestionar usuarios
  */
+@ApiTags('Admin Users')
+@ApiBearerAuth('JWT-auth')
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN') // Solo administradores pueden gestionar usuarios
@@ -55,6 +59,9 @@ export class AdminUsersController {
    * POST /api/admin/users/request-2fa
    */
   @Post('request-2fa')
+  @ApiOperation({ summary: 'Solicitar código 2FA', description: 'Envía código 2FA al email del admin para crear usuario' })
+  @ApiResponse({ status: 200, description: 'Código enviado al correo del admin' })
+  @ApiResponse({ status: 400, description: 'Email ya existe o datos inválidos' })
   async request2FA(
     @CurrentUser() admin: JwtPayload,
     @Body()
@@ -145,6 +152,9 @@ Si no solicitaste esto, ignora este correo.
    * POST /api/admin/users/create-with-2fa
    */
   @Post('create-with-2fa')
+  @ApiOperation({ summary: 'Crear usuario con 2FA', description: 'Crea usuario ADMIN o REVIEWER validando código 2FA' })
+  @ApiResponse({ status: 201, description: 'Usuario creado exitosamente' })
+  @ApiResponse({ status: 400, description: 'Código inválido o expirado' })
   async createWith2FA(
     @CurrentUser() admin: JwtPayload,
     @Body() body: { code: string },
@@ -168,14 +178,14 @@ Si no solicitaste esto, ignora este correo.
     const userData = codeEntity.metadata;
 
     // Encriptar contraseña
-    const hash = await argon2.hash(userData.password, { type: argon2.argon2id });
+    const hash = await bcrypt.hash(userData.password, 10);
 
     // Crear usuario
     const result = await this.ds.query(
-      `INSERT INTO users (email, password_hash, full_name, role, is_active)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO users (id, email, password_hash, full_name, role, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, email, full_name as "fullName", role, is_active as "isActive", created_at as "createdAt"`,
-      [userData.email, hash, userData.fullName, userData.role, true],
+      [uuidv4(), userData.email, hash, userData.fullName, userData.role, true],
     );
 
     return {
@@ -187,6 +197,9 @@ Si no solicitaste esto, ignora este correo.
 
   // POST /api/admin/users - Crear nuevo usuario (ADMIN/REVIEWER únicamente)
   @Post()
+  @ApiOperation({ summary: 'Crear usuario directo', description: 'Crea usuario ADMIN/REVIEWER sin 2FA (uso interno)' })
+  @ApiResponse({ status: 201, description: 'Usuario creado' })
+  @ApiResponse({ status: 400, description: 'Email ya existe' })
   async create(
     @Body()
     body: {
@@ -213,16 +226,16 @@ Si no solicitaste esto, ignora este correo.
 
     // Generar password temporal si no se provee
     const password = body.password || Math.random().toString(36).slice(-10);
-    const hash = await argon2.hash(password, { type: argon2.argon2id });
+    const hash = await bcrypt.hash(password, 10);
 
     const isActive = body.isActive !== undefined ? body.isActive : true;
 
     // Crear usuario
     const result = await this.ds.query(
-      `INSERT INTO users (email, password_hash, full_name, role, is_active)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO users (id, email, password_hash, full_name, role, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, email, full_name as "fullName", role, is_active as "isActive", created_at as "createdAt"`,
-      [body.email, hash, body.fullName, body.role, isActive],
+      [uuidv4(), body.email, hash, body.fullName, body.role, isActive],
     );
 
     return {
@@ -233,6 +246,8 @@ Si no solicitaste esto, ignora este correo.
 
   // GET /api/admin/users - Listar todos los usuarios
   @Get()
+  @ApiOperation({ summary: 'Listar usuarios', description: 'Lista todos los usuarios del sistema' })
+  @ApiResponse({ status: 200, description: 'Lista de usuarios' })
   async list() {
     const users = await this.ds.query(
       `SELECT 
@@ -253,6 +268,10 @@ Si no solicitaste esto, ignora este correo.
 
   // GET /api/admin/users/:id - Obtener usuario por ID
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener usuario', description: 'Obtiene un usuario por su ID' })
+  @ApiParam({ name: 'id', description: 'ID del usuario' })
+  @ApiResponse({ status: 200, description: 'Usuario encontrado' })
+  @ApiResponse({ status: 400, description: 'Usuario no encontrado' })
   async getById(@Param('id') id: string) {
     const result = await this.ds.query(
       `SELECT 
@@ -279,6 +298,10 @@ Si no solicitaste esto, ignora este correo.
 
   // PATCH /api/admin/users/:id - Actualizar usuario
   @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar usuario', description: 'Actualiza datos de un usuario' })
+  @ApiParam({ name: 'id', description: 'ID del usuario' })
+  @ApiResponse({ status: 200, description: 'Usuario actualizado' })
+  @ApiResponse({ status: 400, description: 'Usuario no encontrado' })
   async update(
     @Param('id') id: string,
     @Body()
@@ -314,7 +337,7 @@ Si no solicitaste esto, ignora este correo.
     }
 
     if (body.password) {
-      const hash = await argon2.hash(body.password, { type: argon2.argon2id });
+      const hash = await bcrypt.hash(body.password, 10);
       fields.push(`password_hash = $${idx++}`);
       values.push(hash);
       fields.push(`password_updated_at = NOW()`);
@@ -333,6 +356,10 @@ Si no solicitaste esto, ignora este correo.
 
   // DELETE /api/admin/users/:id - Desactivar usuario (soft delete)
   @Delete(':id')
+  @ApiOperation({ summary: 'Desactivar usuario', description: 'Desactiva un usuario (soft delete)' })
+  @ApiParam({ name: 'id', description: 'ID del usuario' })
+  @ApiResponse({ status: 200, description: 'Usuario desactivado' })
+  @ApiResponse({ status: 400, description: 'Usuario no encontrado' })
   async delete(@Param('id') id: string) {
     const user = await this.users.findById(id);
     if (!user) {
@@ -354,6 +381,8 @@ Si no solicitaste esto, ignora este correo.
  * @path /admin/applicants
  * @roles ADMIN, REVIEWER
  */
+@ApiTags('Admin Applicants')
+@ApiBearerAuth('JWT-auth')
 @Controller('admin/applicants')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'REVIEWER')
@@ -362,6 +391,10 @@ export class AdminApplicantsController {
 
   // GET /api/admin/applicants/:id - Obtener applicant por ID
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener applicant', description: 'Obtiene datos de un applicant por ID' })
+  @ApiParam({ name: 'id', description: 'ID del applicant' })
+  @ApiResponse({ status: 200, description: 'Datos del applicant' })
+  @ApiResponse({ status: 400, description: 'Applicant no encontrado' })
   async getById(@Param('id') id: string) {
     const result = await this.ds.query(
       `SELECT 

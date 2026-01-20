@@ -37,7 +37,7 @@ export class Admin2FACode {
    * Email del admin que está realizando la acción
    * (NO el email del usuario que se va a crear)
    */
-  @Column({ type: 'citext', name: 'admin_email' })
+  @Column({ type: 'text', name: 'admin_email' })
   @Index()
   adminEmail: string;
 

@@ -14,12 +14,27 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
 import { Roles } from '../auth/roles.decorator';
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { SaveAnswersDto } from './dto/save-answers.dto';
 import { cleanupDuplicateApplications } from './cleanup-duplicates';
 
+/**
+ * Controller para gestión del ciclo de vida de aplicaciones/postulaciones.
+ * 
+ * Gestiona la creación, actualización y envío de aplicaciones a becas.
+ * Implementa control de acceso por roles (APPLICANT, ADMIN, REVIEWER).
+ * 
+ * Flujos principales:
+ * 1. Crear/obtener aplicación (getOrCreate)
+ * 2. Guardar respuestas del formulario (saveAnswers)
+ * 3. Enviar aplicación (submit)
+ * 4. Listar y filtrar aplicaciones (admin)
+ */
+@ApiTags('Applications')
+@ApiBearerAuth('JWT-auth')
 @Controller('applications')
 @Roles('ADMIN', 'REVIEWER') // Todo el controlador requiere admin o revisor
 export class ApplicationsController {
@@ -70,6 +85,14 @@ export class ApplicationsController {
    * GET /api/applications?limit=10&overallStatus=IN_REVIEW&callId=uuid-123
    */
   @Get()
+  @ApiOperation({ summary: 'Listar aplicaciones', description: 'Lista aplicaciones con filtros y paginación (solo admin/reviewer)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Límite de resultados (default: 20)' })
+  @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Offset para paginación' })
+  @ApiQuery({ name: 'overallStatus', required: false, description: 'Filtrar por estado (DRAFT, SUBMITTED, etc.)' })
+  @ApiQuery({ name: 'callId', required: false, description: 'Filtrar por convocatoria' })
+  @ApiQuery({ name: 'milestoneOrder', required: false, type: Number, description: 'Filtrar por hito actual' })
+  @ApiQuery({ name: 'count', required: false, description: 'Incluir conteo total (1 o true)' })
+  @ApiResponse({ status: 200, description: 'Lista de aplicaciones' })
   async listAdmin(
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
@@ -108,6 +131,10 @@ export class ApplicationsController {
    * Response: { "id": "uuid-456", "status": "DRAFT", "mode": "created" }
    */
   @Post()
+  @ApiOperation({ summary: 'Crear/obtener aplicación', description: 'Obtiene o crea una aplicación para el postulante' })
+  @ApiBody({ schema: { type: 'object', properties: { callId: { type: 'string', format: 'uuid' } }, required: ['callId'] } })
+  @ApiResponse({ status: 200, description: 'Aplicación existente o creada' })
+  @ApiResponse({ status: 400, description: 'Token inválido o falta callId' })
   async getOrCreate(@Req() req: any, @Body() body: { callId: string }) {
     const user = this.getUserFromAuth(req);
     if (user.typ !== 'access' || user.role !== 'APPLICANT') {
@@ -132,6 +159,9 @@ export class ApplicationsController {
    */
   @Get('my-active')
   @Roles('APPLICANT')
+  @ApiOperation({ summary: 'Obtener mi aplicación activa', description: 'Obtiene o crea la aplicación para la convocatoria activa' })
+  @ApiResponse({ status: 200, description: 'Aplicación del postulante' })
+  @ApiResponse({ status: 404, description: 'No hay convocatoria activa' })
   async getMyActive(@Req() req: any) {
     const user = this.getUserFromAuth(req);
     if (user.typ !== 'access' || user.role !== 'APPLICANT') {
@@ -154,6 +184,10 @@ export class ApplicationsController {
    */
   @Get(':id')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Obtener aplicación por ID', description: 'Obtiene detalles de una aplicación específica' })
+  @ApiParam({ name: 'id', description: 'ID de la aplicación' })
+  @ApiResponse({ status: 200, description: 'Detalles de la aplicación' })
+  @ApiResponse({ status: 404, description: 'Aplicación no encontrada' })
   async getById(@Req() req: any, @Param('id') id: string) {
     try {
       const user = this.getUserFromAuth(req);
@@ -189,6 +223,10 @@ export class ApplicationsController {
    */
   @Patch(':id')
   @Roles('APPLICANT', 'ADMIN', 'REVIEWER')
+  @ApiOperation({ summary: 'Actualizar aplicación', description: 'Actualiza parcialmente los datos de una aplicación' })
+  @ApiParam({ name: 'id', description: 'ID de la aplicación' })
+  @ApiResponse({ status: 200, description: 'Aplicación actualizada' })
+  @ApiResponse({ status: 404, description: 'Aplicación no encontrada' })
   async patch(@Req() req: any, @Param('id') id: string, @Body() body: UpdateApplicationDto) {
     const user = this.getUserFromAuth(req);
     
@@ -217,6 +255,10 @@ export class ApplicationsController {
    */
   @Post(':id/submit')
   @Roles('APPLICANT')
+  @ApiOperation({ summary: 'Enviar aplicación', description: 'Envía la aplicación para revisión' })
+  @ApiParam({ name: 'id', description: 'ID de la aplicación' })
+  @ApiResponse({ status: 200, description: 'Aplicación enviada' })
+  @ApiResponse({ status: 400, description: 'Estado no permite envío o faltan datos' })
   async submit(@Req() req: any, @Param('id') id: string) {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT')
@@ -238,6 +280,9 @@ export class ApplicationsController {
    */
   @Post(':id/complete-invite')
   @Roles('APPLICANT')
+  @ApiOperation({ summary: 'Completar invitación', description: 'Marca el código de invitación como usado' })
+  @ApiParam({ name: 'id', description: 'ID de la aplicación' })
+  @ApiResponse({ status: 200, description: 'Invitación completada' })
   async completeInvite(@Req() req: any, @Param('id') id: string) {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT')
@@ -260,6 +305,9 @@ export class ApplicationsController {
    */
   @Get(':id/answers')
   @Roles('APPLICANT')
+  @ApiOperation({ summary: 'Obtener respuestas', description: 'Obtiene las respuestas guardadas del formulario' })
+  @ApiParam({ name: 'id', description: 'ID de la aplicación' })
+  @ApiResponse({ status: 200, description: 'Respuestas del formulario' })
   async getAnswers(@Req() req: any, @Param('id') id: string) {
     const user = this.getUserFromAuth(req);
     if (user.role !== 'APPLICANT')
@@ -284,6 +332,9 @@ export class ApplicationsController {
    */
   @Patch(':id/answers')
   @Roles('APPLICANT')
+  @ApiOperation({ summary: 'Guardar respuestas', description: 'Guarda las respuestas del formulario como borrador' })
+  @ApiParam({ name: 'id', description: 'ID de la aplicación' })
+  @ApiResponse({ status: 200, description: 'Respuestas guardadas' })
   async saveAnswers(
     @Req() req: any,
     @Param('id') id: string,
@@ -311,6 +362,8 @@ export class ApplicationsController {
    */
   @Delete('cleanup-duplicates')
   @Roles('ADMIN')
+  @ApiOperation({ summary: 'Limpiar duplicados', description: 'Elimina aplicaciones duplicadas del sistema (solo admin)' })
+  @ApiResponse({ status: 200, description: 'Limpieza completada' })
   async cleanupDuplicates() {
     const result = await cleanupDuplicateApplications(this.dataSource);
     return {

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { Invite } from '../invites/invite.entity';
 import { PasswordSetToken } from './entities/password-set-token.entity';
 import { User, UserRole } from '../users/entities/user.entity';
@@ -15,7 +16,7 @@ import { EmailService } from '../email/email.service';
 import { AuditService } from '../common/audit.service';
 import { MilestonesService } from '../milestones/milestones.service';
 import { randomBytes } from 'crypto';
-import { hash, verify } from 'argon2';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class OnboardingService {
@@ -56,7 +57,7 @@ export class OnboardingService {
     // Buscar la invitación cuyo hash coincida
     for (const invite of invites) {
       try {
-        if (await verify(invite.codeHash, normalizedCode)) {
+        if (await bcrypt.compare(normalizedCode, invite.codeHash)) {
           return invite;
         }
       } catch {
@@ -94,7 +95,7 @@ export class OnboardingService {
     lastName?: string,
     email?: string,
   ): Promise<Invite> {
-    const codeHash = await hash(code.toUpperCase());
+    const codeHash = await bcrypt.hash(code.toUpperCase(), 10);
     
     const ttl = ttlDays || 30;
     const expiresAt = new Date(Date.now() + ttl * 24 * 60 * 60 * 1000);
@@ -186,7 +187,7 @@ export class OnboardingService {
 
       // Verificar si ya existe usuario con este email (puede ser de código anterior)
       const existingUserCheck = await queryRunner.manager.query(
-        'SELECT u.id, u.applicant_id, a.id as applicant_exists FROM users u LEFT JOIN applicants a ON a.id = u.applicant_id WHERE u.email = $1 AND u.role = $2',
+        'SELECT u.id, u.applicant_id, a.id as applicant_exists FROM users u LEFT JOIN applicants a ON a.id = u.applicant_id WHERE LOWER(u.email) = LOWER($1) AND u.role = $2',
         [finalEmail, 'APPLICANT'],
       );
 
@@ -234,22 +235,22 @@ export class OnboardingService {
 
         const applicantResult = await queryRunner.manager.query(
           `INSERT INTO applicants (id, rut_number, rut_dv, first_name, last_name, email)
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
+           VALUES ($1, $2, $3, $4, $5, $6)
            RETURNING id`,
-          [tempRut, dv, 'Postulante', 'Pendiente', finalEmail],
+          [uuidv4(), tempRut, dv, 'Postulante', 'Pendiente', finalEmail],
         );
 
         applicantId = applicantResult[0].id;
 
         // Crear usuario con email real
         const tempPassword = randomBytes(32).toString('hex');
-        const passwordHash = await hash(tempPassword);
+        const passwordHash = await bcrypt.hash(tempPassword, 10);
 
         const userResult = await queryRunner.manager.query(
-          `INSERT INTO users (email, full_name, password_hash, role, is_active, applicant_id)
-           VALUES ($1, $2, $3, $4, $5, $6)
+          `INSERT INTO users (id, email, full_name, password_hash, role, is_active, applicant_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING *`,
-          [finalEmail, `Postulante ${code}`, passwordHash, 'APPLICANT', true, applicantId],
+          [uuidv4(), finalEmail, `Postulante ${code}`, passwordHash, 'APPLICANT', true, applicantId],
         );
 
         user = userResult[0];
@@ -314,13 +315,13 @@ export class OnboardingService {
 
       // Generar token para establecer contraseña (TTL: 10 minutos)
       const token = randomBytes(32).toString('hex');
-      const tokenHash = await hash(token);
+      const tokenHash = await bcrypt.hash(token, 10);
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
 
       await queryRunner.manager.query(
         `INSERT INTO password_set_tokens (id, user_id, token_hash, expires_at)
-         VALUES (gen_random_uuid(), $1, $2, $3)`,
-        [user.id, tokenHash, expiresAt],
+         VALUES ($1, $2, $3, $4)`,
+        [uuidv4(), user.id, tokenHash, expiresAt],
       );
 
       await queryRunner.commitTransaction();
@@ -359,7 +360,7 @@ export class OnboardingService {
     ua?: string,
   ): Promise<{ token: string; tokenEntity: PasswordSetToken }> {
     const token = randomBytes(32).toString('hex');
-    const tokenHash = await hash(token);
+    const tokenHash = await bcrypt.hash(token, 10);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
 
     const passwordToken = this.tokenRepo.create({
@@ -388,12 +389,12 @@ export class OnboardingService {
       .leftJoinAndSelect('token.user', 'user')
       .getMany();
 
-    // Verificar cada token con argon2
+    // Verificar cada token con bcrypt
     let passwordToken: PasswordSetToken | null = null;
 
     for (const t of allTokens) {
       try {
-        const isValid = await verify(t.tokenHash, token);
+        const isValid = await bcrypt.compare(token, t.tokenHash);
         if (isValid) {
           passwordToken = t;
           break;
@@ -422,7 +423,7 @@ export class OnboardingService {
     const passwordToken = await this.validatePasswordToken(token);
 
     // Hash de la nueva contraseña
-    const passwordHash = await hash(newPassword);
+    const passwordHash = await bcrypt.hash(newPassword, 10);
 
     // Actualizar contraseña del usuario
     await this.usersService.updatePassword(passwordToken.userId, passwordHash);
@@ -527,7 +528,7 @@ export class OnboardingService {
       });
 
       // Crear nueva invitación con el mismo applicant y call
-      const codeHash = await hash(newCode.toUpperCase());
+      const codeHash = await bcrypt.hash(newCode.toUpperCase(), 10);
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
       const newInvite = queryRunner.manager.create(Invite, {
@@ -637,7 +638,7 @@ export class OnboardingService {
     }
 
     // Hashear la nueva contraseña
-    const passwordHash = await hash(password);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     // Actualizar la contraseña
     user.passwordHash = passwordHash;

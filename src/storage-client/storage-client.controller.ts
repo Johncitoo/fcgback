@@ -13,6 +13,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import type { Response } from 'express';
@@ -64,6 +65,8 @@ class UploadFileDto {
  * @path /files
  * @auth Requiere JwtAuthGuard en todos los endpoints
  */
+@ApiTags('Files')
+@ApiBearerAuth('JWT-auth')
 @Controller('files')
 export class StorageClientController {
   constructor(private readonly storageClient: StorageClientService) {}
@@ -96,6 +99,10 @@ export class StorageClientController {
   @Post('upload')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Subir archivo', description: 'Sube un archivo al servicio de almacenamiento' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Archivo subido exitosamente' })
+  @ApiResponse({ status: 400, description: 'Archivo inválido o falta archivo' })
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadFileDto,
@@ -161,6 +168,10 @@ export class StorageClientController {
    */
   @Get(':id/download')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Descargar archivo', description: 'Descarga un archivo por su ID' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  @ApiResponse({ status: 200, description: 'Archivo descargado' })
+  @ApiResponse({ status: 404, description: 'Archivo no encontrado' })
   async downloadFile(@Param('id') id: string, @Res() res: Response) {
     const metadata = await this.storageClient.getMetadata(id);
     const buffer = await this.storageClient.download(id);
@@ -194,6 +205,10 @@ export class StorageClientController {
    */
   @Get(':id/view')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Ver archivo', description: 'Visualiza archivo en el navegador (inline)' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  @ApiResponse({ status: 200, description: 'Archivo renderizado' })
+  @ApiResponse({ status: 404, description: 'Archivo no encontrado' })
   async viewFile(@Param('id') id: string, @Res() res: Response) {
     const metadata = await this.storageClient.getMetadata(id);
     const buffer = await this.storageClient.download(id);
@@ -226,6 +241,10 @@ export class StorageClientController {
    */
   @Get(':id/thumbnail')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Obtener miniatura', description: 'Obtiene thumbnail de imagen' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  @ApiResponse({ status: 200, description: 'Miniatura en JPEG' })
+  @ApiResponse({ status: 404, description: 'Archivo no encontrado' })
   async getThumbnail(@Param('id') id: string, @Res() res: Response) {
     const buffer = await this.storageClient.getThumbnail(id);
 
@@ -265,6 +284,10 @@ export class StorageClientController {
    */
   @Get(':id/metadata')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Obtener metadatos', description: 'Obtiene metadatos del archivo sin descargarlo' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  @ApiResponse({ status: 200, description: 'Metadatos del archivo' })
+  @ApiResponse({ status: 404, description: 'Archivo no encontrado' })
   async getMetadata(@Param('id') id: string) {
     return this.storageClient.getMetadata(id);
   }
@@ -289,6 +312,12 @@ export class StorageClientController {
    */
   @Get('list')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Listar archivos', description: 'Lista archivos con filtros opcionales' })
+  @ApiQuery({ name: 'category', required: false, description: 'Filtrar por categoría' })
+  @ApiQuery({ name: 'entityType', required: false, description: 'Filtrar por tipo de entidad' })
+  @ApiQuery({ name: 'entityId', required: false, description: 'Filtrar por ID de entidad' })
+  @ApiQuery({ name: 'uploadedBy', required: false, description: 'Filtrar por usuario' })
+  @ApiResponse({ status: 200, description: 'Lista de archivos' })
   async listFiles(
     @Query('category') category?: FileCategory,
     @Query('entityType') entityType?: EntityType,
@@ -372,6 +401,11 @@ export class StorageClientController {
    */
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Eliminar archivo', description: 'Elimina permanentemente un archivo' })
+  @ApiParam({ name: 'id', description: 'ID del archivo' })
+  @ApiResponse({ status: 200, description: 'Archivo eliminado' })
+  @ApiResponse({ status: 404, description: 'Archivo no encontrado' })
+  @ApiResponse({ status: 403, description: 'Sin permisos para eliminar' })
   async deleteFile(@Param('id') id: string) {
     await this.storageClient.delete(id);
     return { success: true, message: 'File deleted' };

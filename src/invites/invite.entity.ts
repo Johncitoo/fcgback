@@ -22,7 +22,7 @@ import { User } from '../users/entities/user.entity';
  * - sentAt: Timestamp del envío del email
  * - meta: Metadata JSON con firstName, lastName, email del postulante
  * 
- * El código se verifica usando argon2.verify() contra codeHash
+ * El código se verifica usando bcrypt.compare() contra codeHash
  */
 @Entity('invites')
 export class Invite {

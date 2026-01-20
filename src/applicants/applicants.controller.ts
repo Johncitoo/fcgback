@@ -166,7 +166,7 @@ export class ApplicantsController {
     try {
       // 1. Buscar user y applicant
       const userResult = await queryRunner.query(
-        `SELECT id, applicant_id FROM users WHERE email = $1 AND role = 'APPLICANT'`,
+        `SELECT id, applicant_id FROM users WHERE LOWER(email) = LOWER($1) AND role = 'APPLICANT'`,
         [email]
       );
 

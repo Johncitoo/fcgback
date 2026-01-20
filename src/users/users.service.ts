@@ -30,6 +30,7 @@ export class UsersService {
 
   /**
    * Busca un usuario por su email.
+   * Usa LOWER() para búsqueda case-insensitive (compatible con PG sin citext)
    * 
    * @param email - Email del usuario
    * @returns Usuario encontrado o null
@@ -38,7 +39,10 @@ export class UsersService {
    * const user = await findByEmail('user@example.com');
    */
   findByEmail(email: string): Promise<User | null> {
-    return this.repo.findOne({ where: { email } });
+    return this.repo
+      .createQueryBuilder('user')
+      .where('LOWER(user.email) = LOWER(:email)', { email })
+      .getOne();
   }
 
   /**
@@ -78,7 +82,7 @@ export class UsersService {
    * const user = await createUser({ email: 'admin@example.com', fullName: 'Admin', passwordHash: 'hash', role: 'ADMIN', isActive: true });
    */
   async createUser(data: CreateUserData): Promise<User> {
-    const exists = await this.repo.findOne({ where: { email: data.email } });
+    const exists = await this.findByEmail(data.email);
     if (exists) {
       throw new ConflictException('Email already exists');
     }
@@ -146,7 +150,7 @@ export class UsersService {
     const allow = process.env.ALLOW_DEV_SEED === 'true';
     if (!allow) return null;
 
-    const exists = await this.repo.findOne({ where: { email } });
+    const exists = await this.findByEmail(email);
     if (exists) return exists;
 
     const user = this.repo.create({

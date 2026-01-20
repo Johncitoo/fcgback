@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { AuditService } from '../common/audit.service';
 
 /**
@@ -189,9 +190,9 @@ export class ApplicationsService {
     const created = await this.ds.query(
       `INSERT INTO applications
         (id, applicant_id, call_id, status)
-       VALUES (gen_random_uuid(), $1, $2, 'DRAFT')
+       VALUES ($1, $2, $3, 'DRAFT')
        RETURNING id, status`,
-      [u.applicant_id, callId],
+      [uuidv4(), u.applicant_id, callId],
     );
     return { id: created[0].id, status: created[0].status, mode: 'created' };
   }
@@ -266,9 +267,9 @@ export class ApplicationsService {
     // Crear nueva application
     const created = await this.ds.query(
       `INSERT INTO applications (id, applicant_id, call_id, status)
-       VALUES (gen_random_uuid(), $1, $2, 'DRAFT')
+       VALUES ($1, $2, $3, 'DRAFT')
        RETURNING id, status`,
-      [u.applicant_id, activeCall.id],
+      [uuidv4(), u.applicant_id, activeCall.id],
     );
 
     return {
@@ -490,8 +491,8 @@ export class ApplicationsService {
     await this.ds.query(
       `INSERT INTO application_status_history
          (id, application_id, from_status, to_status, actor_user_id, reason)
-       VALUES (gen_random_uuid(), $1, $2, 'SUBMITTED', NULL, 'Submitted by applicant')`,
-      [id, oldStatus],
+       VALUES ($1, $2, $3, 'SUBMITTED', NULL, 'Submitted by applicant')`,
+      [uuidv4(), id, oldStatus],
     );
 
     // Auditoría

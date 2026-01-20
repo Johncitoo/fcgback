@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { TemplateRendererService, TemplateVariables } from './template-renderer.service';
 import { AuditService } from '../common/audit.service';
 import { EmailTemplateHelper } from './email-template.helper';
@@ -129,9 +130,10 @@ export class EmailService {
     try {
       const result = await this.dataSource.query(
         `INSERT INTO email_quota_tracking (id, tracking_date, account1_count, account2_count)
-         VALUES (gen_random_uuid(), CURRENT_DATE, 0, 0)
+         VALUES ($1, CURRENT_DATE, 0, 0)
          ON CONFLICT (tracking_date) DO NOTHING
          RETURNING id`,
+        [uuidv4()],
       );
       
       if (result.length > 0) {

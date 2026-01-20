@@ -1,6 +1,7 @@
 // backend/src/form/form.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import {
   ApplicantFormPayload,
   DocumentsByField,
@@ -210,9 +211,9 @@ export class FormService {
         submitted_at: string | null;
       }>(
         `INSERT INTO applications (id, applicant_id, call_id, status)
-         VALUES (gen_random_uuid(), $1, $2, 'DRAFT')
+         VALUES ($1, $2, $3, 'DRAFT')
          RETURNING id, status, submitted_at`,
-        [applicantId, call.id],
+        [uuidv4(), applicantId, call.id],
       );
       application = inserted[0];
     } else {

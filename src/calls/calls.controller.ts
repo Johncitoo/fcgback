@@ -9,6 +9,7 @@ import {
   BadRequestException,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { CallsService } from './calls.service';
 import { CallsSchedulerService } from './calls-scheduler.service';
 import { Roles } from '../auth/roles.decorator';
@@ -18,6 +19,14 @@ import { ListCallsDto } from './dto/list-calls.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 
+/**
+ * Controller para gestión de convocatorias de becas.
+ * 
+ * Permite crear, listar, actualizar y gestionar convocatorias
+ * incluyendo sus formularios asociados.
+ */
+@ApiTags('Calls')
+@ApiBearerAuth('JWT-auth')
 @Controller('calls')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CallsController {
@@ -37,6 +46,12 @@ export class CallsController {
    */
   @Roles('ADMIN', 'REVIEWER')
   @Get()
+  @ApiOperation({ summary: 'Listar convocatorias', description: 'Lista convocatorias con filtros y paginación' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiQuery({ name: 'onlyActive', required: false, type: Boolean })
+  @ApiQuery({ name: 'count', required: false, type: Boolean })
+  @ApiResponse({ status: 200, description: 'Lista de convocatorias' })
   async list(@Query() query: ListCallsDto) {
     const limitNum = query.limit ? parseInt(query.limit, 10) : 20;
     const offsetNum = query.offset ? parseInt(query.offset, 10) : 0;
@@ -63,6 +78,10 @@ export class CallsController {
    */
   @Roles('ADMIN', 'REVIEWER')
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener convocatoria', description: 'Obtiene detalles completos de una convocatoria por ID' })
+  @ApiParam({ name: 'id', description: 'ID de la convocatoria' })
+  @ApiResponse({ status: 200, description: 'Detalles de la convocatoria' })
+  @ApiResponse({ status: 404, description: 'Convocatoria no encontrada' })
   async getById(@Param('id') id: string) {
     return this.calls.getCallById(id);
   }
@@ -80,6 +99,10 @@ export class CallsController {
    */
   @Get(':id/form')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Obtener formulario', description: 'Obtiene el formulario asociado a una convocatoria' })
+  @ApiParam({ name: 'id', description: 'ID de la convocatoria' })
+  @ApiResponse({ status: 200, description: 'Formulario con secciones y campos' })
+  @ApiResponse({ status: 404, description: 'Convocatoria no encontrada' })
   async getForm(@Param('id') id: string) {
     return this.calls.getForm(id);
   }
@@ -97,6 +120,9 @@ export class CallsController {
    */
   @Roles('ADMIN', 'REVIEWER')
   @Post()
+  @ApiOperation({ summary: 'Crear convocatoria', description: 'Crea una nueva convocatoria de becas' })
+  @ApiResponse({ status: 201, description: 'Convocatoria creada exitosamente' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   async create(@Body() body: CreateCallDto) {
     return this.calls.createCall(body);
   }
@@ -117,6 +143,11 @@ export class CallsController {
    */
   @Roles('ADMIN', 'REVIEWER')
   @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar convocatoria', description: 'Actualiza parcialmente una convocatoria existente' })
+  @ApiParam({ name: 'id', description: 'ID de la convocatoria' })
+  @ApiResponse({ status: 200, description: 'Convocatoria actualizada' })
+  @ApiResponse({ status: 404, description: 'Convocatoria no encontrada' })
+  @ApiResponse({ status: 400, description: 'Error de validación (ej: otra convocatoria activa)' })
   async update(@Param('id') id: string, @Body() body: UpdateCallDto) {
     return this.calls.updateCall(id, body);
   }
@@ -138,6 +169,8 @@ export class CallsController {
    */
   @Roles('ADMIN')
   @Post('check-statuses')
+  @ApiOperation({ summary: 'Verificar estados', description: 'Ejecuta verificación automática de estados de convocatorias (activar/cerrar por fechas)' })
+  @ApiResponse({ status: 200, description: 'Estadísticas de actualizaciones realizadas' })
   async checkStatuses() {
     return this.scheduler.checkAndUpdateCallStatuses();
   }

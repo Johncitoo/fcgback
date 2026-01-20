@@ -1,5 +1,6 @@
 import { Controller, Get, Put, Post, Query, Body, BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { Roles } from '../auth/roles.decorator';
 import { SaveFormDto } from './dto/save-form.dto';
 
@@ -166,10 +167,10 @@ export class AdminFormsController {
         const [newSection] = await this.ds.query(
           `
           INSERT INTO form_sections (id, call_id, title, "order", visible)
-          VALUES (gen_random_uuid(), $1, $2, $3, $4)
+          VALUES ($1, $2, $3, $4, $5)
           RETURNING id
           `,
-          [callId, section.title || 'Sin título', i, true]
+          [uuidv4(), callId, section.title || 'Sin título', i, true]
         );
 
         const actualSectionId = newSection.id;
@@ -187,12 +188,13 @@ export class AdminFormsController {
                 active, visibility, editable_by_roles
               )
               VALUES (
-                gen_random_uuid(), $1, $2, $3, $4, $5::form_field_type, 
-                $6, $7::jsonb, $8::jsonb, $9, $10::jsonb, $11,
-                $12, $13, $14::jsonb
+                $1, $2, $3, $4, $5, $6::form_field_type, 
+                $7, $8::jsonb, $9::jsonb, $10, $11::jsonb, $12,
+                $13, $14, $15::jsonb
               )
               `,
               [
+                uuidv4(),
                 callId,
                 actualSectionId,
                 field.name || 'campo',
@@ -278,10 +280,10 @@ export class AdminFormsController {
       const [newSection] = await this.ds.query(
         `
         INSERT INTO form_sections (id, call_id, title, "order", visible)
-        VALUES (gen_random_uuid(), $1, $2, $3, $4)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING id
         `,
-        [toCallId, section.title, section.order, section.visible]
+        [uuidv4(), toCallId, section.title, section.order, section.visible]
       );
 
       sectionIdMap.set(section.id, newSection.id);
@@ -304,11 +306,12 @@ export class AdminFormsController {
           required, options, validation, help_text, "order", active
         )
         VALUES (
-          gen_random_uuid(), $1, $2, $3, $4, $5::form_field_type, 
-          $6, $7::jsonb, $8::jsonb, $9, $10, $11
+          $1, $2, $3, $4, $5, $6::form_field_type, 
+          $7, $8::jsonb, $9::jsonb, $10, $11, $12
         )
         `,
         [
+          uuidv4(),
           toCallId, newSectionId, field.name, field.label, field.type,
           field.required, 
           field.options ? JSON.stringify(field.options) : null, 

@@ -1,9 +1,19 @@
 import { Controller, Get, Patch, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Controller para el proceso de selección final de becarios.
+ * 
+ * Permite visualizar el estado de todos los postulantes,
+ * revisar sus hitos y tomar decisiones de selección.
+ */
+@ApiTags('Selection')
+@ApiBearerAuth('JWT-auth')
 @Controller('selection')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SelectionController {
@@ -15,6 +25,9 @@ export class SelectionController {
    */
   @Get('call/:callId/applicants')
   @Roles('ADMIN', 'REVIEWER')
+  @ApiOperation({ summary: 'Listar postulantes para selección', description: 'Obtiene postulantes con estado de hitos para la vista de selección' })
+  @ApiParam({ name: 'callId', description: 'ID de la convocatoria' })
+  @ApiResponse({ status: 200, description: 'Lista de postulantes con estado' })
   async getApplicantsForSelection(@Param('callId') callId: string) {
     const query = `
       SELECT 
@@ -69,6 +82,10 @@ export class SelectionController {
    */
   @Patch('application/:applicationId/final-decision')
   @Roles('ADMIN')
+  @ApiOperation({ summary: 'Decisión final', description: 'Establece si un postulante es seleccionado o no' })
+  @ApiParam({ name: 'applicationId', description: 'ID de la aplicación' })
+  @ApiBody({ schema: { type: 'object', properties: { decision: { type: 'string', enum: ['SELECTED', 'NOT_SELECTED'] }, reason: { type: 'string' }, notes: { type: 'string' } } } })
+  @ApiResponse({ status: 200, description: 'Decisión registrada' })
   async setFinalDecision(
     @Param('applicationId') applicationId: string,
     @Body() body: { status?: 'SELECTED' | 'NOT_SELECTED'; decision?: 'SELECTED' | 'NOT_SELECTED'; reason?: string; notes?: string },
@@ -90,8 +107,8 @@ export class SelectionController {
 
     // Registrar en el historial
     await this.dataSource.query(
-      `INSERT INTO application_status_history (application_id, from_status, to_status, actor_user_id, reason, created_at)
-       SELECT id, status, $1, $2, $3, NOW()
+      `INSERT INTO application_status_history (id, application_id, from_status, to_status, actor_user_id, reason, created_at)
+       SELECT md5(random()::text || clock_timestamp()::text)::uuid, id, status, $1, $2, $3, NOW()
        FROM applications
        WHERE id = $4`,
       [status, userId, reason || `Decisión final: ${status}`, applicationId]
@@ -100,9 +117,9 @@ export class SelectionController {
     // Registrar nota si existe
     if (notes) {
       await this.dataSource.query(
-        `INSERT INTO application_notes (application_id, author_user_id, visibility, body, created_at)
-         VALUES ($1, $2, 'INTERNAL', $3, NOW())`,
-        [applicationId, userId, notes]
+        `INSERT INTO application_notes (id, application_id, author_user_id, visibility, body, created_at)
+         VALUES ($1, $2, $3, 'INTERNAL', $4, NOW())`,
+        [uuidv4(), applicationId, userId, notes]
       );
     }
 

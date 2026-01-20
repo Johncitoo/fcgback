@@ -57,4 +57,16 @@ export class FormField {
 
   @Column({ type: 'boolean', default: true })
   active: boolean;
+
+  /** Condición JSON para mostrar/ocultar este campo dinámicamente */
+  @Column({ name: 'show_if', type: 'jsonb', nullable: true })
+  showIf: Record<string, any> | null;
+
+  /** Visibilidad del campo: 'PUBLIC' (visible para postulantes) o 'INTERNAL' (solo staff) */
+  @Column({ type: 'text', default: 'PUBLIC' })
+  visibility: string;
+
+  /** Roles que pueden editar este campo (JSONB array de roles) */
+  @Column({ name: 'editable_by_roles', type: 'jsonb', nullable: true })
+  editableByRoles: string[] | null;
 }

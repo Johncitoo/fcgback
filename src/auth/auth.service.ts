@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
-import * as argon2 from 'argon2';
+import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { SessionsService } from '../sessions/sessions.service';
@@ -164,7 +164,7 @@ export class AuthService {
 
     await this.assertStaff(user);
 
-    const ok = await argon2.verify(user.passwordHash, password);
+    const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
       await this.securityService.recordLoginAttempt(email, ip || '0.0.0.0', false, ua);
       throw new UnauthorizedException('Invalid credentials');
@@ -328,7 +328,7 @@ export class AuthService {
     }
 
     // Verificar contraseña
-    const ok = await argon2.verify(user.passwordHash, password);
+    const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('Credenciales inválidas');
 
     // Generar tokens
@@ -417,7 +417,7 @@ export class AuthService {
     role: Exclude<UserRole, 'APPLICANT'>,
     password: string,
   ) {
-    const hash = await argon2.hash(password, { type: argon2.argon2id });
+    const hash = await bcrypt.hash(password, 10);
     return this.users.createStaffIfAllowed(email, fullName, hash, role);
   }
 
@@ -606,7 +606,7 @@ export class AuthService {
     }
 
     // Hashear nueva contraseña
-    const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+    const passwordHash = await bcrypt.hash(newPassword, 10);
 
     // Actualizar contraseña del usuario
     await this.dataSource.query(

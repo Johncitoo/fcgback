@@ -48,16 +48,17 @@ export class MilestonesService {
     // Usar SQL directo con parámetros (mismo patrón que update - probado y seguro)
     const result = await this.ds.query(
       `INSERT INTO milestones (id, call_id, form_id, name, description, order_index, required, who_can_fill, start_date, due_date, status, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
        RETURNING *`,
       [
+        uuidv4(),
         data.callId,
         data.formId || null,
         data.name,
         data.description || null,
         data.orderIndex,
         data.required !== undefined ? data.required : true,
-        whoCanFillArray,  // PostgreSQL maneja el array automáticamente con $7
+        whoCanFillArray,  // PostgreSQL maneja el array automáticamente con $8
         data.startDate || null,
         data.dueDate || null,
         data.status || 'ACTIVE'
@@ -68,10 +69,11 @@ export class MilestonesService {
 
     // 🔥 AUTO-INICIALIZAR: Crear milestone_progress para todas las postulaciones existentes de esta convocatoria
     try {
+      // Usar md5(random()::text || clock_timestamp()::text)::uuid como alternativa a gen_random_uuid() para PG10
       await this.ds.query(
         `INSERT INTO milestone_progress (id, application_id, milestone_id, status, created_at, updated_at)
          SELECT 
-           gen_random_uuid() AS id,
+           md5(random()::text || clock_timestamp()::text)::uuid AS id,
            a.id AS application_id,
            $1 AS milestone_id,
            'PENDING' AS status,
@@ -366,8 +368,8 @@ export class MilestonesService {
         // 3. Registrar en el historial de estados
         await this.ds.query(
           `INSERT INTO application_status_history 
-           (application_id, from_status, to_status, actor_user_id, reason, created_at)
-           SELECT $1, status, 'NOT_SELECTED', $2, $3, NOW()
+           (id, application_id, from_status, to_status, actor_user_id, reason, created_at)
+           SELECT md5(random()::text || clock_timestamp()::text)::uuid, $1, status, 'NOT_SELECTED', $2, $3, NOW()
            FROM applications WHERE id = $1`,
           [
             progress.applicationId, 

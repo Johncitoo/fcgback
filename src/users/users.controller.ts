@@ -11,8 +11,10 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -35,6 +37,8 @@ import { AuditService } from '../common/audit.service';
  * @path /applicants
  * @roles ADMIN, REVIEWER (mayoría de endpoints), APPLICANT solo para /me
  */
+@ApiTags('Applicants')
+@ApiBearerAuth('JWT-auth')
 @Controller('applicants')
 @Roles('ADMIN', 'REVIEWER')
 export class UsersController {
@@ -62,6 +66,12 @@ export class UsersController {
    * GET /api/applicants?limit=10&count=1&callId=uuid-123
    */
   @Get()
+  @ApiOperation({ summary: 'Listar postulantes', description: 'Lista postulantes con paginación y filtros opcionales' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiQuery({ name: 'count', required: false, type: String, description: 'Incluir conteo total' })
+  @ApiQuery({ name: 'callId', required: false, type: String, description: 'Filtrar por convocatoria' })
+  @ApiResponse({ status: 200, description: 'Lista paginada de postulantes' })
   async list(
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
@@ -137,6 +147,9 @@ export class UsersController {
    */
   @Get('me')
   @Roles('APPLICANT')
+  @ApiOperation({ summary: 'Obtener mi perfil', description: 'Retorna perfil completo del postulante autenticado' })
+  @ApiResponse({ status: 200, description: 'Perfil del postulante' })
+  @ApiResponse({ status: 401, description: 'Token inválido o no es APPLICANT' })
   async getMe(@Req() req: any) {
     try {
       this.logger.log('GET /applicants/me - Iniciando...');
@@ -218,6 +231,9 @@ export class UsersController {
    * Response: { "id": "uuid", "email": "nuevo@example.com", "temporaryPassword": "abc123" }
    */
   @Post()
+  @ApiOperation({ summary: 'Crear postulante', description: 'Crea nuevo postulante con perfil y opcionalmente una application' })
+  @ApiResponse({ status: 201, description: 'Postulante creado con su perfil' })
+  @ApiResponse({ status: 400, description: 'Email ya existe o datos inválidos' })
   async create(
     @Body() body: {
       email: string;
@@ -283,9 +299,10 @@ export class UsersController {
       `INSERT INTO applicants (
         id, rut_number, rut_dv, first_name, last_name, email, phone,
         birth_date, address, commune, region, institution_id
-      ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id`,
       [
+        uuidv4(),
         rutNumber,
         rutDv,
         body.first_name || null,
@@ -304,8 +321,8 @@ export class UsersController {
 
     // Generar password temporal si no se provee
     const password = body.password || Math.random().toString(36).slice(-8);
-    const argon2 = await import('argon2');
-    const hash = await argon2.hash(password, { type: argon2.argon2id });
+    const bcrypt = await import('bcryptjs');
+    const hash = await bcrypt.hash(password, 10);
 
     // Crear usuario
     const fullName = body.fullName || `${body.first_name || ''} ${body.last_name || ''}`.trim() || body.email;
@@ -333,9 +350,9 @@ export class UsersController {
     if (body.call_id) {
       await this.ds.query(
         `INSERT INTO applications (id, applicant_id, call_id, institution_id, status)
-         VALUES (gen_random_uuid(), $1, $2, $3, 'DRAFT')
+         VALUES ($1, $2, $3, $4, 'DRAFT')
          ON CONFLICT (applicant_id, call_id) DO NOTHING`,
-        [applicantId, body.call_id, body.institution_id || null],
+        [uuidv4(), applicantId, body.call_id, body.institution_id || null],
       );
     }
 
@@ -362,6 +379,10 @@ export class UsersController {
    * Response: { "id": "uuid", "email": "user@example.com", "applications": [...] }
    */
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener postulante', description: 'Obtiene detalles completos de un postulante con sus aplicaciones' })
+  @ApiParam({ name: 'id', description: 'ID del usuario postulante' })
+  @ApiResponse({ status: 200, description: 'Detalles del postulante' })
+  @ApiResponse({ status: 400, description: 'Postulante no encontrado' })
   async getById(@Param('id') id: string) {
     const result = await this.ds.query(
       `
@@ -420,6 +441,10 @@ export class UsersController {
    * Body: { "fullName": "Juan Pérez", "phone": "+56912345678" }
    */
   @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar postulante', description: 'Actualiza parcialmente datos de usuario y perfil de applicant' })
+  @ApiParam({ name: 'id', description: 'ID del usuario postulante' })
+  @ApiResponse({ status: 200, description: 'Postulante actualizado' })
+  @ApiResponse({ status: 400, description: 'Postulante no encontrado' })
   async update(@Param('id') id: string, @Body() body: UpdateUserDto) {
     const user = await this.users.findById(id);
     if (!user || user.role !== 'APPLICANT') {

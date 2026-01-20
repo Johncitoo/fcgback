@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ReviewerVerificationCode } from './entities/reviewer-verification-code.entity';
 import { User } from './entities/user.entity';
-import * as argon2 from 'argon2';
+import * as bcrypt from 'bcryptjs';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../email/email.service';
 import { EmailTemplateHelper } from '../email/email-template.helper';
@@ -32,7 +32,7 @@ export class ReviewerCreationService {
     password: string,
   ): Promise<{ id: string; tempPassword: string }> {
     const code = this.generateSixDigitCode();
-    const passwordHash = await argon2.hash(password);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
@@ -122,7 +122,7 @@ export class ReviewerCreationService {
 
     // Generar contraseña temporal para enviar en el email de bienvenida
     const tempPassword = this.generateTemporaryPassword();
-    const passwordHash = await argon2.hash(tempPassword);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
 
     const newReviewer = this.userRepo.create({
       email: verification.pendingEmail,

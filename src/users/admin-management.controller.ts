@@ -7,6 +7,7 @@ import {
   UseGuards,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -34,6 +35,8 @@ import { AdminCreationService } from './admin-creation.service';
  * @path /admin/users
  * @roles ADMIN únicamente
  */
+@ApiTags('Admin Management')
+@ApiBearerAuth('JWT-auth')
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
@@ -57,7 +60,7 @@ export class AdminManagementController {
    * @param body - Datos del nuevo admin:
    *   - email: Email del nuevo admin (citext, unique)
    *   - fullName: Nombre completo
-   *   - password: Contraseña (será hasheada con argon2)
+   *   - password: Contraseña (será hasheada con bcrypt)
    * @returns Mensaje de confirmación y tiempo de expiración
    * @throws BadRequestException si el email ya existe
    * @throws UnauthorizedException si el solicitante no es admin
@@ -79,6 +82,9 @@ export class AdminManagementController {
    * }
    */
   @Post('request')
+  @ApiOperation({ summary: 'Solicitar creación de admin', description: 'Inicia proceso de creación de nuevo admin con 2FA' })
+  @ApiResponse({ status: 200, description: 'Código 2FA enviado al email del admin solicitante' })
+  @ApiResponse({ status: 400, description: 'Email ya existe o contraseña muy corta' })
   async requestAdminCreation(
     @Req() req: any,
     @Body()
@@ -165,6 +171,9 @@ export class AdminManagementController {
    * }
    */
   @Post('confirm')
+  @ApiOperation({ summary: 'Confirmar creación de admin', description: 'Confirma creación de admin con código 2FA' })
+  @ApiResponse({ status: 201, description: 'Admin creado exitosamente' })
+  @ApiResponse({ status: 400, description: 'Código inválido o expirado' })
   async confirmAdminCreation(
     @Req() req: any,
     @Body() body: { code: string },

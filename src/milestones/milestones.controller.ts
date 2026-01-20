@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { MilestonesService } from './milestones.service';
 import { Roles } from '../auth/roles.decorator';
 import { CreateMilestoneDto } from './dto/create-milestone.dto';
@@ -6,6 +7,22 @@ import { UpdateMilestoneDto } from './dto/update-milestone.dto';
 import { InitializeProgressDto } from './dto/initialize-progress.dto';
 import { ReviewMilestoneDto } from './dto/review-milestone.dto';
 
+/**
+ * Controlador para gestión de hitos (milestones) del proceso de becas.
+ * 
+ * Los hitos representan pasos del proceso que el postulante debe completar,
+ * como: Postulación Inicial, Documentos, Entrevista, etc.
+ * 
+ * Funcionalidades:
+ * - CRUD de hitos por convocatoria
+ * - Inicialización de progreso por postulante
+ * - Revisión y aprobación de hitos
+ * 
+ * @path /milestones
+ * @roles ADMIN, REVIEWER
+ */
+@ApiTags('Milestones')
+@ApiBearerAuth('JWT-auth')
 @Controller('milestones')
 @Roles('ADMIN', 'REVIEWER')
 export class MilestonesController {
@@ -24,6 +41,8 @@ export class MilestonesController {
    * Body: { "name": "Postulación Inicial", "callId": "uuid", "orderIndex": 1 }
    */
   @Post()
+  @ApiOperation({ summary: 'Crear hito', description: 'Crea un nuevo hito para una convocatoria' })
+  @ApiResponse({ status: 201, description: 'Hito creado' })
   create(@Body() data: CreateMilestoneDto) {
     return this.milestonesService.create(data);
   }
@@ -39,6 +58,9 @@ export class MilestonesController {
    * GET /api/milestones/call/uuid-123
    */
   @Get('call/:callId')
+  @ApiOperation({ summary: 'Listar hitos por convocatoria', description: 'Obtiene todos los hitos de una convocatoria ordenados' })
+  @ApiParam({ name: 'callId', description: 'ID de la convocatoria' })
+  @ApiResponse({ status: 200, description: 'Lista de hitos ordenados' })
   findByCall(@Param('callId') callId: string) {
     return this.milestonesService.findByCall(callId);
   }
@@ -53,6 +75,10 @@ export class MilestonesController {
    * GET /api/milestones/uuid-123
    */
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener hito', description: 'Obtiene un hito específico por ID' })
+  @ApiParam({ name: 'id', description: 'ID del hito' })
+  @ApiResponse({ status: 200, description: 'Hito encontrado' })
+  @ApiResponse({ status: 404, description: 'Hito no encontrado' })
   findOne(@Param('id') id: string) {
     return this.milestonesService.findOne(id);
   }
@@ -69,6 +95,10 @@ export class MilestonesController {
    * Body: { "name": "Postulación Final" }
    */
   @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar hito', description: 'Actualiza parcialmente un hito existente' })
+  @ApiParam({ name: 'id', description: 'ID del hito' })
+  @ApiResponse({ status: 200, description: 'Hito actualizado' })
+  @ApiResponse({ status: 404, description: 'Hito no encontrado' })
   update(@Param('id') id: string, @Body() data: UpdateMilestoneDto) {
     return this.milestonesService.update(id, data);
   }
@@ -83,6 +113,9 @@ export class MilestonesController {
    * DELETE /api/milestones/uuid-123
    */
   @Delete(':id')
+  @ApiOperation({ summary: 'Eliminar hito', description: 'Elimina un hito por su ID' })
+  @ApiParam({ name: 'id', description: 'ID del hito' })
+  @ApiResponse({ status: 200, description: 'Hito eliminado' })
   remove(@Param('id') id: string) {
     return this.milestonesService.remove(id);
   }
@@ -98,6 +131,9 @@ export class MilestonesController {
    */
   @Get('progress/:applicationId')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Obtener progreso', description: 'Obtiene el progreso de todos los hitos de una aplicación' })
+  @ApiParam({ name: 'applicationId', description: 'ID de la aplicación' })
+  @ApiResponse({ status: 200, description: 'Lista de progreso de hitos' })
   getProgress(@Param('applicationId') applicationId: string) {
     return this.milestonesService.getProgress(applicationId);
   }
@@ -114,6 +150,8 @@ export class MilestonesController {
    * Body: { "applicationId": "uuid-app", "callId": "uuid-call" }
    */
   @Post('progress/initialize')
+  @ApiOperation({ summary: 'Inicializar progreso', description: 'Crea registros de progreso para cada hito de la convocatoria' })
+  @ApiResponse({ status: 201, description: 'Progreso inicializado' })
   initializeProgress(@Body() data: InitializeProgressDto) {
     return this.milestonesService.initializeProgress(data.applicationId, data.callId);
   }
@@ -131,6 +169,9 @@ export class MilestonesController {
    * Body: { "reviewStatus": "APPROVED", "reviewedBy": "uuid-admin", "reviewNotes": "Aprobado" }
    */
   @Patch('progress/:progressId/review')
+  @ApiOperation({ summary: 'Revisar hito', description: 'Aprueba, rechaza o solicita cambios en un hito' })
+  @ApiParam({ name: 'progressId', description: 'ID del milestone_progress' })
+  @ApiResponse({ status: 200, description: 'Hito revisado' })
   reviewMilestone(
     @Param('progressId') progressId: string,
     @Req() req: any,
@@ -158,6 +199,9 @@ export class MilestonesController {
    */
   @Get('progress/:progressId/submission')
   @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
+  @ApiOperation({ summary: 'Obtener respuestas de hito', description: 'Retorna las respuestas del formulario del hito' })
+  @ApiParam({ name: 'progressId', description: 'ID del milestone_progress' })
+  @ApiResponse({ status: 200, description: 'Respuestas del formulario' })
   getMilestoneSubmission(@Param('progressId') progressId: string) {
     return this.milestonesService.getMilestoneSubmission(progressId);
   }

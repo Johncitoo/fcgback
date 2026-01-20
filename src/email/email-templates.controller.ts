@@ -10,6 +10,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { Roles } from '../auth/roles.decorator';
 import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
@@ -101,10 +102,10 @@ export class EmailTemplatesController {
     const result = await this.ds.query(
       `
       INSERT INTO email_templates (id, key, name, subject_tpl, body_tpl)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING id, key, name, subject_tpl as "subjectTemplate", body_tpl as "bodyTemplate", created_at as "createdAt"
       `,
-      [body.key, body.name, body.subjectTemplate, body.bodyTemplate],
+      [uuidv4(), body.key, body.name, body.subjectTemplate, body.bodyTemplate],
     );
 
     return result[0];

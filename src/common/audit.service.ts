@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface AuditLogData {
   actorUserId?: string;
@@ -56,8 +57,9 @@ export class AuditService {
     try {
       await this.dataSource.query(
         `INSERT INTO audit_logs (id, actor_user_id, action, entity, entity_id, meta)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)`,
+         VALUES ($1, $2, $3, $4, $5, $6)`,
         [
+          uuidv4(),
           data.actorUserId || null,
           data.action,
           data.entity,

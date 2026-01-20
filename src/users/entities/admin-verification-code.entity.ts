@@ -50,7 +50,7 @@ export class AdminVerificationCode {
   @JoinColumn({ name: 'requester_user_id' })
   requesterUser!: User;
 
-  @Column({ type: 'citext', name: 'pending_email' })
+  @Column({ type: 'text', name: 'pending_email' })
   pendingEmail!: string;
 
   @Column({ type: 'text', name: 'pending_full_name' })

@@ -9,12 +9,26 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { OnboardingService } from './onboarding.service';
 import { DevCreateInviteDto } from './dto/dev-create-invite.dto';
 import { SetPasswordDto } from './dto/set-password.dto';
 import { ValidateInvitePublicDto } from './dto/validate-invite-public.dto';
 import { Public } from '../auth/public.decorator';
 
+/**
+ * Controller para el proceso de onboarding de postulantes.
+ * 
+ * Gestiona la validación de códigos de invitación, creación de usuarios
+ * y establecimiento de contraseñas para nuevos postulantes.
+ * 
+ * Flujo principal:
+ * 1. Postulante recibe código de invitación por email
+ * 2. POST /validate-invite valida código y crea usuario
+ * 3. POST /set-password establece contraseña
+ * 4. Usuario puede hacer login normal
+ */
+@ApiTags('Onboarding')
 @Controller('onboarding')
 @UsePipes(
   new ValidationPipe({
@@ -43,6 +57,10 @@ export class OnboardingController {
   @Post('validate-invite')
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Validar código de invitación', description: 'Valida código y genera token para establecer contraseña' })
+  @ApiResponse({ status: 200, description: 'Código válido, token generado' })
+  @ApiResponse({ status: 400, description: 'Código inválido o expirado' })
+  @ApiResponse({ status: 429, description: 'Demasiados intentos' })
   async validateInvite(@Body() dto: ValidateInvitePublicDto) {
     const result = await this.onboarding.validateInviteCode(dto.code, dto.email || '');
     
@@ -77,6 +95,9 @@ export class OnboardingController {
   @Public()
   @Post('set-password')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Establecer contraseña', description: 'Establece la contraseña usando token de invitación' })
+  @ApiResponse({ status: 200, description: 'Contraseña establecida' })
+  @ApiResponse({ status: 400, description: 'Token inválido o expirado' })
   async setPassword(
     @Body() dto: SetPasswordDto,
     @Req() req: any,
@@ -119,6 +140,8 @@ export class OnboardingController {
    */
   @Public()
   @Post('dev/create-invite')
+  @ApiOperation({ summary: '[DEV] Crear invitación', description: 'Crea código de invitación (solo desarrollo)', deprecated: true })
+  @ApiResponse({ status: 200, description: 'Invitación creada' })
   async devCreateInvite(
     @Body() dto: DevCreateInviteDto,
   ) {

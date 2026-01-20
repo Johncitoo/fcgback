@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Ip, Post, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginStaffDto } from './dto/login-staff.dto';
 import { RefreshDto } from './dto/refresh.dto';
@@ -23,6 +24,7 @@ import { Public } from './public.decorator';
  * @public Mayoría de endpoints son públicos (@Public decorator)
  * @throttle Rate limiting configurado por endpoint
  */
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
@@ -51,6 +53,10 @@ export class AuthController {
    */
   @Get('me')
   @HttpCode(200)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Obtener usuario autenticado', description: 'Valida el token JWT y retorna información del usuario' })
+  @ApiResponse({ status: 200, description: 'Usuario autenticado' })
+  @ApiResponse({ status: 401, description: 'Token inválido o expirado' })
   async getMe(@Req() req: any) {
     const user = req.user; // Inyectado por JwtAuthGuard
     return {
@@ -89,6 +95,11 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login-staff')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Login de staff (Admin/Reviewer)', description: 'Autentica usuarios administrativos y retorna tokens JWT' })
+  @ApiResponse({ status: 200, description: 'Login exitoso con tokens' })
+  @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
+  @ApiResponse({ status: 403, description: 'Usuario no es staff' })
+  @ApiResponse({ status: 429, description: 'Demasiados intentos, espere 1 minuto' })
   async loginStaff(@Body() dto: LoginStaffDto, @Req() req: any) {
     const ip = req.ip;
     const ua = req.headers?.['user-agent'];
@@ -120,6 +131,9 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Renovar access token', description: 'Genera un nuevo access token usando el refresh token' })
+  @ApiResponse({ status: 200, description: 'Nuevo access token generado' })
+  @ApiResponse({ status: 401, description: 'Refresh token inválido o revocado' })
   refresh(@Body() dto: RefreshDto, @Ip() ip: string, @Req() req: any) {
     const ua = req?.headers?.['user-agent'] ?? undefined;
     return this.auth.refresh(dto.refreshToken, ip, ua);
@@ -146,6 +160,8 @@ export class AuthController {
   @Public()
   @Post('logout')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Cerrar sesión', description: 'Revoca el refresh token e invalida la sesión' })
+  @ApiResponse({ status: 200, description: 'Sesión cerrada exitosamente' })
   logout(@Body() dto: LogoutDto) {
     return this.auth.logout(dto.refreshToken);
   }
@@ -155,6 +171,9 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 intentos por minuto
   @Post('enter-invite')
   @HttpCode(200)
+  @ApiOperation({ summary: '[LEGACY] Validar código de invitación', description: 'Usar /onboarding/validate-invite en su lugar', deprecated: true })
+  @ApiResponse({ status: 200, description: 'Código válido' })
+  @ApiResponse({ status: 401, description: 'Código inválido o expirado' })
   async enterInvite(@Body() dto: ValidateInviteDto, @Req() req: any) {
     const ip = req.ip;
     const ua = req.headers?.['user-agent'];
@@ -191,6 +210,11 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Login de postulante', description: 'Autentica postulantes y retorna tokens JWT' })
+  @ApiBody({ schema: { type: 'object', properties: { email: { type: 'string' }, password: { type: 'string' } }, required: ['email', 'password'] } })
+  @ApiResponse({ status: 200, description: 'Login exitoso con tokens' })
+  @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
+  @ApiResponse({ status: 429, description: 'Demasiados intentos' })
   async loginApplicant(
     @Body() dto: { email: string; password: string },
     @Req() req: any,
@@ -226,6 +250,10 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('forgot-password')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Solicitar recuperación de contraseña', description: 'Envía email con link de reseteo' })
+  @ApiBody({ schema: { type: 'object', properties: { email: { type: 'string' } }, required: ['email'] } })
+  @ApiResponse({ status: 200, description: 'Email enviado si existe la cuenta' })
+  @ApiResponse({ status: 429, description: 'Demasiados intentos' })
   async forgotPassword(@Body() dto: { email: string }) {
     return this.auth.forgotPassword(dto.email);
   }
@@ -254,6 +282,10 @@ export class AuthController {
   @Public()
   @Post('validate-reset-token')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Validar token de reseteo', description: 'Verifica si el token es válido sin consumirlo' })
+  @ApiBody({ schema: { type: 'object', properties: { token: { type: 'string' } }, required: ['token'] } })
+  @ApiResponse({ status: 200, description: 'Token válido' })
+  @ApiResponse({ status: 400, description: 'Token inválido, usado o expirado' })
   async validateResetToken(@Body() dto: { token: string }) {
     return this.auth.validateResetToken(dto.token);
   }
@@ -285,6 +317,10 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Restablecer contraseña', description: 'Cambia la contraseña usando token válido' })
+  @ApiBody({ schema: { type: 'object', properties: { token: { type: 'string' }, newPassword: { type: 'string' } }, required: ['token', 'newPassword'] } })
+  @ApiResponse({ status: 200, description: 'Contraseña actualizada' })
+  @ApiResponse({ status: 400, description: 'Token inválido o contraseña débil' })
   async resetPassword(@Body() dto: { token: string; newPassword: string }) {
     return this.auth.resetPassword(dto.token, dto.newPassword);
   }
@@ -320,6 +356,9 @@ export class AuthController {
   @Public()
   @Post('dev/seed-staff')
   @HttpCode(200)
+  @ApiOperation({ summary: '[DEV] Crear usuario staff', description: 'Solo disponible en desarrollo', deprecated: true })
+  @ApiResponse({ status: 200, description: 'Usuario creado' })
+  @ApiResponse({ status: 403, description: 'Solo en desarrollo' })
   devSeed(
     @Body()
     body: {

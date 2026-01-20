@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';import { EmailService, EmailCategory } from '../email/email.service';
+import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
+import { EmailService, EmailCategory } from '../email/email.service';
 import { UsersService } from '../users/users.service';
 export interface CreateSupportMessageDto {
   applicationId: string;
@@ -45,10 +47,10 @@ export class SupportMessagesService {
     // Guardar mensaje en base de datos
     const result = await this.dataSource.query(
       `INSERT INTO support_messages 
-       (application_id, applicant_email, subject, message, status, created_at)
-       VALUES ($1, $2, $3, $4, 'OPEN', NOW())
+       (id, application_id, applicant_email, subject, message, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'OPEN', NOW())
        RETURNING *`,
-      [dto.applicationId, dto.applicantEmail, dto.subject, dto.message]
+      [uuidv4(), dto.applicationId, dto.applicantEmail, dto.subject, dto.message]
     );
 
     const message = result[0];

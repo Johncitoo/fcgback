@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PasswordChangeToken } from './entities/password-change-token.entity';
 import { User } from './entities/user.entity';
-import * as argon2 from 'argon2';
+import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../email/email.service';
@@ -132,7 +132,7 @@ export class PasswordChangeService {
     }
 
     // Hash de la nueva contraseña
-    const passwordHash = await argon2.hash(newPassword);
+    const passwordHash = await bcrypt.hash(newPassword, 10);
 
     // Actualizar contraseña del usuario
     await this.userRepo.update(passwordToken.userId, { passwordHash });

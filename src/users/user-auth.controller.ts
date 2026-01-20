@@ -6,10 +6,11 @@ import {
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as argon2 from 'argon2';
+import * as bcrypt from 'bcryptjs';
 import { Roles } from '../auth/roles.decorator';
 
 /**
@@ -21,6 +22,8 @@ import { Roles } from '../auth/roles.decorator';
  * @path /users
  * @roles ADMIN, REVIEWER, APPLICANT
  */
+@ApiTags('User Auth')
+@ApiBearerAuth('JWT-auth')
 @Controller('users')
 @Roles('ADMIN', 'REVIEWER', 'APPLICANT')
 export class UserAuthController {
@@ -34,7 +37,7 @@ export class UserAuthController {
    * Permite al usuario autenticado cambiar su contraseña.
    * 
    * Valida el token JWT, verifica requisitos de seguridad de la nueva contraseña,
-   * la hashea con Argon2 y actualiza en la BD.
+   * la hashea con bcrypt y actualiza en la BD.
    * 
    * @param req - Request con token JWT en header Authorization
    * @param body - Nueva contraseña (mínimo 6 caracteres)
@@ -51,6 +54,10 @@ export class UserAuthController {
    */
   // POST /api/users/change-password
   @Post('change-password')
+  @ApiOperation({ summary: 'Cambiar contraseña', description: 'Cambia la contraseña del usuario autenticado' })
+  @ApiResponse({ status: 200, description: 'Contraseña actualizada' })
+  @ApiResponse({ status: 401, description: 'Token inválido' })
+  @ApiResponse({ status: 400, description: 'Contraseña no cumple requisitos' })
   async changePassword(
     @Req() req: any,
     @Body() body: { newPassword: string },
@@ -91,7 +98,7 @@ export class UserAuthController {
     }
 
     // Hashear nueva contraseña
-    const hash = await argon2.hash(body.newPassword, { type: argon2.argon2id });
+    const hash = await bcrypt.hash(body.newPassword, 10);
 
     // Actualizar contraseña
     await this.users.updatePassword(userId, hash);

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
 interface LoginAttempt {
   email: string;
@@ -176,8 +177,9 @@ export class SecurityService {
       
       await this.dataSource.query(
         `INSERT INTO audit_logs (id, action, entity, meta, created_at)
-         VALUES (gen_random_uuid(), $1, $2, $3, NOW())`,
+         VALUES ($1, $2, $3, $4, NOW())`,
         [
+          uuidv4(),
           'ACCOUNT_LOCKED',
           'user',
           JSON.stringify({
@@ -202,8 +204,9 @@ export class SecurityService {
       // id, actor_user_id, action, entity, entity_id, meta, created_at
       await this.dataSource.query(
         `INSERT INTO audit_logs (id, action, entity, meta, created_at)
-         VALUES (gen_random_uuid(), $1, $2, $3, NOW())`,
+         VALUES ($1, $2, $3, $4, NOW())`,
         [
+          uuidv4(),
           success ? 'LOGIN_SUCCESS' : 'LOGIN_FAILED',
           'user',
           JSON.stringify({

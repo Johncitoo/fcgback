@@ -27,7 +27,7 @@ export class User {
   }
 
   @Index({ unique: true })
-  @Column({ type: 'citext' })
+  @Column({ type: 'text' })
   email!: string;
 
   @Column({ type: 'text', name: 'password_hash' })

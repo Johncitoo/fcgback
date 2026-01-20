@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import hpp from 'hpp';
 import compression from 'compression';
@@ -98,10 +99,78 @@ async function bootstrap() {
   // Prefijo global
   app.setGlobalPrefix('api');
 
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  // ========================================
+  // Swagger API Documentation
+  // ========================================
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Fundación Carmes Goudie API')
+    .setDescription(`
+## API del Sistema de Gestión de Becas
+
+Esta API permite gestionar el proceso completo de postulación a becas:
+
+### Módulos Principales
+- **Auth**: Autenticación JWT, refresh tokens, 2FA
+- **Onboarding**: Registro de postulantes con códigos de invitación
+- **Applications**: Gestión de postulaciones
+- **Calls**: Convocatorias de becas
+- **Forms**: Formularios dinámicos
+- **Selection**: Proceso de selección final
+- **Documents**: Gestión de documentos
+
+### Autenticación
+Todos los endpoints (excepto los públicos) requieren JWT Bearer token.
+    `)
+    .setVersion('1.0.3')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Ingresa tu JWT token',
+      },
+      'JWT-auth',
+    )
+    .addTag('Auth', 'Autenticación y gestión de sesiones')
+    .addTag('Onboarding', 'Registro de postulantes e invitaciones')
+    .addTag('Invites', 'Gestión de invitaciones')
+    .addTag('Applications', 'Gestión de postulaciones')
+    .addTag('Calls', 'Convocatorias de becas')
+    .addTag('Forms', 'Formularios dinámicos')
+    .addTag('Form Submissions', 'Respuestas de formularios')
+    .addTag('Selection', 'Proceso de selección')
+    .addTag('Applicants', 'Gestión de postulantes')
+    .addTag('Profile', 'Perfil de postulantes')
+    .addTag('Admin Users', 'Gestión de usuarios admin/reviewer')
+    .addTag('Admin Applicants', 'Gestión admin de applicants')
+    .addTag('Admin Management', 'Creación de admins con 2FA')
+    .addTag('Reviewer Management', 'Creación de reviewers con 2FA')
+    .addTag('User Auth', 'Cambio de contraseña de usuarios')
+    .addTag('Password Change', 'Cambio de contraseña por email')
+    .addTag('Milestones', 'Hitos del proceso')
+    .addTag('Files', 'Gestión de archivos y almacenamiento')
+    .addTag('Support Messages', 'Mensajes de soporte autenticados')
+    .addTag('Public Contact', 'Contacto público sin autenticación')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+    },
+    customSiteTitle: 'FCG API Documentation',
+  });
+
+  // Puerto: cPanel/Passenger inyecta process.env.PORT
+  const port = parseInt(process.env.PORT ?? '3000', 10);
   
-  console.log(`🚀 Application is running on: http://localhost:${port}/api`);
+  // Escuchar en 0.0.0.0 para que cPanel/Passenger pueda conectar
+  await app.listen(port, '0.0.0.0');
+  
+  console.log(`🚀 Application is running on: http://0.0.0.0:${port}/api`);
+  console.log(`📚 API Docs available at: http://localhost:${port}/api/docs`);
   console.log(`🌐 CORS: Configurado para producción (postulaciones.fundacioncarmengoudie.cl)`);
   console.log(`🔒 Security: Helmet + HPP + Compression enabled`);
   console.log(`🛡️  Guards: JWT Auth + Roles + Rate Limiting globally enforced`);

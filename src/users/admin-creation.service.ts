@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AdminVerificationCode } from './entities/admin-verification-code.entity';
 import { User } from './entities/user.entity';
-import * as argon2 from 'argon2';
+import * as bcrypt from 'bcryptjs';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../email/email.service';
 import { AuditService } from '../common/audit.service';
@@ -14,7 +14,7 @@ import { EmailTemplateHelper } from '../email/email-template.helper';
  * 
  * Maneja el flujo completo:
  * 1. Generación de código aleatorio de 6 dígitos
- * 2. Hash de contraseña con argon2
+ * 2. Hash de contraseña con bcrypt
  * 3. Almacenamiento temporal del código
  * 4. Envío de email con código
  * 5. Validación de código
@@ -24,7 +24,7 @@ import { EmailTemplateHelper } from '../email/email-template.helper';
  * - Códigos expiran en 10 minutos
  * - Solo 1 uso por código
  * - Asociados al admin solicitante
- * - Contraseñas hasheadas con argon2
+ * - Contraseñas hasheadas con bcrypt
  */
 @Injectable()
 export class AdminCreationService {
@@ -71,7 +71,7 @@ export class AdminCreationService {
     const code = this.generateSixDigitCode();
 
     // Hashear contraseña
-    const passwordHash = await argon2.hash(password);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     // Crear registro temporal con expiración en 10 minutos
     const expiresAt = new Date();

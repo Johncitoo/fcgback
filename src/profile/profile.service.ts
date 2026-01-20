@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 
 type ApplicantPayload = {
   rutNumber: number;
@@ -87,9 +88,10 @@ export class ProfileService {
     const created = await this.ds.query(
       `INSERT INTO applicants
         (id, rut_number, rut_dv, first_name, last_name, email, phone, address, commune, region)
-       VALUES (gen_random_uuid(), $1,$2,$3,$4,$5,$6,$7,$8,$9)
+       VALUES ($1, $2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING id`,
       [
+        uuidv4(),
         data.rutNumber,
         data.rutDv,
         data.firstName,

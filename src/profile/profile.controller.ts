@@ -5,6 +5,7 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ProfileService } from './profile.service';
@@ -20,6 +21,8 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
  * @roles APPLICANT - Solo postulantes pueden gestionar su perfil
  * @path /profile (sin prefijo /api)
  */
+@ApiTags('Profile')
+@ApiBearerAuth('JWT-auth')
 @Controller('profile') // <-- sin /api
 @Roles('APPLICANT')
 export class ProfileController {
@@ -71,6 +74,9 @@ export class ProfileController {
    * Body: { "data": { "first_name": "Juan", "last_name": "Pérez", "rut": "12345678-9" } }
    */
   @Post('applicant')
+  @ApiOperation({ summary: 'Crear/actualizar perfil', description: 'Crea o actualiza el perfil de applicant del postulante autenticado' })
+  @ApiResponse({ status: 200, description: 'Perfil creado o actualizado' })
+  @ApiResponse({ status: 400, description: 'Token no es de APPLICANT' })
   async ensureApplicant(@Req() req: any, @Body() body: UpdateProfileDto) {
     const user = this.getUserFromAuth(req);
     if (user.typ !== 'access' || user.role !== 'APPLICANT') {

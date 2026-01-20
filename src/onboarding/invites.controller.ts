@@ -7,6 +7,7 @@ import {
   Query,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
 import { OnboardingService } from './onboarding.service';
 import { Roles } from '../auth/roles.decorator';
@@ -29,6 +30,8 @@ import { Roles } from '../auth/roles.decorator';
  * 
  * Seguridad: ADMIN y REVIEWER
  */
+@ApiTags('Invites')
+@ApiBearerAuth('JWT-auth')
 @Controller('invites')
 @Roles('ADMIN', 'REVIEWER') // Todo el controlador requiere admin o revisor
 export class InvitesController {
@@ -50,6 +53,12 @@ export class InvitesController {
    * @returns Objeto con data (array de invitaciones), total (opcional), limit, offset
    */
   @Get()
+  @ApiOperation({ summary: 'Listar invitaciones', description: 'Lista invitaciones con paginación y filtros' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiQuery({ name: 'callId', required: false, type: String })
+  @ApiQuery({ name: 'count', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'Lista de invitaciones' })
   async list(
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
@@ -94,7 +103,7 @@ export class InvitesController {
         c.year as "callYear"
       FROM invites i
       LEFT JOIN calls c ON c.id = i.call_id
-      LEFT JOIN users u ON u.email = i.meta->>'email'
+      LEFT JOIN users u ON LOWER(u.email) = LOWER(i.meta->>'email')
       LEFT JOIN applicants a ON a.id = u.applicant_id
       ${whereClause}
       ORDER BY i.meta->>'email', i.call_id, i.created_at DESC
@@ -136,6 +145,9 @@ export class InvitesController {
    * @throws BadRequestException si falta callId
    */
   @Post()
+  @ApiOperation({ summary: 'Crear invitación', description: 'Crea una nueva invitación individual con código' })
+  @ApiResponse({ status: 201, description: 'Invitación creada' })
+  @ApiResponse({ status: 400, description: 'Falta callId' })
   async create(
     @Body()
     body: {
@@ -206,6 +218,10 @@ export class InvitesController {
    * @throws BadRequestException si no existe
    */
   @Get(':id')
+  @ApiOperation({ summary: 'Obtener invitación', description: 'Obtiene detalles completos de una invitación' })
+  @ApiParam({ name: 'id', description: 'UUID de la invitación' })
+  @ApiResponse({ status: 200, description: 'Detalles de la invitación' })
+  @ApiResponse({ status: 400, description: 'Invitación no encontrada' })
   async getById(@Param('id') id: string) {
     const result = await this.ds.query(
       `
@@ -253,6 +269,9 @@ export class InvitesController {
    * @throws BadRequestException si falta callId o emails
    */
   @Post('bulk')
+  @ApiOperation({ summary: 'Crear invitaciones en lote', description: 'Crea múltiples invitaciones sin enviar emails' })
+  @ApiResponse({ status: 201, description: 'Invitaciones creadas' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   async bulkCreate(
     @Body()
     body: {
@@ -332,6 +351,10 @@ export class InvitesController {
    * @throws BadRequestException si falta code
    */
   @Post(':id/regenerate')
+  @ApiOperation({ summary: 'Regenerar código', description: 'Regenera el código de invitación y envía nuevo email' })
+  @ApiParam({ name: 'id', description: 'UUID de la invitación' })
+  @ApiResponse({ status: 200, description: 'Código regenerado' })
+  @ApiResponse({ status: 400, description: 'Falta código' })
   async regenerate(
     @Param('id') id: string,
     @Body() body: { code: string },
@@ -401,6 +424,9 @@ export class InvitesController {
    * { "callId": "uuid", "applicantIds": ["id1", "id2", "id3"] }
    */
   @Post('bulk-send')
+  @ApiOperation({ summary: 'Envío masivo', description: 'Envío masivo de invitaciones con límite diario' })
+  @ApiResponse({ status: 200, description: 'Resultado del envío' })
+  @ApiResponse({ status: 400, description: 'Falta callId' })
   async bulkSend(
     @Body()
     body: {
@@ -429,7 +455,7 @@ export class InvitesController {
           COALESCE(i.meta->>'firstName', a.first_name) as "firstName",
           COALESCE(i.meta->>'lastName', a.last_name) as "lastName"
         FROM invites i
-        LEFT JOIN users u ON u.email = i.meta->>'email'
+        LEFT JOIN users u ON LOWER(u.email) = LOWER(i.meta->>'email')
         LEFT JOIN applicants a ON a.id = u.applicant_id
         WHERE i.call_id = $1
           AND i.email_sent = false
@@ -449,7 +475,7 @@ export class InvitesController {
           COALESCE(i.meta->>'firstName', a.first_name) as "firstName",
           COALESCE(i.meta->>'lastName', a.last_name) as "lastName"
         FROM invites i
-        LEFT JOIN users u ON u.email = i.meta->>'email'
+        LEFT JOIN users u ON LOWER(u.email) = LOWER(i.meta->>'email')
         INNER JOIN applicants a ON a.id = u.applicant_id
         WHERE i.call_id = $1
           AND i.email_sent = false
@@ -647,6 +673,9 @@ export class InvitesController {
    * // { total: 100, sent: 40, pending: 60, used: 35, lastSentAt: "2025-12-16T10:30:00Z" }
    */
   @Get('stats/:callId')
+  @ApiOperation({ summary: 'Estadísticas de invitaciones', description: 'Obtiene estadísticas de invitaciones por convocatoria' })
+  @ApiParam({ name: 'callId', description: 'ID de la convocatoria' })
+  @ApiResponse({ status: 200, description: 'Estadísticas de invitaciones' })
   async getStats(@Param('callId') callId: string) {
     const stats = await this.ds.query(
       `
@@ -673,11 +702,11 @@ export class InvitesController {
   }
 
   /**
-   * Hashea un código de invitación usando argon2.
+   * Hashea un código de invitación usando bcrypt.
    * Método auxiliar para regenerar códigos pendientes.
    */
   private async hashCode(code: string): Promise<string> {
-    const argon2 = require('argon2');
-    return argon2.hash(code.toUpperCase());
+    const bcrypt = require('bcryptjs');
+    return bcrypt.hash(code.toUpperCase(), 10);
   }
 }
