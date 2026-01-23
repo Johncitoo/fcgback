@@ -104,10 +104,14 @@ export class MilestonesService {
    * const milestones = await findByCall('uuid-call');
    */
   async findByCall(callId: string): Promise<Milestone[]> {
-    return this.milestonesRepo.find({
+    const milestones = await this.milestonesRepo.find({
       where: { callId },
       order: { orderIndex: 'ASC' },
     });
+    
+    this.logger.error(`[FIND BY CALL] Milestones devueltos: ${JSON.stringify(milestones.map(m => ({ id: m.id, name: m.name, whoCanFill: m.whoCanFill })))}`);
+    
+    return milestones;
   }
 
   /**
