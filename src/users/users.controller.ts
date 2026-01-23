@@ -265,17 +265,22 @@ export class UsersController {
     let rutDv: string;
     
     if (body.rut && body.rut.trim() !== '') {
+      console.log('[CREATE APPLICANT] RUT recibido:', body.rut);
       const parts = body.rut.replace(/\./g, '').split('-');
+      console.log('[CREATE APPLICANT] RUT parseado:', parts);
       if (parts.length === 2) {
         rutNumber = parseInt(parts[0], 10);
         rutDv = parts[1].toUpperCase();
+        console.log('[CREATE APPLICANT] RUT final:', { rutNumber, rutDv });
       } else {
         // RUT inválido, generar uno temporal
+        console.log('[CREATE APPLICANT] RUT inválido, generando aleatorio');
         rutNumber = Math.floor(Math.random() * 90000000) + 10000000;
         rutDv = String(Math.floor(Math.random() * 10));
       }
     } else {
       // Generar RUT temporal único usando timestamp + random
+      console.log('[CREATE APPLICANT] Sin RUT, generando aleatorio');
       const timestamp = Date.now().toString().slice(-8);
       const random = Math.floor(Math.random() * 1000);
       rutNumber = parseInt(timestamp + random.toString().padStart(3, '0').slice(-3));
