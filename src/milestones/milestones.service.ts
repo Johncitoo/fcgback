@@ -250,6 +250,17 @@ export class MilestonesService {
       .orderBy('m.order_index', 'ASC')
       .getRawMany();
 
+    // Limpiar whoCanFill de corrupciones
+    progress.forEach(p => {
+      if (p.whoCanFill && Array.isArray(p.whoCanFill)) {
+        p.whoCanFill = p.whoCanFill.map(role => 
+          role.replace(/^\{+/, '').replace(/\}+$/, '').trim()
+        );
+      }
+    });
+    
+    this.logger.error(`[GET PROGRESS] Progress limpiado: ${JSON.stringify(progress.map(p => ({ name: p.milestoneName, whoCanFill: p.whoCanFill })))}`);
+
     const total = progress.length;
     const completed = progress.filter((p) => p.status === 'COMPLETED').length;
     const blocked = progress.filter((p) => p.status === 'BLOCKED').length;
