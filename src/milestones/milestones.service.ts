@@ -140,6 +140,9 @@ export class MilestonesService {
    * const milestone = await update('uuid-123', { name: 'Nuevo Nombre', required: false });
    */
   async update(id: string, data: Partial<Milestone>): Promise<Milestone> {
+    this.logger.error(`[UPDATE MILESTONE] ID: ${id}`);
+    this.logger.error(`[UPDATE MILESTONE] Data recibida: ${JSON.stringify(data)}`);
+    
     // Separar whoCanFill del resto de datos porque TypeORM simple-array no funciona con query builder UPDATE
     const { whoCanFill, ...updateData } = data;
     
@@ -149,12 +152,15 @@ export class MilestonesService {
     // Actualizar whoCanFill con SQL directo si fue proporcionado
     if (whoCanFill !== undefined) {
       const whoCanFillArray = Array.isArray(whoCanFill) ? whoCanFill : [whoCanFill];
+      this.logger.error(`[UPDATE MILESTONE] whoCanFillArray: ${JSON.stringify(whoCanFillArray)}`);
       // Usar sintaxis de array de PostgreSQL
       const pgArray = `{${whoCanFillArray.join(',')}}`;
+      this.logger.error(`[UPDATE MILESTONE] pgArray formateado: ${pgArray}`);
       await this.ds.query(
         `UPDATE milestones SET who_can_fill = $1::text[] WHERE id = $2`,
         [pgArray, id]
       );
+      this.logger.error(`[UPDATE MILESTONE] SQL ejecutado correctamente`);
     }
     
     return this.findOne(id);
