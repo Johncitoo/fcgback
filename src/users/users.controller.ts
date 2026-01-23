@@ -265,22 +265,22 @@ export class UsersController {
     let rutDv: string;
     
     if (body.rut && body.rut.trim() !== '') {
-      this.logger.log('[CREATE APPLICANT] RUT recibido: ' + body.rut);
+      this.logger.error('[CREATE APPLICANT] RUT recibido: ' + body.rut);
       const parts = body.rut.replace(/\./g, '').split('-');
-      this.logger.log('[CREATE APPLICANT] RUT parseado: ' + JSON.stringify(parts));
+      this.logger.error('[CREATE APPLICANT] RUT parseado: ' + JSON.stringify(parts));
       if (parts.length === 2) {
         rutNumber = parseInt(parts[0], 10);
         rutDv = parts[1].toUpperCase();
-        this.logger.log('[CREATE APPLICANT] RUT final: ' + JSON.stringify({ rutNumber, rutDv }));
+        this.logger.error('[CREATE APPLICANT] RUT final: ' + JSON.stringify({ rutNumber, rutDv }));
       } else {
         // RUT inválido, generar uno temporal
-        this.logger.log('[CREATE APPLICANT] RUT inválido, generando aleatorio');
+        this.logger.error('[CREATE APPLICANT] RUT inválido, generando aleatorio');
         rutNumber = Math.floor(Math.random() * 90000000) + 10000000;
         rutDv = String(Math.floor(Math.random() * 10));
       }
     } else {
       // Generar RUT temporal único usando timestamp + random
-      this.logger.log('[CREATE APPLICANT] Sin RUT, generando aleatorio');
+      this.logger.error('[CREATE APPLICANT] Sin RUT, generando aleatorio');
       const timestamp = Date.now().toString().slice(-8);
       const random = Math.floor(Math.random() * 1000);
       rutNumber = parseInt(timestamp + random.toString().padStart(3, '0').slice(-3));
