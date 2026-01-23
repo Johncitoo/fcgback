@@ -250,12 +250,25 @@ export class MilestonesService {
       .orderBy('m.order_index', 'ASC')
       .getRawMany();
 
-    // Limpiar whoCanFill de corrupciones
+    // Limpiar whoCanFill: getRawMany() devuelve el array de PostgreSQL como string "{APPLICANT}"
     progress.forEach(p => {
-      if (p.whoCanFill && Array.isArray(p.whoCanFill)) {
-        p.whoCanFill = p.whoCanFill.map(role => 
-          role.replace(/^\{+/, '').replace(/\}+$/, '').trim()
-        );
+      if (p.whoCanFill) {
+        // Si es string (formato PostgreSQL array), convertir a array
+        if (typeof p.whoCanFill === 'string') {
+          // Quitar llaves y split por coma: "{APPLICANT,REVIEWER}" -> ["APPLICANT", "REVIEWER"]
+          p.whoCanFill = p.whoCanFill
+            .replace(/^\{/, '')
+            .replace(/\}$/, '')
+            .split(',')
+            .map(role => role.trim())
+            .filter(role => role.length > 0);
+        }
+        // Si ya es array (por TypeORM), limpiar cada elemento
+        else if (Array.isArray(p.whoCanFill)) {
+          p.whoCanFill = p.whoCanFill.map(role => 
+            role.replace(/^\{+/, '').replace(/\}+$/, '').trim()
+          );
+        }
       }
     });
     
