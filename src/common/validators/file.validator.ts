@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import type { Multer } from 'multer';
 
 // Tipos MIME permitidos por categoría
 const ALLOWED_MIME_TYPES: Record<string, string[]> = {
@@ -73,7 +74,7 @@ export class FileValidator {
    * Valida un archivo subido
    */
   static validate(
-    file: Express.Multer.File,
+    file: Multer.File,
     options: FileValidationOptions = {}
   ): void {
     const {
