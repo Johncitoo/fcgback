@@ -109,7 +109,16 @@ export class MilestonesService {
       order: { orderIndex: 'ASC' },
     });
     
-    this.logger.error(`[FIND BY CALL] Milestones devueltos: ${JSON.stringify(milestones.map(m => ({ id: m.id, name: m.name, whoCanFill: m.whoCanFill })))}`);
+    // Limpiar whoCanFill de corrupciones (TypeORM lee {APPLICANT} como "{APPLICANT}")
+    milestones.forEach(m => {
+      if (m.whoCanFill && Array.isArray(m.whoCanFill)) {
+        m.whoCanFill = m.whoCanFill.map(role => 
+          role.replace(/^\{+/, '').replace(/\}+$/, '').trim()
+        );
+      }
+    });
+    
+    this.logger.error(`[FIND BY CALL] Milestones devueltos (limpiados): ${JSON.stringify(milestones.map(m => ({ id: m.id, name: m.name, whoCanFill: m.whoCanFill })))}`);
     
     return milestones;
   }
@@ -129,6 +138,14 @@ export class MilestonesService {
     if (!milestone) {
       throw new NotFoundException(`Milestone ${id} not found`);
     }
+    
+    // Limpiar whoCanFill de corrupciones
+    if (milestone.whoCanFill && Array.isArray(milestone.whoCanFill)) {
+      milestone.whoCanFill = milestone.whoCanFill.map(role => 
+        role.replace(/^\{+/, '').replace(/\}+$/, '').trim()
+      );
+    }
+    
     return milestone;
   }
 
