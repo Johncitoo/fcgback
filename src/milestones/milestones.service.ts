@@ -44,11 +44,13 @@ export class MilestonesService {
   }): Promise<Milestone> {
     // Convertir whoCanFill a array si no lo es (mismo patrón que update)
     const whoCanFillArray = Array.isArray(data.whoCanFill) ? data.whoCanFill : [data.whoCanFill || 'APPLICANT'];
+    // Usar sintaxis de array de PostgreSQL
+    const pgArray = `{${whoCanFillArray.join(',')}}`;
     
     // Usar SQL directo con parámetros (mismo patrón que update - probado y seguro)
     const result = await this.ds.query(
       `INSERT INTO milestones (id, call_id, form_id, name, description, order_index, required, who_can_fill, start_date, due_date, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::text[], $9, $10, $11, NOW(), NOW())
        RETURNING *`,
       [
         uuidv4(),
@@ -58,7 +60,7 @@ export class MilestonesService {
         data.description || null,
         data.orderIndex,
         data.required !== undefined ? data.required : true,
-        whoCanFillArray,  // PostgreSQL maneja el array automáticamente con $8
+        pgArray,  // PostgreSQL array formateado como string
         data.startDate || null,
         data.dueDate || null,
         data.status || 'ACTIVE'
@@ -147,9 +149,11 @@ export class MilestonesService {
     // Actualizar whoCanFill con SQL directo si fue proporcionado
     if (whoCanFill !== undefined) {
       const whoCanFillArray = Array.isArray(whoCanFill) ? whoCanFill : [whoCanFill];
+      // Usar sintaxis de array de PostgreSQL
+      const pgArray = `{${whoCanFillArray.join(',')}}`;
       await this.ds.query(
-        `UPDATE milestones SET who_can_fill = $1 WHERE id = $2`,
-        [whoCanFillArray, id]
+        `UPDATE milestones SET who_can_fill = $1::text[] WHERE id = $2`,
+        [pgArray, id]
       );
     }
     
