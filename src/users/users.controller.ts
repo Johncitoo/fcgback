@@ -294,9 +294,7 @@ export class UsersController {
     );
     
     if (existingRut && existingRut.length > 0) {
-      // Si existe, agregar más aleatoriedad
-      rutNumber = rutNumber + Math.floor(Math.random() * 10000);
-      rutDv = String(rutNumber % 11);
+      throw new BadRequestException(`El RUT ${rutNumber}-${rutDv} ya está registrado`);
     }
 
     // Insertar en applicants
