@@ -325,7 +325,7 @@ export class UsersController {
     // Generar password temporal si no se provee
     const password = body.password || Math.random().toString(36).slice(-8);
     const bcrypt = await import('bcryptjs');
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.default.hash(password, 10);
 
     // Crear usuario
     const fullName = body.fullName || `${body.first_name || ''} ${body.last_name || ''}`.trim() || body.email;
