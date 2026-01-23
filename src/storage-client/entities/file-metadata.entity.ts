@@ -13,10 +13,10 @@ export class FileMetadata {
     }
   }
 
-  @Column({ name: 'originalFilename' })
+  @Column({ name: 'original_filename' })
   originalFilename: string;
 
-  @Column({ name: 'storedFilename' })
+  @Column({ name: 'stored_filename' })
   storedFilename: string;
 
   @Column()
@@ -28,19 +28,19 @@ export class FileMetadata {
   @Column({ type: 'enum', enum: ['PROFILE', 'DOCUMENT', 'FORM_FIELD', 'ATTACHMENT', 'OTHER'] })
   category: string;
 
-  @Column({ type: 'enum', enum: ['USER', 'APPLICATION', 'FORM_ANSWER', 'INSTITUTION', 'OTHER'], name: 'entityType' })
+  @Column({ type: 'enum', enum: ['USER', 'APPLICATION', 'FORM_ANSWER', 'INSTITUTION', 'OTHER'], name: 'entity_type' })
   entityType: string;
 
-  @Column({ type: 'uuid', name: 'entityId' })
+  @Column({ type: 'uuid', name: 'entity_id' })
   entityId: string;
 
   @Column()
   path: string;
 
-  @Column({ nullable: true, name: 'thumbnailPath' })
+  @Column({ nullable: true, name: 'thumbnail_path' })
   thumbnailPath: string;
 
-  @Column({ type: 'uuid', name: 'uploadedBy' })
+  @Column({ type: 'uuid', name: 'uploaded_by' })
   uploadedBy: string;
 
   @Column({ type: 'text', nullable: true })
@@ -49,10 +49,10 @@ export class FileMetadata {
   @Column({ type: 'jsonb', nullable: true })
   metadata: any;
 
-  @CreateDateColumn({ name: 'uploadedAt' })
+  @CreateDateColumn({ name: 'uploaded_at' })
   uploadedAt: Date;
 
-  @UpdateDateColumn({ name: 'updatedAt' })
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
   @Column({ default: true })
