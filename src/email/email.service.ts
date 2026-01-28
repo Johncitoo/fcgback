@@ -305,6 +305,7 @@ export class EmailService {
     }
 
     try {
+      this.logger.log(`[${accountName}] Intentando enviar email a: ${options.to} con API key: ${apiKey ? 'presente' : 'ausente'}`);
       const response = await fetch(this.brevoApiUrl, {
         method: 'POST',
         headers: {
@@ -326,7 +327,7 @@ export class EmailService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        this.logger.error(`[${accountName}] Error al enviar email: ${errorText}`);
+        this.logger.error(`[${accountName}] Respuesta no ok (${response.status}): ${errorText}`);
         return false;
       }
 
@@ -336,6 +337,7 @@ export class EmailService {
       return true;
     } catch (error) {
       this.logger.error(`[${accountName}] Error al enviar email: ${error}`);
+      this.logger.error(`[${accountName}] Stack: ${error.stack}`);
       return false;
     }
   }
