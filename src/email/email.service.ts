@@ -418,7 +418,7 @@ export class EmailService {
         subject,
         htmlContent,
       },
-      EmailCategory.MASS
+      EmailCategory.TRANSACTIONAL
     );
   }
 
