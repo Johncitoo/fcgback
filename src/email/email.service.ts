@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import fetch from 'node-fetch';
 import { TemplateRendererService, TemplateVariables } from './template-renderer.service';
 import { AuditService } from '../common/audit.service';
 import { EmailTemplateHelper } from './email-template.helper';
