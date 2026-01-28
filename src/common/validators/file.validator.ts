@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Multer } from 'multer';
+import * as Multer from 'multer';
 
 // Tipos MIME permitidos por categoría
 const ALLOWED_MIME_TYPES: Record<string, string[]> = {

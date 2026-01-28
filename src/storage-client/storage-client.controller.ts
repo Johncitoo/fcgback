@@ -17,7 +17,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiConsume
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import type { Response } from 'express';
-import type { Multer } from 'multer';
+import * as Multer from 'multer';
 import {
   StorageClientService,
   FileCategory,

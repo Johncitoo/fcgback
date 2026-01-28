@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import axios, { AxiosInstance } from 'axios';
 import FormData from 'form-data';
-import type { Multer } from 'multer';
+import * as Multer from 'multer';
 import { FileMetadata as FileMetadataEntity } from './entities/file-metadata.entity';
 
 /**
