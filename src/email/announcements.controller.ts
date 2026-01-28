@@ -204,7 +204,7 @@ export class AnnouncementsController {
     }
 
     // Verificar cuota antes de enviar
-    const hasQuota = await this.emailService.canSendEmails(recipients.length, EmailCategory.MASS);
+    const hasQuota = await this.emailService.canSendEmails(recipients.length, EmailCategory.TRANSACTIONAL);
     if (!hasQuota) {
       const quotaStatus = await this.emailService.getDualQuotaStatus();
       throw new Error(
@@ -230,7 +230,7 @@ export class AnnouncementsController {
             subject: dto.subject,
             htmlContent,
           },
-          EmailCategory.MASS
+          EmailCategory.TRANSACTIONAL
         );
 
         if (success) {
