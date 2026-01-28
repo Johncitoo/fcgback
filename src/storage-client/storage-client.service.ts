@@ -4,7 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import axios, { AxiosInstance } from 'axios';
 import FormData from 'form-data';
-import * as Multer from 'multer';
 import { FileMetadata as FileMetadataEntity } from './entities/file-metadata.entity';
 
 /**
@@ -133,7 +132,7 @@ export class StorageClientService {
    * @throws Error si falla la comunicación con el storage service
    */
   async upload(
-    file: Multer.File,
+    file: Express.Multer.File,
     options: UploadFileOptions,
   ): Promise<FileMetadata> {
     const formData = new FormData();

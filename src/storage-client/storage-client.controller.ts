@@ -17,7 +17,6 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiConsume
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import type { Response } from 'express';
-import * as Multer from 'multer';
 import {
   StorageClientService,
   FileCategory,
@@ -105,7 +104,7 @@ export class StorageClientController {
   @ApiResponse({ status: 201, description: 'Archivo subido exitosamente' })
   @ApiResponse({ status: 400, description: 'Archivo inválido o falta archivo' })
   async uploadFile(
-    @UploadedFile() file: Multer.File,
+    @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadFileDto,
     @CurrentUser() user: JwtPayload,
   ) {
