@@ -132,7 +132,7 @@ export class StorageClientService {
    * @throws Error si falla la comunicación con el storage service
    */
   async upload(
-    file: Express.Multer.File,
+    file: any, // Express.Multer.File
     options: UploadFileOptions,
   ): Promise<FileMetadata> {
     const formData = new FormData();

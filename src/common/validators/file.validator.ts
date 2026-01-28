@@ -73,7 +73,7 @@ export class FileValidator {
    * Valida un archivo subido
    */
   static validate(
-    file: Express.Multer.File,
+    file: any, // Express.Multer.File
     options: FileValidationOptions = {}
   ): void {
     const {
