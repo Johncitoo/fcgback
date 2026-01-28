@@ -610,8 +610,19 @@ export class OnboardingService {
     }
 
     const fullName = firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || 'Postulante';
-    await this.emailService.sendInitialInviteEmail(email, plainCode, callName, fullName);
-    this.logger.log(`Email de invitación inicial enviado a: ${email} (${fullName})`);
+    const emailSent = await this.emailService.sendInitialInviteEmail(email, plainCode, callName, fullName);
+    
+    // Actualizar el estado del email en la invitación
+    if (emailSent) {
+      await this.inviteRepo.update(inviteId, {
+        emailSent: true,
+        sentAt: new Date(),
+        sentCount: (invite.sentCount || 0) + 1,
+      });
+      this.logger.log(`Email de invitación inicial enviado exitosamente a: ${email} (${fullName})`);
+    } else {
+      this.logger.error(`Falló el envío de email de invitación a: ${email} (${fullName})`);
+    }
   }
 
   /**
